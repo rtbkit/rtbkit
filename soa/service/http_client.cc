@@ -312,6 +312,13 @@ popRequests(size_t number)
     return requests;
 }
 
+size_t
+HttpClient::
+queuedRequests() const {
+    Guard guard(queueLock_);
+    return queue_.size();
+}
+
 int
 HttpClient::
 selectFd()

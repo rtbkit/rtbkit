@@ -68,7 +68,8 @@ struct HttpExchangeConnector
                        const std::string & auctionResource = "/auctions",
                        const std::string & auctionVerb = "POST",
                        int realTimePriority = -1,
-                       bool realTimePolling = false);
+                       bool realTimePolling = false,
+                       double absoluteTimeMax = 50.0);
 
     /** Start the exchange connector running */
     virtual void start();
@@ -267,6 +268,7 @@ protected:
     int backlog;
     std::string auctionResource;
     std::string auctionVerb;
+    double absoluteTimeMax;
 
     /// The ping time to known hosts in milliseconds
     std::unordered_map<std::string, float> pingTimesByHostMs;

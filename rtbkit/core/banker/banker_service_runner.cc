@@ -42,6 +42,9 @@ int main(int argc, char ** argv)
 
     int redisDatabase = 0;
 
+    int redisTimeout = 0;
+    int saveInterval = 0;
+
     std::vector<std::string> fixedHttpBindAddresses;
 
     configuration_options.add_options()
@@ -51,6 +54,10 @@ int main(int argc, char ** argv)
          "Password of connection to redis")
         ("redis-database,d", value<int>(&redisDatabase),
          "Database of connection to redis")
+        ("redis-save-timeout", value<int>(&redisTimeout)->default_value(10),
+         "Delay at which redis calls will timeout")
+        ("save-interval", value<int>(&saveInterval)->default_value(10),
+         "Periodic delay at which state will be saved")
         ("fixed-http-bind-address,a", value(&fixedHttpBindAddresses),
          "Fixed address (host:port or *:port) at which we will always listen");
 
@@ -89,13 +96,15 @@ int main(int argc, char ** argv)
         if(redisDatabase != 0)
             redis->select(redisDatabase);
         redis->test();
-        banker.init(std::make_shared<RedisBankerPersistence>(redis));
+        banker.init(
+                std::make_shared<RedisBankerPersistence>(redis, redisTimeout),
+                saveInterval);
     }
     else {
         cerr << "*** WARNING ***" << endl;
         cerr << "BANKER IS RUNNING WITH NO PERSISTENCE" << endl;
         cerr << "IF THIS IS NOT A TESTING ENVIRONEMNT, SPEND WILL BE LOST" << endl;
-        banker.init(std::make_shared<NoBankerPersistence>());
+        banker.init(std::make_shared<NoBankerPersistence>(), saveInterval);
     }
 
     // Bind to any fixed addresses

@@ -60,6 +60,13 @@ struct S3UrlFsHandler : public UrlFsHandler {
         return api->getObjectInfo(bucket, url.path().substr(1));
     }
 
+    virtual FsObjectInfo tryGetInfo(const Url & url) const
+    {
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        return api->tryGetObjectInfo(bucket, url.path().substr(1));
+    }
+
     virtual void makeDirectory(const Url & url) const
     {
     }
@@ -126,6 +133,13 @@ struct AtInit {
 
 
 namespace Datacratic {
+
+S3ConfigDescription::
+S3ConfigDescription()
+{
+    addField("accessKeyId", &S3Config::accessKeyId, "");
+    addField("accessKey", &S3Config::accessKey, "");
+}
 
 std::string
 S3Api::
@@ -1636,16 +1650,15 @@ size_t getTotalSystemMemory()
 }
 
 struct StreamingDownloadSource {
-
-    StreamingDownloadSource(const S3Api * owner,
-                            const std::string & bucket,
-                            const std::string & object)
+    StreamingDownloadSource(const std::string & urlStr)
     {
+        Url url(urlStr);
+
         impl.reset(new Impl());
-        impl->owner = owner;
-        impl->bucket = bucket;
-        impl->object = object;
-        impl->info = owner->getObjectInfo(bucket, object);
+        impl->owner = getS3ApiForUri(urlStr);
+        impl->bucket = url.host();
+        impl->object = url.path().substr(1);
+        impl->info = impl->owner->getObjectInfo(urlStr);
         impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
         int numThreads = 1;
@@ -1669,7 +1682,7 @@ struct StreamingDownloadSource {
 
     struct Impl {
         Impl()
-            : owner(0), baseChunkSize(0)
+            : baseChunkSize(0)
         {
             reset();
         }
@@ -1680,7 +1693,7 @@ struct StreamingDownloadSource {
         }
 
         /* static variables, set during or right after construction */
-        const S3Api * owner;
+        shared_ptr<S3Api> owner;
         std::string bucket;
         std::string object;
         S3Api::ObjectInfo info;
@@ -1905,31 +1918,35 @@ struct StreamingDownloadSource {
 };
 
 std::unique_ptr<std::streambuf>
-S3Api::
-streamingDownload(const std::string & bucket,
-                  const std::string & object,
-                  ssize_t startOffset,
-                  ssize_t endOffset) const
+makeStreamingDownload(const std::string & uri)
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<StreamingDownloadSource>
-                 (StreamingDownloadSource(this, bucket, object),
+                 (StreamingDownloadSource(uri),
                   131072));
     return result;
 }
 
+std::unique_ptr<std::streambuf>
+makeStreamingDownload(const std::string & bucket,
+                      const std::string & object)
+{
+    return makeStreamingDownload("s3://" + bucket + "/" + object);
+}
+
 struct StreamingUploadSource {
 
-    StreamingUploadSource(const S3Api * owner,
-                          const std::string & bucket,
-                          const std::string & object,
+    StreamingUploadSource(const std::string & urlStr,
                           const ML::OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
     {
+        auto s3Api = getS3ApiForUri(urlStr);
+        Url url(urlStr);
+
         impl.reset(new Impl());
-        impl->owner = owner;
-        impl->bucket = bucket;
-        impl->object = object;
+        impl->owner = s3Api;
+        impl->bucket = url.host();
+        impl->object = url.path().substr(1);
         impl->metadata = metadata;
         impl->onException = excCallback;
         impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up
@@ -1947,7 +1964,7 @@ struct StreamingUploadSource {
 
     struct Impl {
         Impl()
-            : owner(0), offset(0), chunkIndex(0), shutdown(false),
+            : offset(0), chunkIndex(0), shutdown(false),
               chunks(16)
         {
         }
@@ -1958,7 +1975,7 @@ struct StreamingUploadSource {
             stop();
         }
 
-        const S3Api * owner;
+        shared_ptr<S3Api> owner;
         std::string bucket;
         std::string object;
         S3Api::ObjectMetadata metadata;
@@ -2220,31 +2237,25 @@ struct StreamingUploadSource {
 };
 
 std::unique_ptr<std::streambuf>
-S3Api::
-streamingUpload(const std::string & uri,
-                const ML::OnUriHandlerException & onException,
-                const ObjectMetadata & metadata)
-    const
-{
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-    return streamingUpload(bucket, object, onException, metadata);
-}
-
-std::unique_ptr<std::streambuf>
-S3Api::
-streamingUpload(const std::string & bucket,
-                const std::string & object,
-                const ML::OnUriHandlerException & onException,
-                const ObjectMetadata & metadata)
-    const
+makeStreamingUpload(const std::string & uri,
+                    const ML::OnUriHandlerException & onException,
+                    const S3Api::ObjectMetadata & metadata)
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<StreamingUploadSource>
-                 (StreamingUploadSource(this, bucket, object, onException,
-                                        metadata),
+                 (StreamingUploadSource(uri, onException, metadata),
                   131072));
     return result;
+}
+
+std::unique_ptr<std::streambuf>
+makeStreamingUpload(const std::string & bucket,
+                    const std::string & object,
+                    const ML::OnUriHandlerException & onException,
+                    const S3Api::ObjectMetadata & metadata)
+{
+    return makeStreamingUpload("s3://" + bucket + "/" + object,
+                               onException, metadata);
 }
 
 std::pair<std::string, std::string>
@@ -2261,21 +2272,6 @@ parseUri(const std::string & uri)
     string object(pathPart, pos + 1);
 
     return make_pair(bucket, object);
-}
-
-std::unique_ptr<std::streambuf>
-S3Api::
-streamingDownload(const std::string & uri,
-                  ssize_t startOffset,
-                  ssize_t endOffset)
-    const
-{
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-
-    //cerr << "bucket = " << bucket << " object = " << object << endl;
-
-    return streamingDownload(bucket, object, startOffset, endOffset);
 }
 
 void
@@ -2504,11 +2500,8 @@ struct RegisterS3Handler {
                                 + resource);
         string bucket(resource, 0, pos);
 
-        std::shared_ptr<S3Api> api = getS3ApiForBucket(bucket);
-        ExcAssert(api);
-
         if (mode == ios::in) {
-            return make_pair(api->streamingDownload("s3://" + resource)
+            return make_pair(makeStreamingDownload("s3://" + resource)
                              .release(),
                              true);
         }
@@ -2553,8 +2546,8 @@ struct RegisterS3Handler {
                 }
             }
 
-            return make_pair(api->streamingUpload("s3://" + resource,
-                                                  onException, md)
+            return make_pair(makeStreamingUpload("s3://" + resource,
+                                                 onException, md)
                              .release(),
                              true);
         }

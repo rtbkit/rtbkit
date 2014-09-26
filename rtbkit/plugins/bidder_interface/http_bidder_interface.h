@@ -60,6 +60,8 @@ struct HttpBidderInterface : public BidderInterface
     void sendPingMessage(std::string const & agent,
                          int ping);
 
+    void registerLoopMonitor(LoopMonitor *monitor);
+
     virtual void tagRequest(OpenRTB::BidRequest &request,
                             const std::map<std::string, BidInfo> &bidders) const;
 
@@ -96,6 +98,8 @@ private:
                         const std::map<std::string, BidInfo> &bidders) const;
     void injectBids(const std::string &agent, Id auctionId,
                     const Bids &bids, WinCostModel wcm);
+
+    void recordError(const std::string &key);
 
 };
 

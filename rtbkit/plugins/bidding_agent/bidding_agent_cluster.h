@@ -85,7 +85,8 @@ public:
         std::lock_guard<std::mutex> l(mtx_);
         auto it = agents_.find(name);
         if (it != std::end(agents_)) {
-            removeSource(it->second.get());
+            removeSourceSync(it->second.get());
+            it->second->shutdown();
             agents_.erase(it);
             return true;
         }

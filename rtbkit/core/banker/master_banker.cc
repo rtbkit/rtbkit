@@ -26,26 +26,41 @@ namespace RTBKIT {
 using Datacratic::jsonEncode;
 using Datacratic::jsonDecode;
 
+double bankerSaveAllPeriod = 10.0;
+
+Logging::Category MasterBanker::print("MasterBanker");
+Logging::Category MasterBanker::trace("MasterBanker Trace", MasterBanker::print);
+Logging::Category MasterBanker::error("MasterBanker Error", MasterBanker::print);
+
+Logging::Category BankerPersistence::print("BankerPersistence");
+Logging::Category BankerPersistence::trace("BankerPersistence Trace", BankerPersistence::print);
+Logging::Category BankerPersistence::error("BankerPersistence Error", BankerPersistence::print);
+
+
 /*****************************************************************************/
 /* REDIS BANKER PERSISTENCE                                                  */
 /*****************************************************************************/
 
 struct RedisBankerPersistence::Itl {
     shared_ptr<Redis::AsyncConnection> redis;
+
+    int timeout;
 };
 
 RedisBankerPersistence::
-RedisBankerPersistence(const Redis::Address & redis)
+RedisBankerPersistence(const Redis::Address & redis, int timeout)
 {
     itl = make_shared<Itl>();
     itl->redis = make_shared<Redis::AsyncConnection>(redis);
+    itl->timeout = timeout;
 }
 
 RedisBankerPersistence::
-RedisBankerPersistence(shared_ptr<Redis::AsyncConnection> redis)
+RedisBankerPersistence(shared_ptr<Redis::AsyncConnection> redis, int timeout)
 {
     itl = make_shared<Itl>();
     itl->redis = redis;
+    itl->timeout = timeout;
 }
 
 void
@@ -54,7 +69,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
 {
     shared_ptr<Accounts> newAccounts;
 
-    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), 5);
+    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), itl->timeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -81,7 +96,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
         fetchCommand.addArg("banker-" + key);
     }
 
-    result = itl->redis->exec(fetchCommand, 5);
+    result = itl->redis->exec(fetchCommand, itl->timeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -116,9 +131,14 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
     // present and deal with keys that should be zeroed out.  We can also
     // detect if we have a synchronization error and bail out.
 
+    const Date begin = Date::now();
     vector<string> keys;
 
     Redis::Command fetchCommand(MGET);
+
+    auto latencyBetween = [](const Date& lhs, const Date& rhs) {
+        return rhs.secondsSince(lhs) * 1000;
+    };
 
     /* fetch all account keys and values from storage */
     auto onAccount = [&] (const AccountKey & key,
@@ -130,10 +150,22 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
         };
     toSave.forEachAccount(onAccount);
 
+    const Date beforePhase1Time = Date::now();
     auto onPhase1Result = [=] (const Redis::Result & result)
         {
+            BankerPersistence::Result saveResult;
+
+            const Date afterPhase1Time = Date::now();
+            saveResult.recordLatency(
+                    "redisPhase1TimeMs", latencyBetween(beforePhase1Time, afterPhase1Time));
+
             if (!result.ok()) {
-                onSaved(BACKEND_ERROR, result.error());
+                saveResult.status = BACKEND_ERROR;
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                LOG(error) << "phase1 save operation failed with error '"
+                           << result.error() << "'" << std::endl;
+                onSaved(saveResult, result.error());
                 return;
             }
 
@@ -153,14 +185,14 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                 const Accounts::AccountInfo & bankerAccount
                     = toSave.getAccount(key);
                 if (toSave.isAccountOutOfSync(key)) {
-                    cerr << "account '" << key
-                         << "' is out of sync and will not be saved" << endl;
+                    LOG(trace) << "account '" << key
+                               << "' is out of sync and will not be saved" << endl;
                     continue;
                 }
                 Json::Value bankerValue = bankerAccount.toJson();
                 bool saveAccount(false);
 
-                Result result = reply[i];
+                Redis::Result result = reply[i];
                 Reply accountReply = result.reply();
                 if (accountReply.type() == STRING) {
                     // We have here:
@@ -243,33 +275,65 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
             if (badAccounts.size() > 0) {
                 /* For now we do not save any account when at least one has
                    been detected as inconsistent. */
-                onSaved(DATA_INCONSISTENCY, boost::trim_copy(badAccounts.toString()));
+                saveResult.status = DATA_INCONSISTENCY;
+                const Date now = Date::now();
+                saveResult.recordLatency(
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, now));
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, now));
+                onSaved(saveResult, boost::trim_copy(badAccounts.toString()));
             }
             else if (storeCommands.size() > 1) {
                  storeCommands.push_back(EXEC);
                  
-                 auto onPhase2Result = [=] (const Redis::Results & results)
+                 const Date beforePhase2Time = Date::now();
+
+                 saveResult.recordLatency(
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, Date::now()));
+
+                 auto onPhase2Result = [=] (const Redis::Results & results) mutable
                  {
-                     if (results.ok())
-                         onSaved(SUCCESS, "");
-                     else
-                         onSaved(BACKEND_ERROR, results.error());
+                     const Date afterPhase2Time = Date::now();
+                     saveResult.recordLatency(
+                             "redisPhase2TimeMs", latencyBetween(beforePhase2Time, afterPhase2Time));
+
+                     saveResult.recordLatency(
+                             "totalTimeMs", latencyBetween(begin, Date::now()));
+
+                     if (results.ok()) {
+                         saveResult.status = SUCCESS;
+                         onSaved(saveResult, "");
+                     }
+                     else {
+                         LOG(error) << "phase2 save operation failed with error '"
+                                   << results.error() << "'" << std::endl;
+                         saveResult.status = BACKEND_ERROR;
+                         onSaved(saveResult, results.error());
+                     }
                  };
 
-                 itl->redis->queueMulti(storeCommands, onPhase2Result, 5.0);
+                 itl->redis->queueMulti(storeCommands, onPhase2Result, itl->timeout);
             }
             else {
-                onSaved(SUCCESS, "");
+                saveResult.status = SUCCESS;
+                saveResult.recordLatency(
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, Date::now()));
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                onSaved(saveResult, "");
             }
         };
 
     if (keys.size() == 0) {
         /* no account to save */
-        onSaved(SUCCESS, "");
+        BankerPersistence::Result result;
+        result.status = SUCCESS;
+        result.recordLatency("totalTimeMs", latencyBetween(begin, Date::now()));
+        onSaved(result, "");
         return;
     }
 
-    itl->redis->queue(fetchCommand, onPhase1Result, 5.0);
+    itl->redis->queue(fetchCommand, onPhase1Result, itl->timeout);
 }
 
 /*****************************************************************************/
@@ -302,13 +366,13 @@ MasterBanker::
 
 void
 MasterBanker::
-init(const shared_ptr<BankerPersistence> & storage)
+init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
 {
     this->storage_ = storage;
 
     loadStateSync();
 
-    addPeriodic("MasterBanker::saveState", 1.0,
+    addPeriodic("MasterBanker::saveState", saveInterval,
                 bind(&MasterBanker::saveState, this),
                 true /* single threaded */);
 
@@ -475,6 +539,31 @@ init(const shared_ptr<BankerPersistence> & storage)
                        accountKeyParam,
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
+    addRouteSyncReturn(account,
+                       "/close",
+                       {"GET"},
+                       "Close an account and all of its child accounts, "
+                       "transfers all remaining balances to parent.",
+                       "Account: Representation of the modified account",
+                       [] (const std::vector<AccountSummary> & a) { 
+                            Json::Value result(Json::objectValue);
+                            result["account_before_close"] = a[0].toJson();
+                            result["account_after_close"] = a[1].toJson();
+                            if (a.size() == 4) {
+                                result["parent_before_close"] = a[2].toJson();
+                                result["parent_after_close"] = a[3].toJson();
+                            } else {
+                                result["parent_before_close"] = "No Parent Account";
+                                result["parent_after_close"] = "No Parent Account";
+                            }
+                            return result;
+                            },
+                       &MasterBanker::closeAccount,
+                       this,
+                       accountKeyParam);
+
+
+
 }
 
 void
@@ -526,35 +615,36 @@ getAccountsSimpleSummaries(int depth)
 
 void
 MasterBanker::
-onStateSaved(BankerPersistence::PersistenceCallbackStatus status,
+onStateSaved(const BankerPersistence::Result& result,
              const string & info)
 {
-    if (status == BankerPersistence::SUCCESS) {
+    if (result.status == BankerPersistence::SUCCESS) {
         //cerr << __FUNCTION__
         //     <<  ": banker state saved successfully to backend" << endl;
         lastSavedState = Date::now();
     }
-    else if (status == BankerPersistence::DATA_INCONSISTENCY) {
+    else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         Json::Value accountKeys = Json::parse(info);
         ExcAssert(accountKeys.type() == Json::arrayValue);
         for (Json::Value jsonKey: accountKeys) {
             ExcAssert(jsonKey.type() == Json::stringValue);
             string keyStr = jsonKey.asString();
             accounts.markAccountOutOfSync(AccountKey(keyStr));
-            cerr << __FUNCTION__
-                 << ": account '" << keyStr << "' marked out of sync" << endl;
+            LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
         }
     }
-    else if (status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::BACKEND_ERROR) {
         /* the backend is unavailable */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to save banker state, backend unavailable: "
+                   << info << endl;
     }
     else {
         throw ML::Exception("status code is not handled");
     }
 
-    lastSaveStatus = status;
+    lastSaveStatus = result.status;
 
+    reportLatencies("save state", result.latencies);
     saving = false;
     ML::futex_wake(saving);
 }
@@ -577,21 +667,21 @@ saveState()
 void
 MasterBanker::
 onStateLoaded(shared_ptr<Accounts> newAccounts,
-              BankerPersistence::PersistenceCallbackStatus status,
+              const BankerPersistence::Result& result,
               const string & info)
 {
-    if (status == BankerPersistence::SUCCESS) {
+    if (result.status == BankerPersistence::SUCCESS) {
         newAccounts->ensureInterAccountConsistency();
         accounts = *newAccounts;
-        cerr << __FUNCTION__ <<  ": successfully loaded accounts" << endl;
+        LOG(print) << "successfully loaded accounts" << endl;
     }
-    else if (status == BankerPersistence::DATA_INCONSISTENCY) {
+    else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         /* something is wrong with the backend data types */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to load accounts, DATA_INCONSISTENCY: " << info << endl;
     }
-    else if (status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::BACKEND_ERROR) {
         /* the backend is unavailable */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to load accounts, backend unavailable: " << info << endl;
     }
     else {
         throw ML::Exception("status code is not handled");
@@ -650,6 +740,38 @@ onCreateAccount(const AccountKey &key, AccountType type)
     return accounts.createAccount(key, type);
 }
 
+const std::vector<AccountSummary>
+MasterBanker::
+closeAccount(const AccountKey &key)
+{
+    
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+ 
+    AccountKey parentKey = key;
+    if (key.size() > 1) {
+        parentKey.pop_back();
+    }
+
+    AccountSummary before = accounts.getAccountSummary(key);
+    AccountSummary beforeParent = accounts.getAccountSummary(parentKey);
+
+    accounts.closeAccount(key);
+    
+    AccountSummary after = accounts.getAccountSummary(key);
+    AccountSummary afterParent = accounts.getAccountSummary(parentKey);
+
+    std::vector<AccountSummary> testClose = {before, after};
+    
+    if (key.size() > 1) {
+        testClose.push_back(beforeParent);
+        testClose.push_back(afterParent);
+    }  
+
+    return testClose;
+}
+
 const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
@@ -681,6 +803,20 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
         throw ML::Exception("Error with the backend");
 
     return accounts.syncFromShadow(key, shadow);
+}
+
+void
+MasterBanker::
+reportLatencies(const std::string &category,
+                const BankerPersistence::LatencyMap& latencies) const
+{
+    std::stringstream ss;
+    ss << std::endl << "Latency report for " << category << std::endl;
+    for (const auto& latency: latencies) {
+        ss << "- " << latency.first << ": " << latency.second << std::endl;
+    }
+
+    LOG(trace) << ss.str() << std::endl;
 }
 
 

@@ -68,7 +68,7 @@ extern const std::string AccountTypeToString(enum AccountType type);
 
 struct Account {
     Account()
-        : type(AT_NONE)
+        : type(AT_NONE), status(ACTIVE)
     {
     }
 
@@ -99,6 +99,9 @@ struct Account {
     LineItems adjustmentLineItems;  ///< Adjustment line items
 
     // Invariant: sum(Credit Side) = sum(Debit Side)
+
+    enum Status {CLOSED, ACTIVE};
+    Status status;
 
 public:
     bool isSameOrPastVersion(const Account & otherAccount) const
@@ -141,7 +144,16 @@ public:
         result["adjustmentsOut"] = adjustmentsOut.toJson();
         result["lineItems"] = lineItems.toJson();
         result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-
+        switch (status) {
+        case ACTIVE:
+            result["status"] = "active";
+            break;
+        case CLOSED:
+            result["status"] = "closed";
+            break; 
+        default: 
+            result["status"] = "active";
+        }
         return result;
     }
 
@@ -162,6 +174,19 @@ public:
             result.budgetDecreases = CurrencyPool::fromJson(json["budgetDecreases"]);
             result.adjustmentsOut = CurrencyPool::fromJson(json["adjustmentsOut"]);
         }
+        
+        if (json.isMember("status")) {
+            std::string s = json["status"].asString();
+            if (s == "active") 
+                result.status = ACTIVE;
+            else if (s == "closed")
+                result.status = CLOSED;
+            else
+                result.status = ACTIVE;
+        } else {
+            result.status = ACTIVE;
+        }
+
         result.spent = CurrencyPool::fromJson(json["spent"]);
         result.recycledIn = CurrencyPool::fromJson(json["recycledIn"]);
         result.recycledOut = CurrencyPool::fromJson(json["recycledOut"]);
@@ -174,6 +199,7 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
+
         result.balance = ((result.budgetIncreases
                              + result.recycledIn
                              + result.commitmentsRetired
@@ -191,7 +217,7 @@ public:
 
         return result;
     }
-
+    
     /*************************************************************************/
     /* DERIVED QUANTITIES                                                    */
     /*************************************************************************/
@@ -341,12 +367,14 @@ public:
         parentAccount.balance -= fromRecycled;
         recycledIn += fromRecycled;
         balance += fromRecycled;
+        parentAccount.status = ACTIVE;
         
         // Give back to budget
         parentAccount.allocatedOut += fromBudget;
         parentAccount.balance -= fromBudget;
         budgetIncreases += fromBudget;
         balance += fromBudget;
+        status = ACTIVE;
 
         // Give to parent recycled
         parentAccount.recycledIn += toRecycled;
@@ -866,6 +894,16 @@ struct Accounts {
         Guard guard(lock);
         return getAccountImpl(account);
     }
+    
+    /** closeAccount behavior is to close all children then close itself,
+        always transfering from children to parent. If top most account, 
+        then throws an error after closing all children first.
+    */
+    const Account closeAccount(const AccountKey & account) 
+    {
+        Guard guard(lock);
+        return closeAccountImpl(account);
+    }
 
     void checkInvariants() const
     {
@@ -961,6 +999,7 @@ struct Accounts {
 
         return a;
     }
+
 
 
     /*************************************************************************/
@@ -1197,6 +1236,26 @@ private:
             throw ML::Exception("couldn't get account: " + account.toString());
         return it->second;
     }
+
+    const Account closeAccountImpl(const AccountKey & account) 
+    {
+        AccountInfo accountInfo = getAccountImpl(account);
+        
+        if (accountInfo.children.size() > 0) {
+            for ( AccountKey child : accountInfo.children) {
+                closeAccountImpl(child);
+                using namespace std;
+            }
+        }
+        
+        if (account.size() > 1)
+            getAccountImpl(account).recuperateTo(getParentAccount(account));
+
+        getAccountImpl(account).status = Account::CLOSED;
+        
+        return getAccountImpl(account); 
+    }
+
 
     const AccountInfo & getAccountImpl(const AccountKey & account) const
     {

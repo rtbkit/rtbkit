@@ -51,7 +51,6 @@ start(Json::Value const & configuration) {
         auto json = *i;
         auto count = json.get("threads", 1).asInt();
 
-
         for(auto j = 0; j != count; ++j) {
             std::cerr << "starting worker " << running << std::endl;
             ML::atomic_inc(running);
@@ -99,6 +98,11 @@ Worker(MockExchange * exchange, Json::Value bid, Json::Value win, Json::Value ev
     wins(WinSource::createWinSource(std::move(win))),
     events(EventSource::createEventSource(std::move(event))),
     rng(random()) {
+
+    winsDelay = win.get("delay", 0).asInt();
+    eventsDelay = event.get("delay", 0).asInt();
+
+    lastSentWins = lastSentEvents = Date::now();
 }
 
 
@@ -134,13 +138,31 @@ MockExchange::Worker::bid() {
             if (!ret.first) continue;
             ML::sleep(0.5);
 
-			bid.bidTimestamp = Date::now();
-            wins->sendWin(br, bid, ret.second);
-            exchange->recordHit("wins");
+            const Date now = Date::now();
+            bid.bidTimestamp = now;
+            if (winsDelay == 0) {
+                wins->sendWin(br, bid, ret.second);
+                exchange->recordHit("wins");
 
-            if (!isClick(br, bid)) continue;
-            events->sendClick(br, bid);
-            exchange->recordHit("clicks");
+                if (!isClick(br, bid)) continue;
+
+                if (eventsDelay == 0) {
+                    events->sendClick(br, bid);
+                    exchange->recordHit("clicks");
+                }
+                else {
+                    eventsQueue.push_back(Event { Event::Click, br, bid });
+                    if (now.secondsSince(lastSentEvents) >= eventsDelay) {
+                        processEventsQueue();
+                    }
+                }
+            }
+            else {
+                winsQueue.push_back(Win { br, bid, ret.second });
+                if (now.secondsSince(lastSentWins) >= winsDelay) {
+                    processWinsQueue();
+                }
+            }
         }
 
         break;
@@ -149,6 +171,43 @@ MockExchange::Worker::bid() {
     return !bids->isDone();
 }
 
+void
+MockExchange::Worker::processWinsQueue() {
+    const Date now = Date::now();
+    while (!winsQueue.empty()) {
+        const Win& win = winsQueue.front();
+        wins->sendWin(win.br, win.bid, win.winPrice);
+        exchange->recordHit("wins");
+
+        if (isClick(win.br, win.bid)) {
+            if (eventsDelay == 0) {
+                events->sendClick(win.br, win.bid);
+            }
+            else {
+                eventsQueue.push_back(Event { Event::Click, win.br, win.bid });
+                if (now.secondsSince(lastSentEvents) >= eventsDelay) {
+                    processEventsQueue();
+                }
+            }
+        }
+
+        winsQueue.pop_front();
+    }
+    lastSentWins = Date::now();
+}
+
+void
+MockExchange::Worker::processEventsQueue() {
+    while (!eventsQueue.empty()) {
+        const Event& event = eventsQueue.front();
+        events->sendClick(event.br, event.bid);
+        exchange->recordHit("clicks");
+
+        eventsQueue.pop_front();
+    }
+
+    lastSentEvents = Date::now();
+}
 
 pair<bool, Amount>
 MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid) {
