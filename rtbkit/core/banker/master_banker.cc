@@ -218,16 +218,32 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                         */
                         saveAccount = (bankerValue != storageValue);
 
-                        if (saveAccount && isParentAccount) {
-                            /* set and update the "spent-tracking" output for top
-                             * accounts, by integrating the past */
-                            if (storageValue.isMember("spent-tracking")) {
-                                bankerValue["spent-tracking"]
-                                    = storageValue["spent-tracking"];
+                        if (saveAccount) {
+                            
+                            if (isParentAccount) {
+                                /* set and update the "spent-tracking" output for top
+                                * accounts, by integrating the past */
+                                if (storageValue.isMember("spent-tracking")) {
+                                    bankerValue["spent-tracking"]
+                                        = storageValue["spent-tracking"];
+                                }
+                                else {
+                                    bankerValue["spent-tracking"]
+                                        = Json::Value(Json::objectValue);
+                                }
                             }
-                            else {
-                                bankerValue["spent-tracking"]
-                                    = Json::Value(Json::objectValue);
+
+                            // move an account from Active accounts to Closed archive
+                            if (bankerAccount.status == Account::CLOSED
+                                    && storageAccount.status == Account::ACTIVE) {
+                                storeCommands.push_back(SMOVE("banker:accounts", 
+                                            "banker:archive", key));
+                            }
+                            // move an account from Closed archive to Active accounts
+                            else if (bankerAccount.status == Account::ACTIVE
+                                    && storageAccount.status == Account::CLOSED) {
+                                storeCommands.push_back(SMOVE("banker:archive", 
+                                            "banker:accounts", key));
                             }
                         }
                     }
