@@ -323,6 +323,7 @@ extern const Command EXPIRE;
 extern const Command RANDOMKEY;
 extern const Command DEL;
 extern const Command SADD;
+extern const Command SMOVE;
 extern const Command SMEMBERS;
 extern const Command TTL;
 extern const Command AUTH;
