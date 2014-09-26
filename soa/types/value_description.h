@@ -1879,10 +1879,10 @@ inline Json::Value jsonEncode(const char * str)
 } // namespace Datacratic
 
 
-
 /// Macro to introduce a class TypeDescription that is a structure
 /// description for that type, and a getDefaultDescription()
 /// overload for it.  The constructor still needs to be done.
+
 #define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
     struct Name                                                 \
         : public Datacratic::StructureDescriptionImpl<Type, Name> { \
@@ -1910,9 +1910,76 @@ inline Json::Value jsonEncode(const char * str)
         Name newDesc;                                           \
         desc = std::move(newDesc);                              \
     }                                                           \
+                                                                \
+
+
+#define DECLARE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)         \
+    struct Name                                                 \
+        :  public StructureDescription<Type> {                  \
+        Name();                                                 \
+                                                                \
+        Name(const Datacratic::ConstructOnly &);                \
+                                                                \
+        struct Regme;                                           \
+        static Regme regme;                                     \
+    };                                                          \
+                                                                \
+    Name *                                                      \
+    getDefaultDescription(Type *);                              \
+                                                                \
+    Name *                                                      \
+    getDefaultDescriptionUninitialized(Type *);                 \
+                                                                \
+    void initializeDefaultDescription(Name & desc);             \
+                                                                \
+
+#define DEFINE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
+                                                                \
+    struct Name::Regme {                                                \
+        bool done;                                                      \
+        Regme()                                                         \
+            : done(false)                                               \
+        {                                                               \
+            Datacratic::registerValueDescription(typeid(Type), [] () { return new Name(); }, true); \
+        }                                                               \
+    };                                                                  \
+                                                                        \
+    Name::Name(const Datacratic::ConstructOnly &)                       \
+    {                                                           \
+        regme.done = true;                                      \
+    }                                                           \
+                                                                \
+    Name *                                                      \
+    getDefaultDescription(Type *)                               \
+    {                                                           \
+        return new Name();                                      \
+    }                                                           \
+                                                                \
+    Name *                                                      \
+    getDefaultDescriptionUninitialized(Type *)                  \
+    {                                                           \
+        return new Name(Datacratic::ConstructOnly());           \
+    }                                                           \
+                                                                \
+    void initializeDefaultDescription(Name & desc)                      \
+    {                                                                   \
+        Name newDesc;                                                   \
+        desc = std::move(newDesc);                                      \
+    }                                                                   \
+                                                                        \
+    Name::Regme Name::regme;                                            \
+
+
     
 #define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
     CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+
+#define DECLARE_STRUCTURE_DESCRIPTION(Type)                      \
+    DECLARE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+
+#define DEFINE_STRUCTURE_DESCRIPTION(Type)                      \
+    DEFINE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+
 
 #define CREATE_CLASS_DESCRIPTION_NAMED(Name, Type)              \
     struct Name                                                 \

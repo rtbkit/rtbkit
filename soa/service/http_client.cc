@@ -69,6 +69,13 @@ operator << (std::ostream & stream, HttpClientError error)
 
 /* HTTPCLIENTCALLBACKS */
 
+void
+HttpClientCallbacks::
+useDebug(const OnDebug& onDebug)
+{
+    onDebug_ = onDebug;
+}
+
 const string &
 HttpClientCallbacks::
 errorMessage(HttpClientError errorCode)
@@ -128,6 +135,13 @@ onDone(const HttpRequest & rq, HttpClientError errorCode)
         onDone_(rq, errorCode);
 }
 
+void
+HttpClientCallbacks::
+onDebug(const HttpRequest& rq, curl_infotype info, char *buffer, size_t size)
+{
+    if (onDebug_)
+        onDebug_(rq, info, buffer, size);
+}
 
 /* HTTPCLIENT */
 
@@ -136,6 +150,7 @@ HttpClient(const string & baseUrl, int numParallel)
     : AsyncEventSource(),
       noSSLChecks(false),
       baseUrl_(baseUrl),
+      expect100Continue(true),
       fd_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       timerFd_(-1),
@@ -181,6 +196,7 @@ HttpClient(HttpClient && other)
     noexcept
     : AsyncEventSource(move(other)),
       baseUrl_(move(other.baseUrl_)),
+      expect100Continue(move(other.expect100Continue)),
       fd_(other.fd_),
       wakeup_(move(other.wakeup_)),
       timerFd_(other.timerFd_),
@@ -215,6 +231,13 @@ HttpClient::
 
 void
 HttpClient::
+sendExpect100Continue(bool value)
+{
+    expect100Continue = value;
+}
+
+void
+HttpClient::
 enablePipelining()
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
@@ -225,8 +248,9 @@ HttpClient::
 operator = (HttpClient && other)
     noexcept
 {
-    AsyncEventSource::operator = (other);
+    AsyncEventSource::operator = (move(other));
     baseUrl_ = move(other.baseUrl_);
+    expect100Continue = move(other.expect100Continue);
     fd_ = other.fd_;
     other.fd_ = -1;
     wakeup_ = move(other.wakeup_);
@@ -388,7 +412,7 @@ handleWakeupEvent()
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks, debug_);
+            conn->perform(noSSLChecks, expect100Continue, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -590,6 +614,9 @@ HttpConnection()
       onRead_([&] (char * data, size_t ofs1, size_t ofs2) {
           return this->onCurlRead(data, ofs1 * ofs2);
       }),
+      onDebug_([&] (curl_infotype info, char *buffer, size_t size) {
+          return this->onCurlDebug(info, buffer, size);
+      }),
       afterContinue_(false), uploadOffset_(0)
 {
 }
@@ -597,7 +624,7 @@ HttpConnection()
 void
 HttpClient::
 HttpConnection::
-perform(bool noSSLChecks, bool debug)
+perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -624,11 +651,18 @@ perform(bool noSSLChecks, bool debug)
             easy_.setOpt<curlopt::PostFields>(data);
             easy_.setOpt<curlopt::PostFieldSize>(data.size());
         }
+        else if (request_.verb_ == "HEAD") {
+            easy_.setOpt<curlopt::NoBody>(true);
+        }
         curlHeaders.push_back("Content-Length: "
                               + to_string(data.size()));
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
                               + request_.content_.contentType);
+
+        if (!withExpect100Continue) {
+            curlHeaders.push_back("Expect:");
+        }
     }
     easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
 
@@ -637,6 +671,7 @@ perform(bool noSSLChecks, bool debug)
     easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
     easy_.setOpt<curlopt::WriteFunction>(onWrite_);
     easy_.setOpt<curlopt::ReadFunction>(onRead_);
+    easy_.setOpt<curlopt::DebugFunction>(onDebug_);
     easy_.setOpt<curlopt::BufferSize>(65536);
     if (request_.timeout_ != -1) {
         easy_.setOpt<curlopt::Timeout>(request_.timeout_);
@@ -724,6 +759,14 @@ onCurlRead(char * buffer, size_t bufferSize)
     return chunkSize;
 }
 
+int
+HttpClient::
+HttpConnection::
+onCurlDebug(curl_infotype info, char *buffer, size_t size)
+{
+    request_.callbacks_->onDebug(request_, info, buffer, size);
+    return 0;
+}
 
 /* HTTPCLIENTSIMPLECALLBACKS */
 
