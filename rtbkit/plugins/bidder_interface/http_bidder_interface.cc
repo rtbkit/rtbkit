@@ -90,14 +90,21 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
     }
 
     httpClientRouter.reset(new HttpClient(routerHost, routerHttpActiveConnections));
+    /* We do not want curl to add an extra "Expect: 100-continue" HTTP header
+     * and then pay the cost of an extra HTTP roundtrip. Thus we remove this
+     * header
+     */
+    httpClientRouter->sendExpect100Continue(false);
     loop.addSource("HttpBidderInterface::httpClientRouter", httpClientRouter);
 
     std::string winHost = adserverHost + ':' + std::to_string(adserverWinPort);
     httpClientAdserverWins.reset(new HttpClient(winHost, adserverHttpActiveConnections));
+    httpClientAdserverWins->sendExpect100Continue(false);
     loop.addSource("HttpBidderInterface::httpClientAdserverWins", httpClientAdserverWins);
 
     std::string eventHost = adserverHost + ':' + std::to_string(adserverEventPort);
     httpClientAdserverEvents.reset(new HttpClient(eventHost, adserverHttpActiveConnections));
+    httpClientAdserverEvents->sendExpect100Continue(false);
     loop.addSource("HttpBidderInterface::httpClientAdserverEvents", httpClientAdserverEvents);
 
     loop.addPeriodic("HttpBidderInterface::reportQueues", 1.0, [=](uint64_t) {
@@ -303,12 +310,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     HttpRequest::Content reqContent { requestStr, "application/json" };
 
-    /* We do not want curl to add an extra "Expect: 100-continue" HTTP header
-     * and then pay the cost of an extra HTTP roundtrip. Thus we remove this
-     * header
-     */
-    RestParams headers { { "x-openrtb-version", "2.1" },
-                         { "Expect", "" } };
+    RestParams headers { { "x-openrtb-version", "2.1" } };
    // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
    // std::cerr << "Content " << reqContent.str << std::endl;
 
