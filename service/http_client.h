@@ -131,6 +131,8 @@ struct HttpClient : public AsyncEventSource {
     /** SSL checks */
     bool noSSLChecks;
 
+    void sendExpect100Continue(bool value);
+
     /** Use with servers that support HTTP pipelining */
     void enablePipelining();
 
@@ -250,7 +252,8 @@ private:
             afterContinue_ = false;
             uploadOffset_ = 0;
         }
-        void perform(bool noSSLChecks, bool debug);
+        void perform(bool noSSLChecks, bool withExpect100Continue = true,
+                     bool debug = false);
 
         /* header and body write callbacks */
         curlpp::types::WriteFunctionFunctor onHeader_;
@@ -261,6 +264,9 @@ private:
         /* body read callback */
         curlpp::types::ReadFunctionFunctor onRead_;
         size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
+
+        curlpp::types::DebugFunctionFunctor onDebug_;
+        int onCurlDebug(curl_infotype info, char *buffer, size_t size);
 
         HttpRequest request_;
 
@@ -276,6 +282,7 @@ private:
     void releaseConnection(HttpConnection * connection);
 
     std::string baseUrl_;
+    bool expect100Continue;
 
     int fd_;
     ML::Wakeup_Fd wakeup_;
@@ -316,6 +323,11 @@ struct HttpClientCallbacks {
     typedef std::function<void (const HttpRequest & rq,
                                 HttpClientError errorCode)> OnDone;
 
+    typedef std::function<void (const HttpRequest & rq,
+                                curl_infotype info,
+                                char *buffer,
+                                size_t size)> OnDebug;
+
     HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
                         OnData onHeader = nullptr,
                         OnData onData = nullptr,
@@ -329,6 +341,8 @@ struct HttpClientCallbacks {
     virtual ~HttpClientCallbacks()
     {
     }
+
+    void useDebug(const OnDebug &onDebug);
 
     static const std::string & errorMessage(HttpClientError errorCode);
 
@@ -350,11 +364,15 @@ struct HttpClientCallbacks {
     virtual void onDone(const HttpRequest & rq,
                         HttpClientError errorCode);
 
+    virtual void onDebug(const HttpRequest &rq,
+                         curl_infotype info, char *buffer, size_t size);
+
 private:
     OnResponseStart onResponseStart_;
     OnData onHeader_;
     OnData onData_;
     OnDone onDone_;
+    OnDebug onDebug_;
 };
 
 
