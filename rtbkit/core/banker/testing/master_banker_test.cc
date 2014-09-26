@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE( test_master_banker_onstateloaded )
 
     /* nothing must have changed */
     testBanker.onStateLoaded(newAccounts,
-                             BankerPersistence::BACKEND_ERROR,
+                             BankerPersistence::PERSISTENCE_ERROR,
                              "backend error");
     newJson = testBanker.accounts.toJson();
     BOOST_CHECK_EQUAL(newJson, initialJson);
@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE( test_master_banker_onstatesaved )
     Json::Value newJson = testBanker.accounts.toJson();
     BOOST_CHECK_EQUAL(newJson, initialJson);
 
-    /* BankerPersistence::BACKEND_ERROR: nothing must have changed */
-    testBanker.onStateSaved(BankerPersistence::BACKEND_ERROR,
+    /* BankerPersistence::PERSISTENCE_ERROR: nothing must have changed */
+    testBanker.onStateSaved(BankerPersistence::PERSISTENCE_ERROR,
                             "backend error");
     newJson = testBanker.accounts.toJson();
     BOOST_CHECK_EQUAL(newJson, initialJson);

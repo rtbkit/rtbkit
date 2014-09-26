@@ -71,7 +71,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
 
     Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), itl->timeout);
     if (!result.ok()) {
-        onLoaded(newAccounts, BACKEND_ERROR, result.error());
+        onLoaded(newAccounts, PERSISTENCE_ERROR, result.error());
         return;
     }
 
@@ -98,7 +98,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
 
     result = itl->redis->exec(fetchCommand, itl->timeout);
     if (!result.ok()) {
-        onLoaded(newAccounts, BACKEND_ERROR, result.error());
+        onLoaded(newAccounts, PERSISTENCE_ERROR, result.error());
         return;
     }
 
@@ -160,7 +160,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                     "redisPhase1TimeMs", latencyBetween(beforePhase1Time, afterPhase1Time));
 
             if (!result.ok()) {
-                saveResult.status = BACKEND_ERROR;
+                saveResult.status = PERSISTENCE_ERROR;
                 saveResult.recordLatency(
                         "totalTimeMs", latencyBetween(begin, Date::now()));
                 LOG(error) << "phase1 save operation failed with error '"
@@ -307,7 +307,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                      else {
                          LOG(error) << "phase2 save operation failed with error '"
                                    << results.error() << "'" << std::endl;
-                         saveResult.status = BACKEND_ERROR;
+                         saveResult.status = PERSISTENCE_ERROR;
                          onSaved(saveResult, results.error());
                      }
                  };
@@ -345,6 +345,7 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
              const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
+      lastSaveLatency(0),
       saving(false)
 {
     /* Set the Access-Control-Allow-Origins: * header to allow browser-based
@@ -368,6 +369,8 @@ void
 MasterBanker::
 init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
 {
+    recordHit("up");
+
     this->storage_ = storage;
 
     loadStateSync();
@@ -375,6 +378,11 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
     addPeriodic("MasterBanker::saveState", saveInterval,
                 bind(&MasterBanker::saveState, this),
                 true /* single threaded */);
+
+    addPeriodic("MasterBanker::stats", 1.0, [=](uint64_t) {
+                recordStableLevel(accounts.size(), "accounts");
+                recordStableLevel(lastSaveLatency, "save.latencyMs");
+            });
 
     registerServiceProvider(serviceName(), { "rtbBanker" });
 
@@ -388,9 +396,10 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
     router.addHelpRoute("/", "GET");
 
     RestRequestRouter::OnProcessRequest pingRoute
-        = [] (const RestServiceEndpoint::ConnectionId & connection,
+        = [=] (const RestServiceEndpoint::ConnectionId & connection,
               const RestRequest & request,
               const RestRequestParsingContext & context) {
+        recordHit("ping");
         connection.sendResponse(200, "pong");
         return RestRequestRouter::MR_YES;
     };
@@ -621,9 +630,11 @@ onStateSaved(const BankerPersistence::Result& result,
     if (result.status == BankerPersistence::SUCCESS) {
         //cerr << __FUNCTION__
         //     <<  ": banker state saved successfully to backend" << endl;
+        recordHit("save.success");
         lastSavedState = Date::now();
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
+        recordHit("save.inconsistencies");
         Json::Value accountKeys = Json::parse(info);
         ExcAssert(accountKeys.type() == Json::arrayValue);
         for (Json::Value jsonKey: accountKeys) {
@@ -633,16 +644,24 @@ onStateSaved(const BankerPersistence::Result& result,
             LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
         }
     }
-    else if (result.status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
+        recordHit("save.error");
         /* the backend is unavailable */
-        LOG(error) << "Failed to save banker state, backend unavailable: "
+        LOG(error) << "Failed to save banker state, persistence failed: "
                    << info << endl;
     }
     else {
+        recordHit("save.unknown");
         throw ML::Exception("status code is not handled");
     }
 
+    lastSaveInfo = std::move(info);
     lastSaveStatus = result.status;
+
+    auto it = result.latencies.find("totalTimeMs");
+    if (it != result.latencies.end())
+        lastSaveLatency = it->second;
+
 
     reportLatencies("save state", result.latencies);
     saving = false;
@@ -653,6 +672,8 @@ void
 MasterBanker::
 saveState()
 {
+    recordHit("save.attempts");
+
     Guard guard(saveLock);
 
     if (!storage_ || saving)
@@ -671,19 +692,23 @@ onStateLoaded(shared_ptr<Accounts> newAccounts,
               const string & info)
 {
     if (result.status == BankerPersistence::SUCCESS) {
+        recordHit("load.success");
         newAccounts->ensureInterAccountConsistency();
         accounts = *newAccounts;
         LOG(print) << "successfully loaded accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
+        recordHit("load.inconsistencies");
         /* something is wrong with the backend data types */
         LOG(error) << "Failed to load accounts, DATA_INCONSISTENCY: " << info << endl;
     }
-    else if (result.status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
+        recordHit("load.error");
         /* the backend is unavailable */
         LOG(error) << "Failed to load accounts, backend unavailable: " << info << endl;
     }
     else {
+        recordHit("load.unknown");
         throw ML::Exception("status code is not handled");
     }
 }
@@ -692,6 +717,8 @@ void
 MasterBanker::
 loadStateSync()
 {
+    recordHit("load.attempts");
+
     if (!storage_)
         return;
 
@@ -718,13 +745,38 @@ bindFixedHttpAddress(const string & uri)
 {
 }
 
+namespace {
+
+struct Record {
+    Record(EventRecorder* recorder, std::string key) :
+        recorder(recorder),
+        key(std::move(key)),
+        start(Date::now())
+    {
+        recorder->recordHit(this->key);
+    }
+
+    ~Record() {
+        recorder->recordOutcome(Date::now().secondsSince(start), key + "LatencyMs");
+    }
+
+private:
+    EventRecorder* recorder;
+    std::string key;
+    Date start;
+};
+
+} // namespace anonymous
+
 const Account
 MasterBanker::
 setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
+    Record record(this, "setBudget");
+
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
 
     return accounts.setBudget(key, newBudget);
 }
@@ -733,9 +785,11 @@ const Account
 MasterBanker::
 onCreateAccount(const AccountKey &key, AccountType type)
 {
+    Record record(this, "createAccount");
+
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
 
     return accounts.createAccount(key, type);
 }
@@ -744,10 +798,11 @@ const std::vector<AccountSummary>
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
+    Record record(this, "closeAccount");
     
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
  
     AccountKey parentKey = key;
     if (key.size() > 1) {
@@ -776,9 +831,11 @@ const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
+    Record record(this, "setBalance");
+
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
 
     return accounts.setBalance(key, amount, type);
 }
@@ -787,9 +844,11 @@ const Account
 MasterBanker::
 addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
+    Record record(this, "addAdjustment");
+
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
 
     return accounts.addAdjustment(key, amount);
 }
@@ -798,9 +857,11 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
+    Record record(this, "syncFromShadow");
+
     JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
-        throw ML::Exception("Error with the backend");
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
 
     return accounts.syncFromShadow(key, shadow);
 }
