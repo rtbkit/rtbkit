@@ -47,6 +47,7 @@ const Command EXPIRE("EXPIRE");
 const Command RANDOMKEY("RANDOMKEY");
 const Command DEL("DEL");
 const Command SADD("SADD");
+const Command SMOVE("SMOVE");
 const Command SMEMBERS("SMEMBERS");
 const Command TTL("TTL");
 const Command AUTH("AUTH");
