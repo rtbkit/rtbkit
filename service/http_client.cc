@@ -69,6 +69,13 @@ operator << (std::ostream & stream, HttpClientError error)
 
 /* HTTPCLIENTCALLBACKS */
 
+void
+HttpClientCallbacks::
+useDebug(const OnDebug& onDebug)
+{
+    onDebug_ = onDebug;
+}
+
 const string &
 HttpClientCallbacks::
 errorMessage(HttpClientError errorCode)
@@ -128,6 +135,13 @@ onDone(const HttpRequest & rq, HttpClientError errorCode)
         onDone_(rq, errorCode);
 }
 
+void
+HttpClientCallbacks::
+onDebug(const HttpRequest& rq, curl_infotype info, char *buffer, size_t size)
+{
+    if (onDebug_)
+        onDebug_(rq, info, buffer, size);
+}
 
 /* HTTPCLIENT */
 
@@ -600,6 +614,9 @@ HttpConnection()
       onRead_([&] (char * data, size_t ofs1, size_t ofs2) {
           return this->onCurlRead(data, ofs1 * ofs2);
       }),
+      onDebug_([&] (curl_infotype info, char *buffer, size_t size) {
+          return this->onCurlDebug(info, buffer, size);
+      }),
       afterContinue_(false), uploadOffset_(0)
 {
 }
@@ -654,6 +671,7 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
     easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
     easy_.setOpt<curlopt::WriteFunction>(onWrite_);
     easy_.setOpt<curlopt::ReadFunction>(onRead_);
+    easy_.setOpt<curlopt::DebugFunction>(onDebug_);
     easy_.setOpt<curlopt::BufferSize>(65536);
     if (request_.timeout_ != -1) {
         easy_.setOpt<curlopt::Timeout>(request_.timeout_);
@@ -741,6 +759,14 @@ onCurlRead(char * buffer, size_t bufferSize)
     return chunkSize;
 }
 
+int
+HttpClient::
+HttpConnection::
+onCurlDebug(curl_infotype info, char *buffer, size_t size)
+{
+    request_.callbacks_->onDebug(request_, info, buffer, size);
+    return 0;
+}
 
 /* HTTPCLIENTSIMPLECALLBACKS */
 

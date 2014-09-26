@@ -265,6 +265,9 @@ private:
         curlpp::types::ReadFunctionFunctor onRead_;
         size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
 
+        curlpp::types::DebugFunctionFunctor onDebug_;
+        int onCurlDebug(curl_infotype info, char *buffer, size_t size);
+
         HttpRequest request_;
 
         curlpp::Easy easy_;
@@ -320,6 +323,11 @@ struct HttpClientCallbacks {
     typedef std::function<void (const HttpRequest & rq,
                                 HttpClientError errorCode)> OnDone;
 
+    typedef std::function<void (const HttpRequest & rq,
+                                curl_infotype info,
+                                char *buffer,
+                                size_t size)> OnDebug;
+
     HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
                         OnData onHeader = nullptr,
                         OnData onData = nullptr,
@@ -333,6 +341,8 @@ struct HttpClientCallbacks {
     virtual ~HttpClientCallbacks()
     {
     }
+
+    void useDebug(const OnDebug &onDebug);
 
     static const std::string & errorMessage(HttpClientError errorCode);
 
@@ -354,11 +364,15 @@ struct HttpClientCallbacks {
     virtual void onDone(const HttpRequest & rq,
                         HttpClientError errorCode);
 
+    virtual void onDebug(const HttpRequest &rq,
+                         curl_infotype info, char *buffer, size_t size);
+
 private:
     OnResponseStart onResponseStart_;
     OnData onHeader_;
     OnData onData_;
     OnDone onDone_;
+    OnDebug onDebug_;
 };
 
 

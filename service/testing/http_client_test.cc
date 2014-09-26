@@ -516,6 +516,16 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
     loop.addSource("HttpClient", client);
     loop.start();
 
+    HttpHeader sentHeaders;
+
+    auto debugCallback = [&](const HttpRequest&, curl_infotype info,
+                             char *buffer, size_t size)
+    {
+        if (info == CURLINFO_HEADER_OUT) {
+            const string headers(buffer, size);
+            sentHeaders.parse(headers);
+        }
+    };
 
     {
         int done(false);
@@ -529,6 +539,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
             ML::futex_wake(done);
         });
 
+        callbacks->useDebug(debugCallback);
+
         const std::string& smallPayload = randomString(20);
         HttpRequest::Content content(smallPayload, "application/x-nothing");
         client->post("/post-test", callbacks, content);
@@ -536,6 +548,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
         while (!done) {
             ML::futex_wait(done, false);
         }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "");
         
     }
 
@@ -550,6 +564,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
             ML::futex_wake(done);
         });
 
+        callbacks->useDebug(debugCallback);
+
         const std::string& bigPayload = randomString(2024);
         HttpRequest::Content content(bigPayload, "application/x-nothing");
         client->post("/post-test", callbacks, content);
@@ -557,9 +573,12 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
         while (!done) {
             ML::futex_wait(done, false);
         }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "100-continue");
     }
 
     client->sendExpect100Continue(false);
+
     {
         int done(false);
         auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
@@ -571,6 +590,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
             ML::futex_wake(done);
         });
 
+        callbacks->useDebug(debugCallback);
+
         const std::string& bigPayload = randomString(2024);
         HttpRequest::Content content(bigPayload, "application/x-nothing");
         client->post("/post-test", callbacks, content);
@@ -578,6 +599,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
         while (!done) {
             ML::futex_wait(done, false);
         }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "");
     }
 
 
