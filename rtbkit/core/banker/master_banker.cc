@@ -774,9 +774,11 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
     Record record(this, "setBudget");
 
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
 
     return accounts.setBudget(key, newBudget);
 }
@@ -787,9 +789,11 @@ onCreateAccount(const AccountKey &key, AccountType type)
 {
     Record record(this, "createAccount");
 
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
 
     return accounts.createAccount(key, type);
 }
@@ -799,10 +803,12 @@ MasterBanker::
 closeAccount(const AccountKey &key)
 {
     Record record(this, "closeAccount");
-    
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
  
     AccountKey parentKey = key;
     if (key.size() > 1) {
@@ -833,9 +839,11 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
     Record record(this, "setBalance");
 
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
 
     return accounts.setBalance(key, amount, type);
 }
@@ -846,9 +854,11 @@ addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
     Record record(this, "addAdjustment");
 
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
 
     return accounts.addAdjustment(key, amount);
 }
@@ -859,9 +869,11 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
     Record record(this, "syncFromShadow");
 
-    JML_TRACE_EXCEPTIONS(false);
-    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
 
     return accounts.syncFromShadow(key, shadow);
 }
