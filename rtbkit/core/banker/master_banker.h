@@ -185,12 +185,19 @@ struct BankerPersistence {
     typedef std::function<void (const Result& result,
                                 const std::string & info)>
         OnSavedCallback;
+    
+    typedef std::function<void (std::shared_ptr<Accounts>,
+                                PersistenceCallbackStatus,
+                                const std::string & info)>
+        OnRestoredCallback;
 
     /* backend methods */
     virtual void loadAll(const std::string & topLevelKey,
                          OnLoadedCallback onLoaded) = 0;
     virtual void saveAll(const Accounts & toSave,
                          OnSavedCallback onDone) = 0;
+    virtual void restoreFromArchive(const std::string accountName,
+                         OnRestoredCallback onRestored) = 0;
 };
 
 
@@ -219,6 +226,12 @@ struct NoBankerPersistence : public BankerPersistence {
         onDone(Result { SUCCESS }, "");
     }
 
+    virtual void
+    restoreFromArchive(const std::string & accountName, 
+                       OnRestoredCallback onRestored)
+    {
+        onResotred(std::make_shared<Accounts(), SUCCESS, "");
+    }
 };
 
 /*****************************************************************************/
@@ -236,6 +249,7 @@ struct RedisBankerPersistence : public BankerPersistence {
 
     void loadAll(const std::string & topLevelKey, OnLoadedCallback onLoaded);
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
+    void restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored);
 };
 
 /*****************************************************************************/
@@ -318,6 +332,9 @@ struct MasterBanker
                        const std::string & info);
     void onStateSaved(const BankerPersistence::Result& result,
                       const std::string & info);
+    void onAccountRestored(std::shared_ptr<Accounts> restoredAccounts,
+                           const BankerPersistence::Result& result,
+                           const std::string & info);
 
     Date lastWin;
     Date lastImpression;

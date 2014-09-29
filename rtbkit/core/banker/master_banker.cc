@@ -219,7 +219,6 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                         saveAccount = (bankerValue != storageValue);
 
                         if (saveAccount) {
-                            
                             if (isParentAccount) {
                                 /* set and update the "spent-tracking" output for top
                                 * accounts, by integrating the past */
@@ -236,13 +235,13 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                             // move an account from Active accounts to Closed archive
                             if (bankerAccount.status == Account::CLOSED
                                     && storageAccount.status == Account::ACTIVE) {
-                                storeCommands.push_back(SMOVE("banker:accounts", 
+                                storeCommands.push_back(SMOVE("banker:accounts",
                                             "banker:archive", key));
                             }
                             // move an account from Closed archive to Active accounts
                             else if (bankerAccount.status == Account::ACTIVE
                                     && storageAccount.status == Account::CLOSED) {
-                                storeCommands.push_back(SMOVE("banker:archive", 
+                                storeCommands.push_back(SMOVE("banker:archive",
                                             "banker:accounts", key));
                             }
                         }
@@ -351,6 +350,26 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
 
     itl->redis->queue(fetchCommand, onPhase1Result, itl->timeout);
 }
+
+void
+RedisBankerPersisence::
+restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored)
+{
+    // check if key is in banker:accounts
+
+    // else check if in banker:archive
+        // do an MGET of the parent accounts, and child accounts using a:b:*
+        //
+        // for each you need to SMOVE this account, it's parents,
+        // and its children back to banker:accounts
+        //
+        // then for which ever ones were moved back, i.e. returned 1 and not 0,
+        // you need to add them back to the list of accounts that need to be 
+        // added back to the banker's accounts.
+
+    // if not in either then it's a new account, let it through to setBalance.
+}
+
 
 /*****************************************************************************/
 /* MASTER BANKER                                                             */
@@ -748,7 +767,7 @@ loadStateSync()
 
     int done = 0;
 
-    auto onLoaded = [&](shared_ptr<Accounts> accounts,
+    OnStateLoaded onLoaded = [&](shared_ptr<Accounts> accounts,
                         BankerPersistence::PersistenceCallbackStatus status,
                         const string & info) {
         this->onStateLoaded(accounts, status, info);
@@ -757,6 +776,61 @@ loadStateSync()
     };
 
     storage_->loadAll("", onLoaded);
+
+    while (!done) {
+        ML::futex_wait(done, 0);
+    }
+}
+
+void
+MasterBanker::
+onAccountRestored(shared_ptr<Accounts> restoredAccounts,
+                  const BankerPersistence::Result & result,
+                  const string & info)
+{
+    if (result.status == BankerPersistence::SUCCESS) {
+        recordHit("load.success");
+        newAccounts->ensureInterAccountConsistency();
+//         accounts = *newAccounts;
+//         insert the restored accounts into the account list;
+        LOG(print) << "successfully loaded accounts" << endl;
+    }
+    else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
+        recordHit("load.inconsistencies");
+        /* something is wrong with the backend data types */
+        LOG(error) << "Failed to load accounts, DATA_INCONSISTENCY: " << info << endl;
+    }
+    else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
+        recordHit("load.error");
+        /* the backend is unavailable */
+        LOG(error) << "Failed to load accounts, backend unavailable: " << info << endl;
+    }
+    else {
+        recordHit("load.unknown");
+        throw ML::Exception("status code is not handled");
+    }
+
+}
+
+void
+MasterBanker::
+restoreAccount(const string & accountName)
+{
+    recordHit("restore.attempts");
+
+    if (!storage_)
+        return;
+
+    int done = 0;
+    
+    OnRestoredCallback onRestored = [&](shared_ptr<Accounts> accountsRestored,
+                          BankerPersistance::PersistanceCallbackStatus status) {
+        this->onAccountRestored(accountsToRestored, status);
+        done = 1;
+        ML::futex_wake(done);
+    };
+
+    storage_->restoreFromArchive(accountName, onRestored);
 
     while (!done) {
         ML::futex_wait(done, 0);
@@ -803,7 +877,7 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-
+    
     return accounts.setBudget(key, newBudget);
 }
 
