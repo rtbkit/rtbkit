@@ -293,7 +293,7 @@ struct MasterBanker
     Accounts accounts;
 
     Date lastSavedState;
-    uint64_t lastSaveLatency;
+    BankerPersistence::LatencyMap lastSaveLatency;
     std::string lastSaveInfo;
     BankerPersistence::PersistenceCallbackStatus lastSaveStatus;
 

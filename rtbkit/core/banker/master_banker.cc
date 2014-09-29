@@ -345,7 +345,6 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
              const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
-      lastSaveLatency(0),
       saving(false)
 {
     /* Set the Access-Control-Allow-Origins: * header to allow browser-based
@@ -381,7 +380,9 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
 
     addPeriodic("MasterBanker::stats", 1.0, [=](uint64_t) {
                 recordStableLevel(accounts.size(), "accounts");
-                recordStableLevel(lastSaveLatency, "save.latencyMs");
+                for (const auto& item : lastSaveLatency) {
+                    recordStableLevel(item.second, "save." + item.first);
+                }
             });
 
     registerServiceProvider(serviceName(), { "rtbBanker" });
@@ -658,12 +659,9 @@ onStateSaved(const BankerPersistence::Result& result,
     lastSaveInfo = std::move(info);
     lastSaveStatus = result.status;
 
-    auto it = result.latencies.find("totalTimeMs");
-    if (it != result.latencies.end())
-        lastSaveLatency = it->second;
-
-
     reportLatencies("save state", result.latencies);
+    lastSaveLatency = std::move(result.latencies);
+
     saving = false;
     ML::futex_wake(saving);
 }
