@@ -871,6 +871,7 @@ struct Accounts {
         newAccount.balance = validAccount.balance;
         newAccount.lineItems = validAccount.lineItems;
         newAccount.adjustmentLineItems = validAccount.adjustmentLineItems;
+        newAccount.status = Account::ACTIVE;
     }
 
     const Account createBudgetAccount(const AccountKey & account)
