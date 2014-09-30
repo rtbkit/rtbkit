@@ -138,6 +138,8 @@ MonitorEndpoint::
 getMonitorStatus()
     const
 {
+    if (disabled) return true;
+
     // If any of the classes are sick then the system is considered sick.
     for (const auto & it : providersStatus_)
         if (!it.second.getClassStatus(checkTimeout_)) return false;
