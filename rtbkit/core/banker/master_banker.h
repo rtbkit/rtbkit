@@ -196,7 +196,7 @@ struct BankerPersistence {
                          OnLoadedCallback onLoaded) = 0;
     virtual void saveAll(const Accounts & toSave,
                          OnSavedCallback onDone) = 0;
-    virtual void restoreFromArchive(const std::string accountName,
+    virtual void restoreFromArchive(const std::string & accountName,
                          OnRestoredCallback onRestored) = 0;
 };
 
@@ -230,7 +230,7 @@ struct NoBankerPersistence : public BankerPersistence {
     restoreFromArchive(const std::string & accountName, 
                        OnRestoredCallback onRestored)
     {
-        onResotred(std::make_shared<Accounts(), SUCCESS, "");
+        onRestored(std::make_shared<Accounts>(), SUCCESS, "");
     }
 };
 
@@ -355,6 +355,7 @@ private:
 
     const std::vector<AccountSummary> closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
+    void restoreAccount(const std::string & accountName);
 };
 
 } // namespace RTBKIT
