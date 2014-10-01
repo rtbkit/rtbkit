@@ -60,7 +60,7 @@ struct HttpBidderInterface : public BidderInterface
     void sendPingMessage(std::string const & agent,
                          int ping);
 
-    void registerLoopMonitor(LoopMonitor *monitor);
+    void registerLoopMonitor(LoopMonitor *monitor) const;
 
     virtual void tagRequest(OpenRTB::BidRequest &request,
                             const std::map<std::string, BidInfo> &bidders) const;

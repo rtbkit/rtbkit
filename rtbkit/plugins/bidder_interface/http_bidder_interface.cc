@@ -428,7 +428,7 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
     router->handleAgentMessage(message);
 }
 
-void HttpBidderInterface::registerLoopMonitor(LoopMonitor *monitor) {
+void HttpBidderInterface::registerLoopMonitor(LoopMonitor *monitor) const {
     monitor->addMessageLoop("httpBidderInterfaceLoop", &loop);
 }
 

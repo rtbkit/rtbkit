@@ -88,7 +88,7 @@ struct BidderInterface : public ServiceBase
                          int ping) = 0;
 
 
-    virtual void registerLoopMonitor(LoopMonitor *monitor) { }
+    virtual void registerLoopMonitor(LoopMonitor *monitor) const { }
 
     //
     // factory

@@ -51,6 +51,7 @@ void MultiBidderInterface::init(AgentBridge *bridge, Router *router)
     this->router = router;
 }
 
+
 void MultiBidderInterface::start() {
     for (const auto &iface: bidderInterfaces) {
         iface.second->start();
@@ -169,6 +170,12 @@ void MultiBidderInterface::sendErrorMessage(std::string const & agent,
 void MultiBidderInterface::sendPingMessage(std::string const & agent,
                                           int ping) {
     dispatchBidderInterface(agent, &BidderInterface::sendPingMessage, agent, ping);
+}
+
+void MultiBidderInterface::registerLoopMonitor(LoopMonitor *monitor) const {
+    for (const auto& iface: bidderInterfaces) {
+        iface.second->registerLoopMonitor(monitor);
+    }
 }
 
 
