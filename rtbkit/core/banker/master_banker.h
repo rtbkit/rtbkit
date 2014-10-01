@@ -250,6 +250,9 @@ struct RedisBankerPersistence : public BankerPersistence {
     void loadAll(const std::string & topLevelKey, OnLoadedCallback onLoaded);
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
     void restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored);
+private:
+    void moveToActiveAndSave(const std::vector<AccountKey> archivedAccountKeys,
+                                OnRestoredCallback onRestored);
 };
 
 /*****************************************************************************/

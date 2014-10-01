@@ -353,6 +353,84 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
 
 void
 RedisBankerPersistence::
+moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCallback onRestored)
+{
+    shared_ptr<Accounts> archivedAccounts;
+    vector<Redis::Command> moveToActive;
+    moveToActive.push_back(MULTI);
+
+    for (AccountKey a : archivedAccountKeys) {
+        moveToActive.push_back(SMOVE("banker:archive", "banker:accounts", a.toString()));
+    }
+    moveToActive.push_back(EXEC);
+
+    auto onMoved = [=] (const Results & results) {
+        if (!results.ok()) {
+            LOG(error) << "check for moved accounts failed with"
+                << "error '" << results.error() << "'" << endl;
+            // archived should be empty and it will not be in this case.
+            onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+            return;
+        }
+
+        vector<AccountKey> accountKeysToSave;
+        vector<AccountKey> accountsFailedMove;
+        vector<Redis::Command> saveAsActive;
+        saveAsActive.push_back(MULTI);
+        for (int i = 0; i < results.size(); ++i) {
+            if (results.reply(i).type() == INTEGER && results.reply(i).asInt() == 1) {
+                auto jsonValAcc = archivedAccounts->getAccount(archivedAccountKeys[i]).toJson();
+                Redis::Command command = SET("banker-" + archivedAccountKeys[i].toString(),
+                        boost::trim_copy(jsonValAcc.toString()));
+                saveAsActive.push_back(command);
+                accountKeysToSave.push_back(archivedAccountKeys[i]);
+            } else {
+                accountsFailedMove.push_back(archivedAccountKeys[i]);
+            }
+        }
+        saveAsActive.push_back(EXEC);
+
+        auto onSavedActive = [=] (const Results & results) {
+            if (!results.ok()) {
+                LOG(error) << "saving reactivated accounts failed with"
+                    << "error '" << results.error() << "'" << endl;
+                // archived should be empty and it will not be in this case.
+                onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+                return;
+            }
+            // do a check on saved accounts to determine if any failed.
+            vector<AccountKey> failedToReactivate;
+            for (int i = 0; i < results.size(); i++) {
+                if (results.reply(i).type() == INTEGER
+                        && results.reply(i) == 0) {
+                    failedToReactivate.push_back(accountKeysToSave[i]);
+                }
+            }
+
+            if (accountsFailedMove.size() > 0 || failedToReactivate.size() > 0) {
+                string e = "some accounts failed:\n";
+                if (accountsFailedMove.size() > 0) {
+                    e += "to move from archive: ";
+                    for (auto a : accountsFailedMove)
+                        e += "    " + a.toString() + "\n";
+                }
+                if (failedToReactivate.size() > 0) {
+                    e += "to save as reactivated:\n";
+                    for (auto a : failedToReactivate)
+                        e += "    " + a.toString() + "\n";
+                }
+                LOG(error) << e;
+            }
+
+            onRestored(archivedAccounts, SUCCESS, "");
+        };
+        itl->redis->queueMulti(saveAsActive, onSavedActive, itl->timeout);
+    };
+    itl->redis->queueMulti(moveToActive, onMoved, itl->timeout);
+}
+
+void
+RedisBankerPersistence::
 restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored)
 {
     shared_ptr<Accounts> archivedAccounts;
@@ -408,10 +486,10 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
 
                     vector<AccountKey> keysToFetch;
 
-                    auto childKeys = result.reply();
-                    if (childKeys.type() == ARRAY) {
-                        for (int i = 0; i < childKeys.length(); ++i) {
-                            string childKey = childKeys[i];
+                    auto childKeysReply = result.reply();
+                    if (childKeysReply.type() == ARRAY) {
+                        for (int i = 0; i < childKeysReply.length(); ++i) {
+                            string childKey = childKeysReply[i];
                             size_t pos = childKey.find("banker-");
                             childKey = childKey.substr(pos);
                             keysToFetch.push_back(childKey);
@@ -460,79 +538,8 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
                             }
                         }
 
-                        vector<Redis::Command> moveToActive;
-                        moveToActive.push_back(MULTI);
-                        
                         auto archivedAccountKeys = archivedAccounts->getAccountKeys();
-
-                        for (AccountKey a : archivedAccountKeys) {
-                            moveToActive.push_back(SMOVE("banker:archive", "banker:accounts", a.toString()));
-                        }
-                        moveToActive.push_back(EXEC);
-
-                        auto onMoved = [=] (const Results & results) {
-                            if (!results.ok()) {
-                                LOG(error) << "check for moved accounts failed with"
-                                    << "error '" << results.error() << "'" << endl;
-                                // archived should be empty and it will not be in this case.
-                                onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
-                                return;
-                            }
-                            
-                            vector<AccountKey> accountKeysToSave;
-                            vector<AccountKey> accountsFailedMove;
-                            vector<Redis::Command> saveAsActive;
-                            saveAsActive.push_back(MULTI);
-                            for (int i = 0; i < results.size(); ++i) {
-                                if (results.reply(i).type() == INTEGER && results.reply(i).asInt() == 1) {
-                                    auto jsonValAcc = archivedAccounts->getAccount(archivedAccountKeys[i]).toJson();
-                                    Redis::Command command = SET("banker-" + archivedAccountKeys[i].toString(),
-                                                 boost::trim_copy(jsonValAcc.toString()));
-                                    saveAsActive.push_back(command);
-                                    accountKeysToSave.push_back(archivedAccountKeys[i]);
-                                } else {
-                                    accountsFailedMove.push_back(archivedAccountKeys[i]);
-                                }
-                            }
-                            saveAsActive.push_back(EXEC);
-
-                            auto onSavedActive = [=] (const Results & results) {
-                                if (!results.ok()) {
-                                    LOG(error) << "saving reactivated accounts failed with"
-                                        << "error '" << results.error() << "'" << endl;
-                                    // archived should be empty and it will not be in this case.
-                                    onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
-                                    return;
-                                }
-                                // do a check on saved accounts to determine if any failed.
-                                vector<AccountKey> failedToReactivate;
-                                for (int i = 0; i < results.size(); i++) {
-                                    if (results.reply(i).type() == INTEGER
-                                            && results.reply(i) == 0) {
-                                        failedToReactivate.push_back(accountKeysToSave[i]);
-                                    }
-                                }
-
-                                if (accountsFailedMove.size() > 0 || failedToReactivate.size() > 0) {
-                                    string e = "some accounts failed:\n";
-                                    if (accountsFailedMove.size() > 0) {
-                                        e += "to move from archive: ";
-                                        for (auto a : accountsFailedMove)
-                                            e += "    " + a.toString() + "\n";
-                                    }
-                                    if (failedToReactivate.size() > 0) {
-                                        e += "to save as reactivated:\n";
-                                        for (auto a : failedToReactivate)
-                                            e += "    " + a.toString() + "\n";
-                                    }
-                                    LOG(error) << e;
-                                }
-
-                                onRestored(archivedAccounts, SUCCESS, "");
-                            };
-                            itl->redis->queueMulti(saveAsActive, onSavedActive, itl->timeout);
-                        };
-                        itl->redis->queueMulti(moveToActive, onMoved, itl->timeout);
+                        this->moveToActiveAndSave(archivedAccountKeys, onRestored);
                     };
                     itl->redis->queueMulti(isArchivedAndAccountFetch, onAccountFetchAndArchived, itl->timeout);
                 };
@@ -542,7 +549,52 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
         // acount doesn't exist so check if parents exist 
         // and are in accounts or archived.
         else {
+            AccountKey accountKey(accountName);
 
+            vector<Redis::Command> checkForParents;
+            checkForParents.push_back(MULTI);
+            // add account key and parent key;
+            while (accountKey.size() > 0) {
+                checkForParents.push_back(EXISTS("banker-" + accountKey.toString()));
+                checkForParents.push_back(SISMEMBER("banker:archive", accountKey.toString()));
+                accountKey.pop_back();
+            }
+            checkForParents.push_back(EXEC);
+
+            auto onParentExistanceCheck = [=] (const Redis::Results & results) mutable
+            {
+                accountKey = AccountKey(accountName);
+                if (!results.ok()) {
+                    LOG(error) << "check for account tree archiving and reactivation"
+                        << " failed with error '" << results.error() << "'" << endl;
+                    onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+                    return;
+                } else if (results.size() != accountKey.size() * 2) {
+                    LOG(error) << "result not of the expected length, when checking"
+                       << " for parent accounts" << endl << "result is: " << results.size()
+                       << endl << "should be: " << accountKey.size() * 2 << endl;
+                    onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+                    return;
+                }
+                
+                vector<AccountKey> parentsToRestore;
+                for (int i = 0; i < results.size() - 2; i += 2) {
+                    // check if it exists, and check if it's archived
+                    if (results.reply(i).type() == INTEGER && results.reply(i).asInt() == 1 &&
+                        results.reply(i+1).type() == INTEGER && results.reply(i+1).asInt() == 1)
+                    {
+                        parentsToRestore.push_back(accountKey);
+                    }
+                    accountKey.pop_back();
+                }
+                
+                if (parentsToRestore.size() > 0) {
+                    this->moveToActiveAndSave(parentsToRestore, onRestored);
+                } else {
+                    onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+                }
+            };
+            itl->redis->queueMulti(checkForParents, onParentExistanceCheck, itl->timeout);
         }
     };
     itl->redis->queueMulti(existanceCommands, onExistanceCheck, itl->timeout);
