@@ -35,6 +35,8 @@ struct Priority
     static constexpr unsigned RequiredIds          = 0x3300;
     static constexpr unsigned UserPartition        = 0x3400;
 
+    static constexpr unsigned CreativeSegments     = 0x3500;
+
     static constexpr unsigned ExchangePre          = 0xF000;
 
     // Really slow so delay as much as possible.

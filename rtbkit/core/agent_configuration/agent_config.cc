@@ -56,6 +56,14 @@ fromJson(const Json::Value & val)
     languageFilter.fromJson(val["languageFilter"], "languageFilter");
     locationFilter.fromJson(val["locationFilter"], "locationFilter");
     exchangeFilter.fromJson(val["exchangeFilter"], "exchangeFilter");
+
+    if (val.isMember("segmentFilter")){
+        Json::Value segs = val["segmentFilter"];
+        for (auto jt = segs.begin(), jend = segs.end(); jt != jend;  ++jt) {
+            string source = jt.memberName();
+            segments[source].fromJson(*jt);
+        }
+    }
 }
 
 Json::Value
@@ -75,6 +83,15 @@ toJson() const
         result["exchangeFilter"] = exchangeFilter.toJson();
     if (!providerConfig.isNull())
         result["providerConfig"] = providerConfig;
+    if (!segments.empty()) {
+        Json::Value segmentInfo;
+        for (auto it = segments.begin(), end = segments.end();
+             it != end;  ++it) {
+            segmentInfo[it->first] = it->second.toJson();
+        }
+        result["segmentFilter"] = segmentInfo;
+    }
+
     return result;
 }
 
@@ -106,6 +123,61 @@ Json::Value jsonPrint(const Creative & c)
     return c.toJson();
 }
 
+void
+Creative::SegmentInfo::
+fromJson(const Json::Value & json)
+{
+    for (auto it = json.begin(), end = json.end(); it != end;  ++it) {
+        if (it.memberName() == "excludeIfNotPresent") {
+            excludeIfNotPresent = it->asBool();
+            continue;
+        }
+        const Json::Value & val = *it;
+
+        if (it.memberName() == "include") {
+            include = SegmentList::createFromJson(val);
+            include.sort();
+        }
+        else if (it.memberName() == "exclude") {
+            exclude = SegmentList::createFromJson(val);
+            exclude.sort();
+        }
+        else {
+            throw Exception("segmentFilter has invalid key: %s",
+                            it.memberName().c_str());
+        }
+    }
+}
+
+Json::Value
+Creative::SegmentInfo::
+toJson() const
+{
+    Json::Value result;
+    if (!include.empty())
+        result["include"] = include.toJson();
+    if (!exclude.empty())
+        result["exclude"] = exclude.toJson();
+    result["excludeIfNotPresent"] = excludeIfNotPresent;
+
+    return result;
+}
+
+IncludeExcludeResult
+Creative::SegmentInfo::
+process(const SegmentList & segments) const
+{
+    if (segments.empty())
+        return IE_NO_DATA;
+
+    if (!include.empty() && !include.match(segments))
+        return IE_NOT_INCLUDED;
+
+    if (exclude.match(segments))
+        return IE_EXCLUDED;
+
+    return IE_PASSED;
+}
 
 /*****************************************************************************/
 /* USER PARTITION                                                            */

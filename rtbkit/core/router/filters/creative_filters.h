@@ -12,6 +12,8 @@
 #include "priority.h"
 #include "rtbkit/common/exchange_connector.h"
 
+#include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 
 namespace RTBKIT {
@@ -228,5 +230,123 @@ private:
     }
 };
 
+/******************************************************************************/
+/* Creative SEGMENT LIST FILTER                                               */
+/******************************************************************************/
+
+/** Segments have quirks and are best handled seperatly from the list filter.
+
+ */
+struct CreativeSegmentListFilter
+{
+
+    void addCreative(unsigned cfgIndex, unsigned crIndex,
+                       const SegmentList& segments)
+    {
+        setConfig(cfgIndex, crIndex, segments, true);
+    }
+
+    void removeCreative(unsigned cfgIndex, unsigned crIndex,
+                           const SegmentList& segments)
+    {
+        setConfig(cfgIndex, crIndex, segments, false);
+    }
+
+    void addConfig(unsigned cfgIndex, unsigned creativeId,
+                    const SegmentList& segments)
+    {
+        setConfig(cfgIndex, creativeId, segments, true);
+    }
+
+    void removeConfig(unsigned cfgIndex, unsigned creativeId,
+                        const SegmentList& segments)
+    {
+        setConfig(cfgIndex, creativeId, segments, false);
+    }
+
+    bool isEmpty(const SegmentList& segments) const
+    {
+        return segments.empty();
+    }
+
+    CreativeMatrix filter(int i, const std::string& str) const
+    {
+        return i >= 0 ? get(intSet, i) : get(strSet, str);
+    }
+
+    CreativeMatrix filter(const SegmentList& segments) const
+    {
+        CreativeMatrix configs;
+
+        segments.forEach([&](int i, std::string str, float) {
+                    configs |= filter(i, str);
+                });
+
+        return configs;
+    }
+
+private:
+
+    void setConfig(unsigned cfgIndex, unsigned creativeId,
+                     const SegmentList& segments, bool value)
+    {
+        segments.forEach([&](int i, std::string str, float) {
+                    if (i >= 0) intSet[i].set(creativeId, cfgIndex, value);
+                    else strSet[str].set(creativeId, cfgIndex, value);
+                });
+    }
+
+    template<typename K>
+    CreativeMatrix get(const std::unordered_map<K,
+                       CreativeMatrix>& m, K k) const
+    {
+        auto it = m.find(k);
+        return it != m.end() ? it->second : CreativeMatrix();
+    }
+
+    std::unordered_map<int, CreativeMatrix> intSet;
+    std::unordered_map<std::string, CreativeMatrix> strSet;
+};
+
+
+/******************************************************************************/
+/* CREATIVE SEGEMENTS FILTER                                                   */
+/******************************************************************************/
+
+struct CreativeSegmentsFilter : public CreativeFilter<CreativeSegmentsFilter>
+{
+    static constexpr const char* name = "CreativeSegments";
+
+    unsigned priority() const { return Priority::CreativeSegments; }
+
+    void addCreative(unsigned cfgIndex, unsigned crIndex,
+                       const Creative& creative)
+    {
+        setCreative(cfgIndex, crIndex, creative, true);
+    }
+
+    void removeCreative(unsigned cfgIndex, unsigned crIndex,
+                           const Creative& creative)
+    {
+        setCreative(cfgIndex, crIndex, creative, false);
+    }
+
+    virtual void setCreative(unsigned configIndex, unsigned crIndex,
+                     const Creative& creative, bool value);
+
+    void filter(FilterState& state) const ;
+
+private:
+
+    struct SegmentData
+    {
+        CreativeIncludeExcludeFilter<CreativeSegmentListFilter> ie;
+        CreativeMatrix excludeIfNotPresent;
+    };
+
+    std::unordered_map<std::string, SegmentData> data;
+    std::unordered_set<std::string> excludeIfNotPresent;
+
+};
 
 } // namespace RTBKIT
