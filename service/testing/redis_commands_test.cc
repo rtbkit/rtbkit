@@ -93,4 +93,78 @@ BOOST_AUTO_TEST_CASE( test_redis_commands )
 
     BOOST_CHECK_EQUAL(keyMap["testkey1"], true);
     BOOST_CHECK_EQUAL(keyMap["testkey2"], true);
+
+    /* SMOVE is supported, it moves a key from one set to another*/
+    Command smove(SMOVE);
+    smove.addArg("my-new-set");
+    smove.addArg("my-destination-set");
+    smove.addArg("testkey2");
+
+    result = connection.exec(smove);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+
+    /* verify that the key was properly moved */
+    Command smembersNewSet(SMEMBERS);
+    smembersNewSet.addArg("my-new-set");
+    Command smembersDestSet(SMEMBERS);
+    smembersDestSet.addArg("my-destination-set");
+
+    result = connection.exec(smembersNewSet);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    reply = result.reply();
+    BOOST_CHECK_EQUAL(reply.type(), ARRAY);
+    BOOST_CHECK_EQUAL(reply.length(), 1);
+    BOOST_CHECK_EQUAL(reply[0].type(), STRING);
+    BOOST_CHECK_EQUAL(reply[0].asString(), "testkey1");
+
+    result = connection.exec(smembersDestSet);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    reply = result.reply();
+    BOOST_CHECK_EQUAL(reply.type(), ARRAY);
+    BOOST_CHECK_EQUAL(reply.length(), 1);
+    BOOST_CHECK_EQUAL(reply[0].type(), STRING);
+    BOOST_CHECK_EQUAL(reply[0].asString(), "testkey2");
+
+    /* check a SMOVE failure */
+    result = connection.exec(smove);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    BOOST_CHECK_EQUAL(result.reply().type(), INTEGER);
+    BOOST_CHECK_EQUAL(result.reply().asInt(), 0);
+
+    /* SISMEMBER is supported, it checks for the membership of a
+     * key to a set */
+    Command sIsMemberTrue(SISMEMBER);
+    sIsMemberTrue.addArg("my-new-set");
+    sIsMemberTrue.addArg("testkey1");
+
+    result = connection.exec(sIsMemberTrue);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    BOOST_CHECK_EQUAL(result.reply().type(), INTEGER);
+    BOOST_CHECK_EQUAL(result.reply().asInt(), 1);
+
+    Command sIsMemberFalse(SISMEMBER);
+    sIsMemberFalse.addArg("my-new-set");
+    sIsMemberFalse.addArg("testkey2");
+
+    result = connection.exec(sIsMemberFalse);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    BOOST_CHECK_EQUAL(result.reply().type(), INTEGER);
+    BOOST_CHECK_EQUAL(result.reply().asInt(), 0);
+
+    /* EXISTS is supported it checks for the existance of a key */
+    Command existsTrue(EXISTS);
+    existsTrue.addArg("testkey2");
+
+    result = connection.exec(existsTrue);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    BOOST_CHECK_EQUAL(result.reply().type(), INTEGER);
+    BOOST_CHECK_EQUAL(result.reply().asInt(), 1);
+
+    Command existsFalse(EXISTS);
+    existsFalse.addArg("testkey4");
+
+    result = connection.exec(existsFalse);
+    BOOST_CHECK_EQUAL(result.ok(), true);
+    BOOST_CHECK_EQUAL(result.reply().type(), INTEGER);
+    BOOST_CHECK_EQUAL(result.reply().asInt(), 0);
 }
