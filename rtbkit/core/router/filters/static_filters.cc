@@ -226,13 +226,17 @@ void LatLongDevFilter::addConfig(unsigned cfgIndex,
     }
     if ( ! squares.empty()){
         squares_by_confindx[cfgIndex] = squares;
+        configs_with_filt.set(cfgIndex);
     }
 }
 
 void LatLongDevFilter::removeConfig(unsigned cfgIndex,
         const std::shared_ptr<RTBKIT::AgentConfig>& config)
 {
-    squares_by_confindx.erase(cfgIndex);
+    if ( squares_by_confindx.count(cfgIndex) > 0){
+        squares_by_confindx.erase(cfgIndex);
+        configs_with_filt.reset(cfgIndex);
+    }
 }
 
 void LatLongDevFilter::filter(RTBKIT::FilterState& state) const
@@ -243,9 +247,7 @@ void LatLongDevFilter::filter(RTBKIT::FilterState& state) const
     if ( ! checkLatLongPresent(state.request)){
         // If there is no geo info the filter, then filter out all the
         // agent configs that has this filter present.
-        for ( ; it != squares_by_confindx.end(); ++it ){
-            matches.reset(it->first);
-        }
+        state.narrowConfigs(configs_with_filt.negate());
     } else {
         // Filter using the lat long of the request and from the configs
         // of the agents.
@@ -256,9 +258,9 @@ void LatLongDevFilter::filter(RTBKIT::FilterState& state) const
             }
             matches.reset(it->first);
         }
+        state.narrowConfigs(matches);
     }
 
-    state.narrowConfigs(matches);
  }
 
 bool LatLongDevFilter::checkLatLongPresent(

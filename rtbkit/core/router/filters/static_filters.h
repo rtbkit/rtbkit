@@ -374,6 +374,7 @@ struct LatLongDevFilter : public RTBKIT::FilterBaseT<LatLongDevFilter>
 
     typedef std::vector<Square> SquareList;
     std::unordered_map<unsigned, SquareList> squares_by_confindx;
+    ConfigSet configs_with_filt;
 
     unsigned priority() const { return Priority::LatLong; } //low priority
 
