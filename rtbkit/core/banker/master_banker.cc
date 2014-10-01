@@ -431,9 +431,10 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
 
 void
 RedisBankerPersistence::
-restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored)
+restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 {
     shared_ptr<Accounts> archivedAccounts;
+    string accountName = key.toString();
 
     // check if key is in banker:accounts and is it part of accounts or archive
     vector<Redis::Command> existanceCommands;
@@ -471,7 +472,7 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
             {
                 // move it, it's parents and children to banker:active
                     
-                AccountKey accountKey(accountName);
+                AccountKey accountKey = key;
                 Redis::Command getChildrenCommand(KEYS("banker-"
                             + accountKey.toString() + "*"));
                     
@@ -549,7 +550,7 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
         // acount doesn't exist so check if parents exist 
         // and are in accounts or archived.
         else {
-            AccountKey accountKey(accountName);
+            AccountKey accountKey = key;
 
             vector<Redis::Command> checkForParents;
             checkForParents.push_back(MULTI);
@@ -563,7 +564,7 @@ restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestore
 
             auto onParentExistanceCheck = [=] (const Redis::Results & results) mutable
             {
-                accountKey = AccountKey(accountName);
+                accountKey = key;
                 if (!results.ok()) {
                     LOG(error) << "check for account tree archiving and reactivation"
                         << " failed with error '" << results.error() << "'" << endl;
@@ -1060,7 +1061,7 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
 
 void
 MasterBanker::
-restoreAccount(const string & accountName)
+restoreAccount(const AccountKey & key)
 {
     recordHit("restore.attempts");
 
@@ -1078,7 +1079,7 @@ restoreAccount(const string & accountName)
         ML::futex_wake(done);
     };
 
-    storage_->restoreFromArchive(accountName, onRestored);
+    storage_->restoreFromArchive(key, onRestored);
 
     while (!done) {
         ML::futex_wait(done, 0);
@@ -1125,7 +1126,7 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-    
+ 
     return accounts.setBudget(key, newBudget);
 }
 
@@ -1203,7 +1204,7 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-
+    restoreAccount(key);
     return accounts.setBalance(key, amount, type);
 }
 

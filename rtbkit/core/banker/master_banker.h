@@ -196,7 +196,7 @@ struct BankerPersistence {
                          OnLoadedCallback onLoaded) = 0;
     virtual void saveAll(const Accounts & toSave,
                          OnSavedCallback onDone) = 0;
-    virtual void restoreFromArchive(const std::string & accountName,
+    virtual void restoreFromArchive(const AccountKey & accountName,
                          OnRestoredCallback onRestored) = 0;
 };
 
@@ -227,7 +227,7 @@ struct NoBankerPersistence : public BankerPersistence {
     }
 
     virtual void
-    restoreFromArchive(const std::string & accountName, 
+    restoreFromArchive(const AccountKey & key,
                        OnRestoredCallback onRestored)
     {
         onRestored(std::make_shared<Accounts>(), SUCCESS, "");
@@ -249,7 +249,7 @@ struct RedisBankerPersistence : public BankerPersistence {
 
     void loadAll(const std::string & topLevelKey, OnLoadedCallback onLoaded);
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
-    void restoreFromArchive(const std::string & accountName, OnRestoredCallback onRestored);
+    void restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored);
 private:
     void moveToActiveAndSave(const std::vector<AccountKey> archivedAccountKeys,
                                 OnRestoredCallback onRestored);
