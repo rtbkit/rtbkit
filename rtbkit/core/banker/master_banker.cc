@@ -438,23 +438,25 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 
     // check if key is in banker:accounts and is it part of accounts or archive
     vector<Redis::Command> existanceCommands;
-    existanceCommands.push_back(MULTI);
-    existanceCommands.push_back(EXISTS("banker-", accountName));
+    existanceCommands.push_back(EXISTS("banker-" + accountName));
     existanceCommands.push_back(SISMEMBER("banker:accounts", accountName));
     existanceCommands.push_back(SISMEMBER("banker:archive", accountName));
-    existanceCommands.push_back(EXEC);
     
     auto onExistanceCheck = [=] (const Redis::Results & results) mutable
     {
         BankerPersistence::Result operationResult;
         
         if (!results.ok()) {
-            LOG(error) << "account check for existance and presence in archive" 
+            LOG(error) << "account check for existance and presence in archive " 
                        << "failed with error '" << results.error()
                        << "'" << endl;
             onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
             return;
         }
+
+        LOG(print) << "existance check of accountKey:" << endl;
+        for (int i = 0; i < results.size(); ++i)
+            LOG(print) << "    " << results.reply(i).asString() << endl;
 
         if (results.reply(0).type() == INTEGER 
                 && results.reply(0).asInt() == 1)
@@ -572,8 +574,17 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                     return;
                 } else if (results.size() != accountKey.size() * 2) {
                     LOG(error) << "result not of the expected length, when checking"
-                       << " for parent accounts" << endl << "result is: " << results.size()
-                       << endl << "should be: " << accountKey.size() * 2 << endl;
+                       << " for parent accounts" << endl 
+                       << "result is: " << results.size() << endl;
+                    
+                    for (int i = 0; i < results.size(); ++i)
+                        LOG(error) << "        " << results.reply(i).asString() << endl;
+                    
+                    LOG(error) << endl << "should be: " << accountKey.size() * 2 << endl;
+
+                    for(auto a : accountKey)
+                        LOG(error) << "        " << a << endl;
+
                     onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
                     return;
                 }
@@ -598,8 +609,8 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             itl->redis->queueMulti(checkForParents, onParentExistanceCheck, itl->timeout);
         }
     };
-    itl->redis->queueMulti(existanceCommands, onExistanceCheck, itl->timeout);
-
+    Redis::Results results = itl->redis->execMulti(existanceCommands, itl->timeout);
+    onExistanceCheck(results);
 
     // else check if in banker:archive
         // do an MGET of the parent accounts, and child accounts using a:b:*
