@@ -52,6 +52,7 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(40),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
+    slowModeTolerance(0),
     useHttpBanker(false),
     slowModeMoneyLimit("")
 {
@@ -70,6 +71,8 @@ doOptions(int argc, char ** argv,
          "number of seconds after which a loss is assumed")
         ("slowModeTimeout", value<int>(&slowModeTimeout),
          "number of seconds after which the system consider to be in SlowMode")
+        ("slowModeTolerance", value<int>(&slowModeTolerance),
+         "number of seconds allowed to bid normally since last successful monitor check") 
         ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
          "don't connect to the post auction loop")
         ("log-uri", value<vector<string> >(&logUris),
@@ -127,6 +130,11 @@ init()
     const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
     const auto maxBidPriceAmount = USD_CPM(maxBidPrice);
 
+    if (slowModeTolerance > 600) {
+        THROW(error) << "slow mode tolerance is at " << slowModeTolerance 
+            << " which is somewhat unsafe. Don't do that";
+    }
+
     if (maxBidPriceAmount > amountSlowModeMoneyLimit) {
         THROW(error) << "max-bid-price and slow-mode-money-limit "
             << "configuration is invalid" << endl
@@ -142,6 +150,7 @@ init()
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
                                       slowModeTimeout, amountSlowModeMoneyLimit);
+    router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
     router->init();
 

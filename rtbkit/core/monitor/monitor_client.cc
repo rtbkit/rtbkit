@@ -93,26 +93,18 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
 
     lastStatus = newStatus;
     lastCheck = Date::now();
+    if (lastStatus) lastSuccess = lastCheck;
     pendingRequest = false;
 }
 
 bool
 MonitorClient::
-getStatus()
+getStatus(double tolerance)
     const
 {
-    bool status;
-
-    if (testMode)
-        status = testResponse;
-    else {
-        Date now = Date::now();
-
-        status = (lastStatus
-                  && (lastCheck.plusSeconds(checkTimeout_) >= now));
-    }
-
-    return status;
+    if (testMode) return testResponse;
+    if (lastStatus) return true;
+    return Date::now().secondsSince(lastSuccess) < tolerance;
 }
 
 } // RTB

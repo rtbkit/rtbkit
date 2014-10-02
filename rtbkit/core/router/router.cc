@@ -151,7 +151,8 @@ Router(ServiceBase & parent,
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      slowModeTolerance(0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -200,7 +201,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      slowModeTolerance(0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -1953,7 +1955,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         // authorize an amount of money computed from the win cost model.
         Amount price = message.wcm.evaluate(bid, bid.price);
 
-        if (!monitorClient.getStatus()) {
+        if (!monitorClient.getStatus(slowModeTolerance)) {
             Date now = Date::now();
             if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
                     < (uint32_t) now.secondsSinceEpoch()) {
