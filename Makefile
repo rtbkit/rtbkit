@@ -30,9 +30,9 @@ SRC     := .
 TMP     ?= $(BUILD)/$(ARCH)/tmp
 TEST_TMP := $(TESTS)
 
-JML_BUILD ?= jml-build
-JML_TOP ?= jml
-INCLUDE ?= -I.
+JML_BUILD := jml-build
+JML_TOP := jml
+INCLUDE := -I.
 
 export JML_TOP
 export BIN
