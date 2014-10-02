@@ -567,11 +567,21 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                                 result["parent_after_close"] = "No Parent Account";
                             }
                             return result;
-                            },
+                       },
                        &MasterBanker::closeAccount,
                        this,
                        accountKeyParam);
 
+    addRouteSyncReturn(versionNode,
+                       "/activeaccounts",
+                       {"GET"},
+                       "Return a list of all active account names",
+                       "Account: list of Account Keys",
+                       [] (const std::vector<AccountKey> & accountKeys) {
+                            return jsonEncode(accountKeys);
+                       },
+                       &MasterBanker::getActiveAccounts,
+                       this);
 
 
 }
@@ -829,6 +839,19 @@ closeAccount(const AccountKey &key)
     }  
 
     return testClose;
+}
+
+const std::vector<AccountKey>
+MasterBanker::
+getActiveAccounts()
+{
+    vector<AccountKey> activeAccounts;
+    auto addActive = [&activeAccounts] (const AccountKey & ak, const Account & a) {
+        if (a.status == Account::ACTIVE)
+            activeAccounts.push_back(ak);
+    };
+    accounts.forEachAccount(addActive);
+    return activeAccounts;
 }
 
 const Account
