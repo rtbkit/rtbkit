@@ -1037,9 +1037,11 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
 {
     if (result.status == BankerPersistence::SUCCESS) {
         recordHit("load.success");
-        restoredAccounts->ensureInterAccountConsistency();
-//         accounts = *newAccounts;
 //         insert the restored accounts into the account list;
+        auto onAccount = [&accounts] (const AccountKey & ak, const Account & a) {
+            accounts.restoreAccount(ak, a.toJson());
+        };
+        restoredAccounts->forEachAccount(onAccount);
         LOG(print) << "successfully loaded accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
@@ -1056,7 +1058,6 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         recordHit("load.unknown");
         throw ML::Exception("status code is not handled");
     }
-
 }
 
 void
@@ -1064,6 +1065,8 @@ MasterBanker::
 restoreAccount(const AccountKey & key)
 {
     recordHit("restore.attempts");
+    
+    Guard guard(saveLock);
 
     if (!storage_)
         return;
