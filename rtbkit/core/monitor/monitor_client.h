@@ -28,7 +28,7 @@ struct MonitorClient : public RestProxy
                   int checkTimeout = DefaultCheckTimeout)
         : RestProxy(context),
           pendingRequest(false),
-          checkTimeout_(checkTimeout), lastStatus(false), lastSuccess(Date::now()),
+          checkTimeout_(checkTimeout),
           testMode(false), testResponse(false)
     {
         onDone = std::bind(&MonitorClient::onResponseReceived, this,
@@ -47,7 +47,7 @@ struct MonitorClient : public RestProxy
 
     /** this method tests whether the last status obtained by the Monitor is
         positive and fresh enough to continue operations */
-    bool getStatus(double toleranceSec = 0.0) const;
+    bool getStatus(double toleranceSec = 1.0) const;
 
     /* private members */
 
@@ -73,9 +73,6 @@ struct MonitorClient : public RestProxy
 
     /** the timeout that determines whether the last check is too old */
     int checkTimeout_;
-
-    /** the status returned by the Monitor */
-    bool lastStatus;
 
     /** the timestamp when "lastStatus" was last updated */
     Date lastCheck;

@@ -25,7 +25,7 @@ MonitorClient::
 init(std::shared_ptr<ConfigurationService> & config,
      const std::string & serviceName)
 {
-    addPeriodic("MonitorClient::checkStatus", 1.0,
+    addPeriodic("MonitorClient::checkStatus", 0.5,
                 std::bind(&MonitorClient::checkStatus, this),
                 true);
 
@@ -91,9 +91,8 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
         }
     }
 
-    lastStatus = newStatus;
     lastCheck = Date::now();
-    if (lastStatus) lastSuccess = lastCheck;
+    if (newStatus) lastSuccess = lastCheck;
     pendingRequest = false;
 }
 
@@ -103,7 +102,6 @@ getStatus(double tolerance)
     const
 {
     if (testMode) return testResponse;
-    if (lastStatus) return true;
     return Date::now().secondsSince(lastSuccess) < tolerance;
 }
 
