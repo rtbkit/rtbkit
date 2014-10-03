@@ -422,8 +422,8 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     BOOST_CHECK(find(aKeys.begin(), aKeys.end(), parentKey) != aKeys.end());
     BOOST_CHECK(find(aKeys.begin(), aKeys.end(),  childKey) == aKeys.end());
 
-    /* reopen an account by */
-//     accounts.setBalance(childKey, MicroUSD(1234), AT_SPEND);
+
+    /* reopen an account by calling */
     done = false;
     auto onRestored = [&] (shared_ptr<Accounts> ra,
                            const BankerPersistence::Result & result,
@@ -436,17 +436,18 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     while (!done) {
         ML::futex_wait(done, false);
     }
-     /* save 
+
+    // save 
     done = false;
     storage.saveAll(accounts, OnSavedCallback);
     while (!done) {
         ML::futex_wait(done, false);
     }
-    */
+    
 
     /* this operation should succeed */
-//     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-//     BOOST_CHECK(lastInfo.length() == 0);
+    BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
+    BOOST_CHECK(lastInfo.length() == 0);
 
     /* check if both parent and child are in banker:accounts */
     result = connection->exec(SMEMBERS("banker:accounts"), 5);
@@ -467,5 +468,19 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     const Reply & keysReplyArchive2 = result.reply();
     BOOST_CHECK_EQUAL(keysReplyArchive2.type(), ARRAY);
     BOOST_CHECK_EQUAL(keysReplyArchive2.length(), 0);
+    
+    /* test restore account not present */
+    done = false;
+    auto onRestored2 = [&] (shared_ptr<Accounts> ra,
+                           const BankerPersistence::Result & result,
+                           const string & info) {
+            done = true;
+            ML::futex_wake(done);
+    };
+    storage.restoreFromArchive(AccountKey("parent:absent"), onRestored2);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
 
 }
