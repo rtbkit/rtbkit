@@ -354,9 +354,9 @@ struct Bit_Buffer {
     }
 
     /// Extracts bits starting from the least-significant bits of the buffer.
-    Data extract(shift_t bits)
+    Data extract(int bits)
     {
-        if (JML_UNLIKELY(bits == 0)) return Data(0);
+        if (JML_UNLIKELY(bits <= 0)) return Data(0);
 
         Data result;
         if (bit_ofs + bits <= 8 * sizeof(Data))
@@ -406,7 +406,7 @@ struct Bit_Buffer {
         return result;
     }
 
-    void advance(shift_t bits)
+    void advance(int bits)
     {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
@@ -525,7 +525,7 @@ struct Bit_Extractor {
     }
 
     JML_COMPUTE_METHOD
-    void advance(shift_t bits)
+    void advance(int bits)
     {
         buf.advance(bits);
     }
