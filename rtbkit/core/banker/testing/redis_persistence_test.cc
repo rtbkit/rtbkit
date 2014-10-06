@@ -428,7 +428,10 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     auto onRestored = [&] (shared_ptr<Accounts> ra,
                            const BankerPersistence::Result & result,
                            const string & info) {
-            accounts.restoreAccount(childKey, ra->getAccount(childKey).toJson());
+            if (result.status == BankerPersistence::SUCCESS) {
+                accounts.restoreAccount(childKey, ra->getAccount(childKey).toJson());
+            }
+            BOOST_CHECK(result.status == BankerPersistence::SUCCESS);
             done = true;
             ML::futex_wake(done);
     };
@@ -443,7 +446,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     while (!done) {
         ML::futex_wait(done, false);
     }
-    
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
@@ -470,13 +472,14 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
     BOOST_CHECK_EQUAL(keysReplyArchive2.length(), 0);
     
     /* test restore account not present */
-    done = false;
     auto onRestored2 = [&] (shared_ptr<Accounts> ra,
                            const BankerPersistence::Result & result,
                            const string & info) {
+            BOOST_CHECK(result.status == BankerPersistence::SUCCESS);
             done = true;
             ML::futex_wake(done);
     };
+    done = false;
     storage.restoreFromArchive(AccountKey("parent:absent"), onRestored2);
     while (!done) {
         ML::futex_wait(done, false);

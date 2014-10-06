@@ -15,6 +15,11 @@
 #include "soa/service/rest_request_binding.h"
 #include "soa/service/redis.h"
 
+#ifndef DEBUG_RESTORE
+    #define DEBUG_RESTORE 0
+#endif
+
+
 
 using namespace std;
 using namespace ML;
@@ -367,7 +372,6 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
     if (!results.ok()) {
         LOG(error) << "check for moved accounts failed with"
             << "error '" << results.error() << "'" << endl;
-        // archived should be empty and it will not be in this case.
         onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
         return;
     }
@@ -378,7 +382,6 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
             accountsFailedMove.push_back(archivedAccountKeys[i]);
         }
     }
-    
     if (accountsFailedMove.size() > 0) {
         string s = "accounts failed to move from archive to accounts key";
         for (auto a : accountsFailedMove)
@@ -403,17 +406,19 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
 
     if (result.reply().type() != ARRAY) {
         LOG(error) << "get account reply is wrong type "
-            << "expecting ARRAY, got " << result.reply().type() << endl;
+            << "expecting ARRAY, got 'enum ReplyType' " << result.reply().type() << endl;
         onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
         return;
     }
 
+#if DEBUG_RESTORE
     string s = "accounts retrieved from archive:\n";
     for (int i = 0; i < result.reply().length(); ++i) {
         s += archivedAccountKeys[i].toString() + " = ";
         s += result.reply()[i].asString() + "\n";  
     }
     LOG(print) << s << endl;
+#endif
 
     archivedAccounts = make_shared<Accounts>();
     for (int i = 0; i < result.reply().length(); ++i) {
@@ -434,7 +439,6 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
     if (!results.ok()) {
         LOG(error) << "saving reactivated accounts failed with"
             << "error '" << results.error() << "'" << endl;
-        // archived should be empty and it will not be in this case.
         onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
         return;
     }
@@ -489,26 +493,27 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         return;
     }
 
+#if DEBUG_RESTORE
     string s = "existance check of accountKey (" + accountName + "):\n";
     for (auto r : results)
         s += "    " + r.reply().asString() + "\n";
     LOG(print) << s << endl;
+#endif
 
     if (results.reply(0).type() == INTEGER 
             && results.reply(0).asInt() == 1)
     {
-
         if (results.reply(1).type() == INTEGER 
                 && results.reply(1).asInt() == 1)
         {
             // do nothing it's already in banker:account active set.
             onRestored(archivedAccounts, SUCCESS, "");
+            return;
         }
         else if (results.reply(2).type() == INTEGER 
                 && results.reply(2).asInt() == 1)                
         {
             // move it, it's parents and children to banker:active
-
             AccountKey accountKey = key;
             Redis::Command getChildrenCommand(KEYS("banker-" + accountKey.toString() + ":*"));
             Redis::Result result = itl->redis->exec(getChildrenCommand, itl->timeout);
@@ -520,14 +525,15 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                 return;
             }
 
+#if DEBUG_RESTORE
             s = "children Keys of accountKey (" + accountName + "):\n";
             if (result.reply().length() == 0) s += "No child accounts";
             for (int i = 0; i < result.reply().length(); ++i)
                 s += "    " + result.reply().asString();
             LOG(print) << s << endl;
+#endif
 
             vector<AccountKey> keysToCheck;
-
             auto childKeysReply = result.reply();
             if (childKeysReply.type() == ARRAY) {
                 for (int i = 0; i < childKeysReply.length(); ++i) {
@@ -537,8 +543,10 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                     keysToCheck.push_back(childKey);
                 }
             } else {
-                // throw error should be an ARRAY
-                LOG(error) << "childKeysReply.type() != ARRAY";
+                string e = "childKeysReply.type() != ARRAY";
+                LOG(error) << e;
+                onRestored(archivedAccounts, PERSISTENCE_ERROR, e);
+                return;
             }
 
             // add account key and parent key;
@@ -547,6 +555,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                 accountKey.pop_back();
             }
 
+            // check if parents and child accounts are archived
             vector<Redis::Command> isAccountArchived;
             for (AccountKey ak : keysToCheck) {
                 isAccountArchived.push_back(SISMEMBER("banker:archive", ak.toString()));
@@ -556,21 +565,23 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             if (!results.ok()) {
                 LOG(error) << "check for account tree archiving and reactivation"
                     << " failed with error '" << results.error() << "'" << endl;
-                
                 onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
                 return;
             }
-            
             if ( results.size() != keysToCheck.size() ) {
                 LOG(error) << "result size(" << results.size() << ") "
                     << "and query size(" << keysToCheck.size() << ") don't match";
+                onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
+                return;
             }
 
+#if DEBUG_RESTORE
             s = "is archived:\n";
             for (int i = 0; i < results.size(); ++i)
                 s += "    " + keysToCheck[i].toString() + " - " + results.reply(i).asString() + "\n";
             LOG(print) << s << endl;
-            
+#endif
+
             vector<AccountKey> keysToRestore;
             for (int i = 0; i < results.size(); ++i) {
                 if (results.reply(i).type() == INTEGER
@@ -582,8 +593,8 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             this->moveToActiveAndSave(keysToRestore, onRestored);
         }
     }
-    // acount doesn't exist so check if parents exist 
-    // and are in accounts or archived.
+    // account doesn't exist so check if parents exist 
+    // and are in accounts or archived key.
     else {
         AccountKey accountKey = key;
 
@@ -603,29 +614,23 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                 << " failed with error '" << results.error() << "'" << endl;
             onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
             return;
-        } else if (results.size() != accountKey.size() * 2) {
+        } 
+        else if (results.size() != accountKey.size() * 2) {
             LOG(error) << "result not of the expected length, when checking"
                 << " for parent accounts" << endl 
-                << "result is: " << results.size() << endl;
-
-            for (int i = 0; i < results.size(); ++i)
-                LOG(error) << "        " << results.reply(i).asString() << endl;
-
-            LOG(error) << endl << "should be: " << accountKey.size() * 2 << endl;
-
-            for(auto a : accountKey)
-                LOG(error) << "        " << a << endl;
-
+                << "result is: " << results.size() << endl
+                << "should be: " << accountKey.size() * 2 << endl;
             onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
             return;
         }
 
         vector<AccountKey> parentsToRestore;
         for (int i = 0; i < results.size() - 1; i += 2) {
-
+#if DEBUG_RESTORE
             LOG(print) << accountKey.toString() << " check for exists and is member archive " << endl
                 << "exists: " << results.reply(i).asString() << endl
                 << "is archived: " << results.reply(i+1).asString() << endl;
+#endif
 
             // check if it exists, and check if it's archived
             if (results.reply(i).type() == INTEGER && results.reply(i).asInt() == 1 &&
@@ -639,26 +644,13 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         if (parentsToRestore.size() > 0) {
             this->moveToActiveAndSave(parentsToRestore, onRestored);
         } else {
+#if DEBUG_RESTORE
             LOG(print) << "no Parents to restore" << endl;
+#endif
             archivedAccounts = make_shared<Accounts>();
             onRestored(archivedAccounts, SUCCESS, "");
         }
     }
-
-    // else check if in banker:archive
-        // do an MGET of the parent accounts, and child accounts using a:b:*
-        //
-        // for each you need to SMOVE this account, it's parents,
-        // and its children back to banker:accounts
-        //
-        // then for which ever ones were moved back, i.e. returned 1 and not 0,
-        // you need to add them back to the list of accounts that need to be 
-        // added back to the banker's accounts.
-
-    // if not in either then it's a new account, 
-    // check if any parents exist, if they do check if they are archived,
-        // if they are archived bring them back
-    // else let it through to setBalance.
 }
 
 
@@ -1081,12 +1073,12 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
 {
     if (result.status == BankerPersistence::SUCCESS) {
         recordHit("load.success");
-//         insert the restored accounts into the account list;
+        // insert the restored accounts into the account list;
         auto onAccount = [&accounts] (const AccountKey & ak, const Account & a) {
             accounts.restoreAccount(ak, a.toJson());
         };
         restoredAccounts->forEachAccount(onAccount);
-        LOG(print) << "successfully loaded accounts" << endl;
+        LOG(print) << "successfully restored accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         recordHit("load.inconsistencies");
