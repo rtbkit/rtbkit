@@ -40,6 +40,8 @@ struct Priority
     // Really slow so delay as much as possible.
     static constexpr unsigned CreativeExchange     = 0xF100;
 
+    static constexpr unsigned LatLong              = 0xF200;
+
     static constexpr unsigned ExchangePost         = 0xFF00;
 };
 
