@@ -77,14 +77,12 @@ void
 MonitorClient::
 onResponseReceived(exception_ptr ext, int responseCode, const string & body)
 {
-    bool newStatus(false);
-
     if (responseCode == 200) {
         ML::Set_Trace_Exceptions notrace(false);
         try {
             Json::Value parsedBody = Json::parse(body);
             if (parsedBody.isMember("status") && parsedBody["status"] == "ok") {
-                newStatus = true;
+                lastSuccess = lastCheck;
             }
         }
         catch (const Json::Exception & exc) {
@@ -92,7 +90,6 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
     }
 
     lastCheck = Date::now();
-    if (newStatus) lastSuccess = lastCheck;
     pendingRequest = false;
 }
 

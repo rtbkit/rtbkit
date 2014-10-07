@@ -52,7 +52,7 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(40),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
-    slowModeTolerance(0),
+    slowModeTolerance(MonitorClient::DefaultTolerance),
     useHttpBanker(false),
     slowModeMoneyLimit("")
 {
@@ -132,7 +132,10 @@ init()
 
     if (slowModeTolerance > 600) {
         THROW(error) << "slow mode tolerance is at " << slowModeTolerance 
-            << " which is somewhat unsafe. Don't do that";
+            << " which is somewhat unsafe.";
+    } else if (slowModeTolerance < 0.1) {
+        THROW(error) << "slow mode tolerance is at " << slowModeTolerance
+            << " which is unlikely to be correct.";
     }
 
     if (maxBidPriceAmount > amountSlowModeMoneyLimit) {

@@ -21,7 +21,8 @@ struct MonitorClient : public RestProxy
 {
 
     enum {
-        DefaultCheckTimeout = 2
+        DefaultCheckTimeout = 2,
+        DefaultTolerance = 1,
     };
 
     MonitorClient(const std::shared_ptr<zmq::context_t> & context,
@@ -47,7 +48,7 @@ struct MonitorClient : public RestProxy
 
     /** this method tests whether the last status obtained by the Monitor is
         positive and fresh enough to continue operations */
-    bool getStatus(double toleranceSec = 1.0) const;
+    bool getStatus(double toleranceSec = DefaultTolerance) const;
 
     /* private members */
 
