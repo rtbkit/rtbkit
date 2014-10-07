@@ -1440,6 +1440,22 @@ struct ShadowAccounts {
         return !getAccountImpl(accountKey).uninitialized;
     }
 
+    bool isStalled(const AccountKey & accountKey) const
+    {
+        Guard guard(lock);
+        auto & account = getAccountImpl(accountKey);
+        return account.uninitialized && account.requested.minutesUntil(Date::now()) >= 1.0;
+    }
+
+    void reinitializeStalledAccount(const AccountKey & accountKey)
+    {
+        ExcAssert(isStalled(accountKey));
+        Guard guard(lock);
+        auto & account = getAccountImpl(accountKey);
+        account.first = true;
+        account.requested = Date::now();
+    }
+
     /*************************************************************************/
     /* BID OPERATIONS                                                        */
     /*************************************************************************/
@@ -1509,7 +1525,7 @@ private:
 
     struct AccountEntry : public ShadowAccount {
         AccountEntry(bool uninitialized = true, bool first = true)
-            : uninitialized(uninitialized), first(first)
+            : requested(Date::now()), uninitialized(uninitialized), first(first)
         {
         }
 
@@ -1523,6 +1539,8 @@ private:
             slave banker can both have different ideas of the state of the
             budget of an account.
         */
+
+        Date requested;
         bool uninitialized;
         bool first;
     };
