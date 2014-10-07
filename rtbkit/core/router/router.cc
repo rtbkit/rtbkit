@@ -152,7 +152,7 @@ Router(ServiceBase & parent,
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(0)
+      slowModeTolerance(MonitorClient::DefaultTolerance)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -202,7 +202,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(0)
+      slowModeTolerance(MonitorClient::DefaultTolerance)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -2302,7 +2302,7 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
-    if (!monitorClient.getStatus()) {
+    if (!monitorClient.getStatus(slowModeTolerance)) {
         // check if slow mode active and in the same second then ignore the Auction
         Date now = Date::now();
         if (slowModeActive && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
