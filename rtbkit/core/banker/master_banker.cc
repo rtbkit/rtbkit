@@ -358,13 +358,13 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
 
 void
 RedisBankerPersistence::
-moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCallback onRestored)
+moveToActiveAndSave(const vector<AccountKey> & archivedAccountKeys, OnRestoredCallback onRestored)
 {
     shared_ptr<Accounts> archivedAccounts;
 
     // move the account key from archive to accounts key
     vector<Redis::Command> moveToActive;
-    for (auto a : archivedAccountKeys) {
+    for (const auto & a : archivedAccountKeys) {
         moveToActive.push_back(SMOVE("banker:archive", "banker:accounts", a.toString()));
     }
     Redis::Results results = itl->redis->execMulti(moveToActive, itl->timeout);
@@ -382,9 +382,9 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
             accountsFailedMove.push_back(archivedAccountKeys[i]);
         }
     }
-    if (accountsFailedMove.size() > 0) {
+    if (!accountsFailedMove.empty()) {
         string s = "accounts failed to move from archive to accounts key";
-        for (auto a : accountsFailedMove)
+        for (auto & a : accountsFailedMove)
             s += "    " + a.toString();
         LOG(error) << s << endl;
         onRestored(archivedAccounts, PERSISTENCE_ERROR, s);
@@ -393,7 +393,7 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
     
     // get accounts from redis.
     Redis::Command getAccountsCommand(MGET);
-    for (auto a: archivedAccountKeys)
+    for (const auto & a: archivedAccountKeys)
         getAccountsCommand.addArg("banker-" + a.toString());
     Redis::Result result = itl->redis->exec(getAccountsCommand, itl->timeout);
     
@@ -452,7 +452,7 @@ moveToActiveAndSave(const vector<AccountKey> archivedAccountKeys, OnRestoredCall
         }
     }
 
-    if (accountsFailedMove.size() > 0 || failedToReactivate.size() > 0) {
+    if (!accountsFailedMove.empty() || !failedToReactivate.empty() > 0) {
         string e = "some accounts failed:\n";
         if (accountsFailedMove.size() > 0) {
             e += "to move from archive: ";
@@ -495,7 +495,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 
 #if DEBUG_RESTORE
     string s = "existance check of accountKey (" + accountName + "):\n";
-    for (auto r : results)
+    for (const auto & r : results)
         s += "    " + r.reply().asString() + "\n";
     LOG(print) << s << endl;
 #endif
@@ -507,7 +507,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
                 && results.reply(1).asInt() == 1)
         {
             // do nothing it's already in banker:account active set.
-            onRestored(archivedAccounts, SUCCESS, "");
+            onRestored(make_shared<Accounts>(), SUCCESS, "");
             return;
         }
         else if (results.reply(2).type() == INTEGER 
@@ -550,14 +550,14 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             }
 
             // add account key and parent key;
-            while (accountKey.size() > 0) {
+            while (!accountKey.empty()) {
                 keysToCheck.push_back(accountKey.toString());
                 accountKey.pop_back();
             }
 
             // check if parents and child accounts are archived
             vector<Redis::Command> isAccountArchived;
-            for (AccountKey ak : keysToCheck) {
+            for (const AccountKey & ak : keysToCheck) {
                 isAccountArchived.push_back(SISMEMBER("banker:archive", ak.toString()));
             }
             results = itl->redis->execMulti(isAccountArchived, itl->timeout);
@@ -600,7 +600,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 
         vector<Redis::Command> checkForParents;
         // add account key and parent key;
-        while (accountKey.size() > 0) {
+        while (!accountKey.empty()) {
             checkForParents.push_back(EXISTS("banker-" + accountKey.toString()));
             checkForParents.push_back(SISMEMBER("banker:archive", accountKey.toString()));
             accountKey.pop_back();
@@ -615,6 +615,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             onRestored(archivedAccounts, PERSISTENCE_ERROR, results.error());
             return;
         } 
+        // the result should be double the size since there is two checks per account
         else if (results.size() != accountKey.size() * 2) {
             LOG(error) << "result not of the expected length, when checking"
                 << " for parent accounts" << endl 
@@ -647,8 +648,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 #if DEBUG_RESTORE
             LOG(print) << "no Parents to restore" << endl;
 #endif
-            archivedAccounts = make_shared<Accounts>();
-            onRestored(archivedAccounts, SUCCESS, "");
+            onRestored(make_shared<Accounts>(), SUCCESS, "");
         }
     }
 }
@@ -1072,26 +1072,26 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
                   const string & info)
 {
     if (result.status == BankerPersistence::SUCCESS) {
-        recordHit("load.success");
         // insert the restored accounts into the account list;
-        auto onAccount = [&accounts] (const AccountKey & ak, const Account & a) {
+        auto onAccount = [&] (const AccountKey & ak, const Account & a) {
+            recordHit("restored.success." + ak.toString());
             accounts.restoreAccount(ak, a.toJson());
         };
         restoredAccounts->forEachAccount(onAccount);
         LOG(print) << "successfully restored accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
-        recordHit("load.inconsistencies");
+        recordHit("restored.inconsistencies");
         /* something is wrong with the backend data types */
-        LOG(error) << "Failed to load accounts, DATA_INCONSISTENCY: " << info << endl;
+        LOG(error) << "Failed to restore accounts, DATA_INCONSISTENCY: " << info << endl;
     }
     else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
-        recordHit("load.error");
+        recordHit("restored.error");
         /* the backend is unavailable */
-        LOG(error) << "Failed to load accounts, backend unavailable: " << info << endl;
+        LOG(error) << "Failed to resore accounts, backend unavailable: " << info << endl;
     }
     else {
-        recordHit("load.unknown");
+        recordHit("restored.unknown");
         throw ML::Exception("status code is not handled");
     }
 }
@@ -1100,7 +1100,7 @@ void
 MasterBanker::
 restoreAccount(const AccountKey & key)
 {
-    recordHit("restore.attempts");
+    recordHit("restore.attempts." + key.toString());
     
     Guard guard(saveLock);
 
@@ -1158,7 +1158,7 @@ const Account
 MasterBanker::
 setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
-    Record record(this, "setBudget");
+    Record record(this, "setBudget." + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1173,7 +1173,7 @@ const Account
 MasterBanker::
 onCreateAccount(const AccountKey &key, AccountType type)
 {
-    Record record(this, "createAccount");
+    Record record(this, "createAccount." + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1188,7 +1188,7 @@ const std::vector<AccountSummary>
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
-    Record record(this, "closeAccount");
+    Record record(this, "closeAccount." + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1236,7 +1236,7 @@ const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
-    Record record(this, "setBalance");
+    Record record(this, "setBalance." + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1251,7 +1251,7 @@ const Account
 MasterBanker::
 addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
-    Record record(this, "addAdjustment");
+    Record record(this, "addAdjustment" + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1266,7 +1266,7 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
-    Record record(this, "syncFromShadow");
+    Record record(this, "syncFromShadow." + key.toString());
 
     {
         JML_TRACE_EXCEPTIONS(false);

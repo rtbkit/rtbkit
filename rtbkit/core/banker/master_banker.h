@@ -251,7 +251,7 @@ struct RedisBankerPersistence : public BankerPersistence {
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
     void restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored);
 private:
-    void moveToActiveAndSave(const std::vector<AccountKey> archivedAccountKeys,
+    void moveToActiveAndSave(const std::vector<AccountKey> & archivedAccountKeys,
                                 OnRestoredCallback onRestored);
 };
 
@@ -358,7 +358,7 @@ private:
 
     const std::vector<AccountSummary> closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
-    void restoreAccount(const std::string & accountName);
+    void restoreAccount(const AccountKey & key);
 };
 
 } // namespace RTBKIT
