@@ -255,7 +255,6 @@ init()
     configListener.onConfigChange = [=] (const std::string & agent,
                                          std::shared_ptr<const AgentConfig> config)
         {
-            cerr << endl << endl << "agent " << agent << " got new configuration" << endl;
             configBuffer.push(make_pair(agent, config));
         };
 
