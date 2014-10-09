@@ -44,7 +44,8 @@ void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & 
 }
 
 
-void AgentsBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
+void AgentsBidderInterface::sendWinLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig, MatchedWinLoss const & event) {
     std::string channel =
         event.type == MatchedWinLoss::LateWin ? "LATEWIN" : event.typeString();
 
@@ -65,8 +66,9 @@ void AgentsBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
 
 }
 
-void AgentsBidderInterface::sendLossMessage(std::string const & agent,
-                                            std::string const & id) {
+void AgentsBidderInterface::sendLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & id) {
     bridge->sendAgentMessage(agent,
                              "LOSS",
                              Date::now(),
@@ -76,8 +78,9 @@ void AgentsBidderInterface::sendLossMessage(std::string const & agent,
                              Amount().toString());
 }
 
-void AgentsBidderInterface::sendCampaignEventMessage(std::string const & agent,
-                                                     MatchedCampaignEvent const & event) {
+void AgentsBidderInterface::sendCampaignEventMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, MatchedCampaignEvent const & event) {
     bridge->sendAgentMessage(agent,
                              "CAMPAIGN_EVENT",
                              event.label,
@@ -98,8 +101,9 @@ void AgentsBidderInterface::sendCampaignEventMessage(std::string const & agent,
 
 }
 
-void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,
-                                               std::shared_ptr<Auction> const & auction) {
+void AgentsBidderInterface::sendBidLostMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
     bridge->sendAgentMessage(agent,
                              "LOST",
                              Date::now(),
@@ -118,8 +122,9 @@ void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,
 */
 }
 
-void AgentsBidderInterface::sendBidDroppedMessage(std::string const & agent,
-                                                  std::shared_ptr<Auction> const & auction) {
+void AgentsBidderInterface::sendBidDroppedMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
     bridge->sendAgentMessage(agent,
                              "DROPPEDBID",
                              Date::now(),
@@ -140,9 +145,10 @@ void AgentsBidderInterface::sendBidDroppedMessage(std::string const & agent,
 */
 }
 
-void AgentsBidderInterface::sendBidInvalidMessage(std::string const & agent,
-                                                  std::string const & reason,
-                                                  std::shared_ptr<Auction> const & auction) {
+void AgentsBidderInterface::sendBidInvalidMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & reason,
+        std::shared_ptr<Auction> const & auction) {
     bridge->sendAgentMessage(agent,
                              "INVALID",
                              Date::now(),
@@ -162,8 +168,9 @@ void AgentsBidderInterface::sendBidInvalidMessage(std::string const & agent,
 */
 }
 
-void AgentsBidderInterface::sendNoBudgetMessage(std::string const & agent,
-                                                std::shared_ptr<Auction> const & auction) {
+void AgentsBidderInterface::sendNoBudgetMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
     bridge->sendAgentMessage(agent,
                              "NOBUDGET",
                              Date::now(),
@@ -181,8 +188,9 @@ void AgentsBidderInterface::sendNoBudgetMessage(std::string const & agent,
 */
 }
 
-void AgentsBidderInterface::sendTooLateMessage(std::string const & agent,
-                                               std::shared_ptr<Auction> const & auction) {
+void AgentsBidderInterface::sendTooLateMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
     bridge->sendAgentMessage(agent,
                              "TOOLATE",
                              Date::now(),
@@ -221,16 +229,18 @@ void AgentsBidderInterface::sendTooLateMessage(std::string const & agent,
 */
 }
 
-void AgentsBidderInterface::sendMessage(std::string const & agent,
-                                        std::string const & message) {
+void AgentsBidderInterface::sendMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & message) {
     bridge->sendAgentMessage(agent,
                              message,
                              Date::now());
 }
 
-void AgentsBidderInterface::sendErrorMessage(std::string const & agent,
-                                             std::string const & error,
-                                             std::vector<std::string> const & payload) {
+void AgentsBidderInterface::sendErrorMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & error,
+        std::vector<std::string> const & payload) {
     bridge->sendAgentMessage(agent,
                              "ERROR",
                              Date::now(),
@@ -238,8 +248,9 @@ void AgentsBidderInterface::sendErrorMessage(std::string const & agent,
                              payload);
 }
 
-void AgentsBidderInterface::sendPingMessage(std::string const & agent,
-                                            int ping) {
+void AgentsBidderInterface::sendPingMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, int ping) {
     if(ping == 0) {
         bridge->sendAgentMessage(agent,
                                  "PING0",

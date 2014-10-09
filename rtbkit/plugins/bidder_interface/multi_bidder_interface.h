@@ -9,7 +9,6 @@
 
 #include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/core/router/router.h"
-#include "agents_bidder_interface.h"
 
 namespace RTBKIT {
 
@@ -103,38 +102,49 @@ struct MultiBidderInterface : public BidderInterface {
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);
 
-    void sendWinLossMessage(MatchedWinLoss const & event);
+    void sendWinLossMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            MatchedWinLoss const & event);
 
-    void sendLossMessage(std::string const & agent,
+    void sendLossMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                         std::string const & agent,
                          std::string const & id);
 
-    void sendCampaignEventMessage(std::string const & agent,
+    void sendCampaignEventMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                                  std::string const & agent,
                                   MatchedCampaignEvent const & event);
 
-    void sendBidLostMessage(std::string const & agent,
+    void sendBidLostMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            std::string const & agent,
                             std::shared_ptr<Auction> const & auction);
 
-    void sendBidDroppedMessage(std::string const & agent,
+    void sendBidDroppedMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                               std::string const & agent,
                                std::shared_ptr<Auction> const & auction);
 
-    void sendBidInvalidMessage(std::string const & agent,
+    void sendBidInvalidMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                               std::string const & agent,
                                std::string const & reason,
                                std::shared_ptr<Auction> const & auction);
 
-    void sendNoBudgetMessage(std::string const & agent,
+    void sendNoBudgetMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                             std::string const & agent,
                              std::shared_ptr<Auction> const & auction);
 
-    void sendTooLateMessage(std::string const & agent,
+    void sendTooLateMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            std::string const & agent,
                             std::shared_ptr<Auction> const & auction);
 
-    void sendMessage(std::string const & agent,
+    void sendMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                     std::string const & agent,
                      std::string const & message);
 
-    void sendErrorMessage(std::string const & agent,
+    void sendErrorMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                          std::string const & agent,
                           std::string const & error,
                           std::vector<std::string> const & payload);
 
-    void sendPingMessage(std::string const & agent,
+    void sendPingMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                         std::string const & agent,
                          int ping);
 
     void registerLoopMonitor(LoopMonitor *monitor) const;
@@ -166,24 +176,6 @@ private:
     #define CALL_MEMBER_FN(object, pointer)  ((object)->*(pointer))
 
     template<typename Func, typename... Args>
-    BidderInterface*
-    dispatchBidderInterface(
-            const std::string &agent,
-            Func func,
-            Args&& ...args)
-    {
-        const auto &agentInfo = router->agents[agent];
-        const auto &agentConfig = agentInfo.config;
-        ExcAssert(agentConfig);
-
-        auto iface = findInterface(agentConfig->bidderInterface, agent);
-
-        CALL_MEMBER_FN(iface.get(), func)(std::forward<Args>(args)...);
-
-        return iface.get();
-    }
-
-    template<typename Func, typename... Args>
     BidderInterface *
     dispatchBidderInterface(
             const std::string &agentName,
@@ -192,6 +184,7 @@ private:
             Args&& ...args)
     {
 
+        ExcAssert(agentConfig != nullptr);
         auto iface = findInterface(agentConfig->bidderInterface, agentName);
 
         CALL_MEMBER_FN(iface.get(), func)(std::forward<Args>(args)...);

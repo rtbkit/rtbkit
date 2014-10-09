@@ -427,7 +427,11 @@ doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
     else stats.matchedLosses++;
 
     event->publish(logger);
-    bidder->sendWinLossMessage(*event);
+
+    const auto& agentConfigEntry
+        = configListener.getAgentEntry(event->response.agent);
+    ExcAssert(agentConfigEntry.valid());
+    bidder->sendWinLossMessage(agentConfigEntry.config, *event);
 }
 
 void
@@ -447,7 +451,7 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            bidder->sendCampaignEventMessage(entry.name, *event);
+            bidder->sendCampaignEventMessage(entry.config, entry.name, *event);
             sent = true;
         };
 
