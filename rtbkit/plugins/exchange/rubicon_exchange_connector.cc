@@ -90,6 +90,15 @@ RubiconExchangeConnector::init()
             Datacratic::jsonDecode(value, data.adomain);
             return true;
     });
+
+    // 5. Optional campaign id
+    configuration_.addField(
+        "cid",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.cid);
+            return true;
+    }).optional();
+
 }
 
 ExchangeConnector::ExchangeCompatibility
@@ -219,9 +228,16 @@ setSeatBid(Auction const & auction,
     // Add a new bid to the array
     seatBid.bid.emplace_back();
     auto & b = seatBid.bid.back();
-    
+
     // Put in the variable parts
-    b.cid = Id(resp.agent);
+    if (crinfo->cid.notNull()) {
+        // either we use the configured campaign id...
+        b.cid = crinfo->cid;
+    } else {
+        // ...or we use the agent name
+        b.cid = Id(resp.agent);
+    }
+
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = getAmountIn<CPM>(resp.price.maxPrice);
