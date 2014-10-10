@@ -190,7 +190,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                 const Accounts::AccountInfo & bankerAccount
                     = toSave.getAccount(key);
                 if (toSave.isAccountOutOfSync(key)) {
-                    LOG(trace) << "account '"
+                    LOG(trace) << "account '" << key
                                << "' is out of sync and will not be saved" << endl;
                     continue;
                 }
@@ -533,14 +533,17 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             LOG(print) << s << endl;
 #endif
 
+            const string prefix = "banker-";
             vector<AccountKey> keysToCheck;
             auto childKeysReply = result.reply();
             if (childKeysReply.type() == ARRAY) {
                 for (int i = 0; i < childKeysReply.length(); ++i) {
                     string childKey = childKeysReply[i];
-                    size_t pos = childKey.find("banker-");
-                    childKey = childKey.substr(pos);
-                    keysToCheck.push_back(childKey);
+                    size_t pos = childKey.find(prefix);
+                    if (pos != string::npos) {
+                        childKey = childKey.substr(pos + prefix.size());
+                        keysToCheck.push_back(childKey);
+                    }
                 }
             } else {
                 string e = "childKeysReply.type() != ARRAY";
