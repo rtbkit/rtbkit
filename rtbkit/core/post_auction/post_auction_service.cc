@@ -428,7 +428,7 @@ doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 
     event->publish(logger);
 
-    deliverEvent(event->typeString(), "doWinLossEvent", event->response.account,
+    deliverEvent("bidResult." + event->typeString(), "doWinLossEvent", event->response.account,
         [&](const AgentConfigEntry& entry)
         {
             bidder->sendWinLossMessage(entry.config, *event);
@@ -448,7 +448,7 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
     // For the moment, send the message to all of the agents that are
     // bidding on this account
     //
-    deliverEvent(event->label, "doCampaignEvent", event->account,
+    deliverEvent("delivery." + event->label, "doCampaignEvent", event->account,
         [&](const AgentConfigEntry& entry)
         {
             bidder->sendCampaignEventMessage(entry.config, entry.name, *event);
@@ -472,12 +472,12 @@ deliverEvent(const std::string& label, const std::string& eventType,
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
     if (!sent) {
-        recordHit("delivery.%s.orphaned", label);
+        recordHit("%s.orphaned", label);
         logPAError(ML::format("%s.noListeners%s", eventType, label),
                    "nothing listening for account " + account.toString());
     }
     else {
-        recordHit("delivery.%s.delivered", label);
+        recordHit("%s.delivered", label);
     }
 }
 
