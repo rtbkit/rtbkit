@@ -1076,12 +1076,14 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
 {
     if (result.status == BankerPersistence::SUCCESS) {
         // insert the restored accounts into the account list;
+        int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
             recordHit("restored.success." + ak.toString());
             accounts.restoreAccount(ak, a.toJson());
+            ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
-        LOG(print) << "successfully restored accounts" << endl;
+        LOG(print) << "successfully restored " << numAccounts << " accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         recordHit("restored.inconsistencies");
@@ -1246,7 +1248,9 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-    restoreAccount(key);
+
+    if ( ! accounts.accountPresentAndActive(key) )
+        restoreAccount(key);
     return accounts.setBalance(key, amount, type);
 }
 

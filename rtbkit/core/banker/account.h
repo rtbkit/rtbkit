@@ -895,6 +895,18 @@ struct Accounts {
         Guard guard(lock);
         return getAccountImpl(account);
     }
+
+    int accountPresentAndActive(const AccountKey & account) const
+    {
+        Guard guard(lock);
+        auto it = accounts.find(account);
+        if (it == accounts.end())
+            return 0;
+        if (it->second.status == Account::CLOSED)
+            return 0;
+        else
+            return 1;
+    }
     
     /** closeAccount behavior is to close all children then close itself,
         always transfering from children to parent. If top most account, 
