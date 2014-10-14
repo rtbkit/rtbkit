@@ -32,9 +32,9 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
 
     /* test the behaviour of rp with an empty database */
     auto OnLoaded_EmptyRedis = [&] (std::shared_ptr<Accounts> accounts,
-                                    BankerPersistence::PersistenceCallbackStatus status,
+                                    const BankerPersistence::Result& result,
                                     const string & info) {
-        BOOST_CHECK_EQUAL(status, BankerPersistence::SUCCESS);
+        BOOST_CHECK_EQUAL(result.status, BankerPersistence::SUCCESS);
         BOOST_CHECK_EQUAL(info, "");
 
         /* "banker:accounts" does not exist */
@@ -53,11 +53,11 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
     done = false;
     auto OnLoaded_BadBankerAccounts1
         = [&] (std::shared_ptr<Accounts> accounts,
-               BankerPersistence::PersistenceCallbackStatus status,
+               const BankerPersistence::Result& result,
                const string & info) {
         /* this could be a DATA_INCONSISTENCY error, but it is handled
            directly by the backend */
-        BOOST_CHECK_EQUAL(status, BankerPersistence::BACKEND_ERROR);
+        BOOST_CHECK_EQUAL(result.status, BankerPersistence::BACKEND_ERROR);
         BOOST_CHECK(info.length() != 0); /* we ignore the actual message */
         done = true;
         ML::futex_wake(done);
@@ -75,9 +75,9 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
     done = false;
     auto OnLoaded_BadBankerAccounts2
         = [&] (std::shared_ptr<Accounts> accounts,
-               BankerPersistence::PersistenceCallbackStatus status,
+               const BankerPersistence::Result& result,
                const string & info) {
-        BOOST_CHECK_EQUAL(status, BankerPersistence::DATA_INCONSISTENCY);
+        BOOST_CHECK_EQUAL(result.status, BankerPersistence::DATA_INCONSISTENCY);
         BOOST_CHECK(info.length() != 0); /* we ignore the actual message */
         // cerr << "error = " + info << endl;
         done = true;
@@ -150,9 +150,9 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     BankerPersistence::PersistenceCallbackStatus lastStatus;
     string lastInfo;
     auto OnSavedCallback
-        = [&] (BankerPersistence::PersistenceCallbackStatus status,
+        = [&] (const BankerPersistence::Result& result,
                const string & info) {
-        lastStatus = status;
+        lastStatus = result.status;
         lastInfo = info;
         done = true;
         ML::futex_wake(done);
@@ -299,4 +299,5 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* the last expense of 12 mUSD must not be present in the stored account */
     BOOST_CHECK_EQUAL(expectedStorageJson, storageJson);
+
 }

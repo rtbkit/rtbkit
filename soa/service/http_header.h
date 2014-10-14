@@ -65,6 +65,8 @@ struct HttpHeader {
     std::string resource;   // after the get
     std::string version;    // after the get
 
+    int responseCode() const;  // for responses; parses it out of the "version" field
+
     RestParams queryParams; // Query parameters pulled out of the URL
 
     // These headers are automatically pulled out

@@ -211,6 +211,7 @@ initBidderInterface(Json::Value const & json)
 {
     bidder = BidderInterface::create(serviceName() + ".bidder", getServices(), json);
     bidder->init(&bridge, this);
+    bidder->registerLoopMonitor(&loopMonitor);
 }
 
 void
@@ -1870,7 +1871,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
     for (int i = 0; i < bids.size(); ++i) {
 
-        const Bid& bid = bids[i];
+        Bid bid = bids[i];
 
         if (bid.isNullBid()) {
             ++numPassedBids;
@@ -1900,13 +1901,17 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
 
         if (bid.price.isNegative() || bid.price > maxBidAmount) {
-            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+            if (slowModeActive) {
+                bid.price = maxBidAmount;
+            } else {
+                returnInvalidBid(agent, bidsString, auctionInfo.auction,
                     "invalidPrice",
                     "bid price of %s is outside range of $0-%s parsing bid %s",
                     bid.price.toString().c_str(),
                     maxBidAmount.toString().c_str(),
                     bidsString.c_str());
-            continue;
+                continue;
+            }
         }
 
         const Creative & creative = config.creatives.at(bid.creativeIndex);
@@ -1994,9 +1999,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                             bid.price.toString().c_str(),
                             (double)bid.priority));
 
-        Auction::Price bidprice(bid.price, bid.priority);
         Auction::Response response(
-                bidprice,
+                Auction::Price(bid.price, bid.priority),
                 creative.id,
                 config.account,
                 config.test,

@@ -254,7 +254,6 @@ private:
 
     /** Periodically we ask the banker to re-authorize our budget. */
     void reauthorizeBudget(uint64_t numTimeoutsExpired);
-    Date reauthorizeBudgetSent;
     CurrencyPool spendRate;
 
 

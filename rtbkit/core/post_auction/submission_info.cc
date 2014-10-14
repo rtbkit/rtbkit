@@ -28,7 +28,7 @@ serializeToString() const
            << bidRequestStr
            << bidRequestStrFormat
            << augmentations.toString()
-           << earlyWinEvents
+           << pendingWinEvents
            << earlyCampaignEvents;
     bid.serialize(writer);
     return stream.str();
@@ -61,14 +61,14 @@ reconstituteFromString(const std::string & str)
         if (!msg1.empty() || !msg2.empty())
             cerr << "warning: discarding early events from old format"
                  << endl;
-        earlyWinEvents.clear();
+        pendingWinEvents.clear();
         earlyCampaignEvents.clear();
     }
     else if (version > 3) {
-        store >> earlyWinEvents >> earlyCampaignEvents;
+        store >> pendingWinEvents >> earlyCampaignEvents;
     }
     else {
-        earlyWinEvents.clear();
+        pendingWinEvents.clear();
         earlyCampaignEvents.clear();
     }
     bid.reconstitute(store);

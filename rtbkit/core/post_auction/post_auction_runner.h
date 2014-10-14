@@ -34,6 +34,7 @@ struct PostAuctionRunner {
     int winLossPipeTimeout;
     int campaignEventPipeTimeout;
     bool useHttpBanker;
+    int httpActiveConnections;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
@@ -48,6 +49,10 @@ struct PostAuctionRunner {
     void start();
 
     void shutdown();
+
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
 
 };
 

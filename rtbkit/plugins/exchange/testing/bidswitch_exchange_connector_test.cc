@@ -107,6 +107,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
               + "&height="
               + std::to_string(c.format.height)
               + "&price=${AUCTION_PRICE}"
+              + "&account=%{response.account}"
+              + "&brtimestamp=%{bidrequest.timestamp}"
               + "&brid=%{bidrequest.id}\"/>";
         c.providerConfig["bidswitch"]["adid"] = c.name;
     }
@@ -167,6 +169,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
 
     // Validate bidrequest.id was re-written
     BOOST_CHECK_EQUAL(resp.find("%{bidrequest.id}"), std::string::npos);
+    BOOST_CHECK_EQUAL(resp.find("%{bidrequest.timestamp}"), std::string::npos);
+    BOOST_CHECK_EQUAL(resp.find("%{response.account}"), std::string::npos);
 
     proxies->events->dump(std::cerr);
 

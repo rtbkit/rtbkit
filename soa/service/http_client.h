@@ -182,6 +182,27 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    /** Performs a DELETE request.
+     *
+     *  Returns "true" when the request could successfully be enqueued.
+     */
+
+    /* The method can't be named delete because delete is a reserved keyword in
+     * C++
+     */
+    bool del(const std::string & resource,
+             const std::shared_ptr<HttpClientCallbacks> & callbacks,
+             const RestParams & queryParams = RestParams(),
+             const RestParams & headers = RestParams(),
+             int timeout = -1)
+    {
+        return enqueueRequest("DELETE", resource, callbacks,
+                              HttpRequest::Content(),
+                              queryParams, headers, timeout);
+    }
+
+    size_t queuedRequests() const;
+
     HttpClient & operator = (HttpClient && other) noexcept;
 
 private:
@@ -269,7 +290,7 @@ private:
 
     typedef std::mutex Mutex;
     typedef std::unique_lock<Mutex> Guard;
-    Mutex queueLock_;
+    mutable Mutex queueLock_;
     std::queue<HttpRequest> queue_; /* queued requests */
 };
 

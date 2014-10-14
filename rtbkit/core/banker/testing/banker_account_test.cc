@@ -87,6 +87,7 @@ BOOST_AUTO_TEST_CASE( test_account_tojson )
         "  'budgetIncreases': {},"
         "  'budgetDecreases': {},"
         "  'spent': {},"
+        "  'status': 'active',"
         "  'recycledIn': {},"
         "  'recycledOut': {},"
         "  'allocatedIn': {},"
@@ -241,6 +242,141 @@ BOOST_AUTO_TEST_CASE( test_account_recycling )
     BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
     BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(1));
     BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
+}
+
+BOOST_AUTO_TEST_CASE( test_account_close )
+{
+    Accounts accounts;
+
+    AccountKey campaign("campaign");
+    AccountKey strategy("campaign:strategy");
+    AccountKey strategy2("campaign:strategy2");
+    AccountKey spend("campaign:strategy:spend");
+    AccountKey spend2("campaign:strategy:spend2");
+    AccountKey spend3("campaign:strategy2:spend");
+
+    accounts.createBudgetAccount(campaign);
+    accounts.createBudgetAccount(strategy);
+    accounts.createBudgetAccount(strategy2);
+    accounts.createSpendAccount(spend);
+    accounts.createSpendAccount(spend2);
+    accounts.createSpendAccount(spend3);
+
+    // Top level budget of $10
+    accounts.setBudget(campaign, USD(10));
+
+    // Make $2 available in the strategy account
+    accounts.setBalance(strategy, USD(3), AT_NONE);
+    accounts.setBalance(strategy2, USD(2), AT_NONE);
+    
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(5));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(3));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
+
+    accounts.setBalance(spend, USD(1), AT_NONE);
+    accounts.setBalance(spend2, USD(1), AT_NONE);
+    accounts.setBalance(spend3, USD(1), AT_NONE);
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(5));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend3), USD(1));
+    
+    accounts.closeAccount(strategy);
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(8));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend3), USD(1));
+
+    accounts.closeAccount(campaign);
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(10));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend3), USD(0));
+
+
+    // check if accounts are closed.
+    BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::CLOSED);
+    BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::CLOSED);
+   
+    accounts.setBalance(strategy, USD(5), AT_NONE); 
+    
+    BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::ACTIVE);
+    BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::ACTIVE);
+
+}
+
+
+BOOST_AUTO_TEST_CASE( test_account_close_with_spend )
+{
+    Accounts accounts;
+
+    AccountKey campaign("campaign");
+    AccountKey strategy("campaign:strategy");
+    AccountKey spend("campaign:strategy:spend");
+
+    accounts.createBudgetAccount(campaign);
+    accounts.createBudgetAccount(strategy);
+    accounts.createSpendAccount(spend);
+
+    ShadowAccounts shadow; 
+
+    // Top level budget of $10
+    accounts.setBudget(campaign, USD(10));
+
+    // Make $2 available in the strategy account
+    accounts.setBalance(strategy, USD(4), AT_NONE);
+    
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(4));
+
+    accounts.setBalance(spend, USD(2), AT_NONE);
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(2));
+
+    // Bid on an ad
+    shadow.activateAccount(spend);
+    shadow.syncFrom(accounts);
+ 
+    bool auth = shadow.authorizeBid(spend, "ad1", USD(1));
+    BOOST_CHECK_EQUAL(auth, true);
+
+    shadow.commitBid(spend, "ad1", USD(1), LineItems());
+
+    shadow.syncTo(accounts);
+    
+    cerr << "before close account" << endl;
+    cerr << accounts.getAccountSummary(campaign) << endl;
+    cerr << accounts.getAccount(campaign) << endl;
+    cerr << accounts.getAccount(strategy) << endl;
+    cerr << accounts.getAccount(spend) << endl;
+
+    accounts.closeAccount(campaign);
+    
+    cerr << "after close account" << endl;
+    cerr << accounts.getAccountSummary(campaign) << endl;
+    cerr << accounts.getAccount(campaign) << endl;
+    cerr << accounts.getAccount(strategy) << endl;
+    cerr << accounts.getAccount(spend) << endl;
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(9));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(0));
+
+    // check if accounts are closed.
+    BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::CLOSED);
+    BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::CLOSED);
+
 }
 
 BOOST_AUTO_TEST_CASE( test_accounts )
@@ -771,6 +907,7 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'recycledIn':{},"
                       "  'recycledOut':{},"
                       "  'spent':{},"
+                      "  'status':'active',"
                       "  'type':'budget'},"
                       " 'available': {'USD/1M':9001},"
                       " 'adjustedSpent': {'USD/1M' : 1000},"

@@ -191,7 +191,7 @@ getTimeAvailableMs(HttpAuctionHandler & connection,
         return 30.0;
     
     int tmax = atoi(payload.c_str() + pos + toFind.length());
-    return tmax;
+    return (absoluteTimeMax < tmax) ? absoluteTimeMax : tmax;
 }
 
 HttpResponse

@@ -13,6 +13,7 @@ BIN 	:= $(BUILD)/$(ARCH)/bin
 TESTS 	:= $(BUILD)/$(ARCH)/tests
 SRC 	:= .
 PWD     := $(shell pwd)
+ETC	:= $(BUILD)/etc
 
 JML_TOP := .
 INCLUDE := -I.

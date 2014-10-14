@@ -12,6 +12,7 @@
 #define __rtbkit__mock_exchange_h__
 
 #include "rtbkit/common/testing/exchange_source.h"
+#include "rtbkit/common/bids.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_endpoint.h"
@@ -52,6 +53,21 @@ private:
         Worker(MockExchange * exchange, BidSource *bid, WinSource *win, EventSource *event);
         Worker(MockExchange * exchange, Json::Value bid, Json::Value win, Json::Value event);
 
+        struct Win {
+            Date timestamp;
+            BidRequest br;
+            ExchangeSource::Bid bid;
+            Amount winPrice;
+        };
+
+        struct Event {
+            Date timestamp;
+
+            enum Type { Impression, Click } type;
+            BidRequest br;
+            ExchangeSource::Bid bid;
+        };
+
         void run();
         bool bid();
 
@@ -59,11 +75,21 @@ private:
         isWin(const BidRequest&, const ExchangeSource::Bid& bid);
         bool isClick(const BidRequest&, const ExchangeSource::Bid& bid);
 
+        void processWinsQueue();
+        void processEventsQueue();
+
         MockExchange * exchange;
         std::unique_ptr<BidSource> bids;
         std::unique_ptr<WinSource> wins;
         std::unique_ptr<EventSource> events;
         ML::RNG rng;
+
+        int winsDelay;
+        int eventsDelay;
+
+        std::deque<Win> winsQueue;
+        std::deque<Event> eventsQueue;
+
     };
 
     std::vector<Worker> workers;

@@ -70,6 +70,8 @@ setBudget(const CurrencyPool & newBudget)
         budgetDecreases -= extraBudget;
     }
     balance += extraBudget;
+   
+    status = ACTIVE;
 
     checkInvariants();
 }

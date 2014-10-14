@@ -61,6 +61,7 @@ postConstructorInit()
     pingTimeUnknownHostsMs = 20;
     auctionVerb = "POST";
     auctionResource = "/";
+    absoluteTimeMax = 50.0;
 
     numServingRequest = 0;
 
@@ -104,6 +105,7 @@ configure(const Json::Value & parameters)
     getParam(parameters, auctionVerb, "auctionVerb");
     getParam(parameters, pingTimesByHostMs, "pingTimesByHostMs");
     getParam(parameters, pingTimeUnknownHostsMs, "pingTimeUnknownHostsMs");
+    getParam(parameters, absoluteTimeMax, "absoluteTimeMax");
 
     if (parameters.isMember("realTimePolling"))
         realTimePolling(parameters["realTimePolling"].asBool());
@@ -119,7 +121,8 @@ configureHttp(int numThreads,
               const std::string & auctionResource,
               const std::string & auctionVerb,
               int realTimePriority,
-              bool realTimePolling)
+              bool realTimePolling,
+              double absoluteTimeMax)
 {
     this->numThreads = numThreads;
     this->realTimePriority = realTimePriority;
@@ -130,6 +133,7 @@ configureHttp(int numThreads,
     this->auctionResource = auctionResource;
     this->auctionVerb = auctionVerb;
     this->realTimePolling(realTimePolling);
+    this->absoluteTimeMax = absoluteTimeMax;
 }
 
 void
