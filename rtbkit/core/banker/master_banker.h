@@ -150,7 +150,7 @@ namespace Default {
 struct BankerPersistence {
     enum PersistenceCallbackStatus {
         SUCCESS,             /* info = "" */
-        BACKEND_ERROR,       /* info = error string */
+        PERSISTENCE_ERROR,       /* info = error string */
         DATA_INCONSISTENCY   /* info = json array of account keys */
     };
 
@@ -291,7 +291,10 @@ struct MasterBanker
 
     RestRequestRouter router;
     Accounts accounts;
+
     Date lastSavedState;
+    BankerPersistence::LatencyMap lastSaveLatency;
+    std::string lastSaveInfo;
     BankerPersistence::PersistenceCallbackStatus lastSaveStatus;
 
     typedef ML::Spinlock Lock;
@@ -334,6 +337,7 @@ private:
                          const BankerPersistence::LatencyMap& latencies) const;
 
     const std::vector<AccountSummary> closeAccount(const AccountKey &key);
+    const std::vector<AccountKey> getActiveAccounts();
 };
 
 } // namespace RTBKIT

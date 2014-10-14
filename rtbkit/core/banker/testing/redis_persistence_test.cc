@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
                const string & info) {
         /* this could be a DATA_INCONSISTENCY error, but it is handled
            directly by the backend */
-        BOOST_CHECK_EQUAL(result.status, BankerPersistence::BACKEND_ERROR);
+        BOOST_CHECK_EQUAL(result.status, BankerPersistence::PERSISTENCE_ERROR);
         BOOST_CHECK(info.length() != 0); /* we ignore the actual message */
         done = true;
         ML::futex_wake(done);

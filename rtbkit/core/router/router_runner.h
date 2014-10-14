@@ -12,6 +12,7 @@
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
 
@@ -40,8 +41,10 @@ struct RouterRunner {
     std::string bankerUri;
     std::string spendRate;
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
+    int slowModeTolerance;
 
     bool useHttpBanker;
+    int httpActiveConnections;
 
     std::string slowModeMoneyLimit;
 
@@ -54,6 +57,10 @@ struct RouterRunner {
     std::shared_ptr<Router> router;
     Json::Value exchangeConfig;
     Json::Value bidderConfig;
+
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
 
     void init();
 

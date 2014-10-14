@@ -10,6 +10,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/rest_proxy.h"
 #include "soa/service/http_client.h"
+#include "soa/utils/print_utils.h"
 
 #include "test_http_services.h"
 
@@ -493,3 +494,114 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
+{
+    ML::Watchdog watchdog(10);
+    cerr << "client_expect_100_continue" << endl;
+
+    auto proxies = make_shared<ServiceProxies>();
+
+    HttpUploadService service(proxies);
+    service.start();
+
+    string baseUrl("http://127.0.0.1:"
+                   + to_string(service.port()));
+
+    auto client = make_shared<HttpClient>(baseUrl);
+    client->debug(true);
+    client->sendExpect100Continue(true);
+
+    MessageLoop loop;
+    loop.addSource("HttpClient", client);
+    loop.start();
+
+    HttpHeader sentHeaders;
+
+    auto debugCallback = [&](const HttpRequest&, curl_infotype info,
+                             char *buffer, size_t size)
+    {
+        if (info == CURLINFO_HEADER_OUT) {
+            const string headers(buffer, size);
+            sentHeaders.parse(headers);
+        }
+    };
+
+    {
+        int done(false);
+        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+                [&](const HttpRequest&, HttpClientError error,
+                            int statusCode, std::string&&, std::string&&)
+        {
+            BOOST_CHECK_EQUAL(error, HttpClientError::None);
+            BOOST_CHECK_EQUAL(statusCode, 200);
+            done = true;
+            ML::futex_wake(done);
+        });
+
+        callbacks->useDebug(debugCallback);
+
+        const std::string& smallPayload = randomString(20);
+        HttpRequest::Content content(smallPayload, "application/x-nothing");
+        client->post("/post-test", callbacks, content);
+
+        while (!done) {
+            ML::futex_wait(done, false);
+        }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "");
+        
+    }
+
+    {
+        int done(false);
+        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+                [&](const HttpRequest&, HttpClientError error,
+                            int statusCode, std::string&&, std::string&&)
+        {
+            BOOST_CHECK_EQUAL(error, HttpClientError::None);
+            done = true;
+            ML::futex_wake(done);
+        });
+
+        callbacks->useDebug(debugCallback);
+
+        const std::string& bigPayload = randomString(2024);
+        HttpRequest::Content content(bigPayload, "application/x-nothing");
+        client->post("/post-test", callbacks, content);
+
+        while (!done) {
+            ML::futex_wait(done, false);
+        }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "100-continue");
+    }
+
+    client->sendExpect100Continue(false);
+
+    {
+        int done(false);
+        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+                [&](const HttpRequest&, HttpClientError error,
+                            int statusCode, std::string&&, std::string&&)
+        {
+            BOOST_CHECK_EQUAL(error, HttpClientError::None);
+            done = true;
+            ML::futex_wake(done);
+        });
+
+        callbacks->useDebug(debugCallback);
+
+        const std::string& bigPayload = randomString(2024);
+        HttpRequest::Content content(bigPayload, "application/x-nothing");
+        client->post("/post-test", callbacks, content);
+
+        while (!done) {
+            ML::futex_wait(done, false);
+        }
+
+        BOOST_CHECK_EQUAL(sentHeaders.tryGetHeader("expect"), "");
+    }
+
+
+}

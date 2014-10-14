@@ -54,15 +54,16 @@ private:
         Worker(MockExchange * exchange, Json::Value bid, Json::Value win, Json::Value event);
 
         struct Win {
+            Date timestamp;
             BidRequest br;
             ExchangeSource::Bid bid;
             Amount winPrice;
         };
 
         struct Event {
-            enum Type { Impression, Click };
+            Date timestamp;
 
-            Type type;
+            enum Type { Impression, Click } type;
             BidRequest br;
             ExchangeSource::Bid bid;
         };
@@ -89,8 +90,6 @@ private:
         std::deque<Win> winsQueue;
         std::deque<Event> eventsQueue;
 
-        Datacratic::Date lastSentWins;
-        Datacratic::Date lastSentEvents;
     };
 
     std::vector<Worker> workers;

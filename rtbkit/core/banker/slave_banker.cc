@@ -464,13 +464,12 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
     if (exc) {
         cerr << "reauthorize budget got exception" << payload << endl;
         cerr << "accountKey = " << accountKey << endl;
-        return;
     }
     else if (responseCode == 200) {
         Account masterAccount = Account::fromJson(Json::parse(payload));
         accounts.syncFromMaster(accountKey, masterAccount);
     }
-    reauthorizeBudgetSent = Date();
+
     accountsLeft--;
     if (accountsLeft == 0) {
         lastReauthorizeDelay = Date::now() - reauthorizeDate;

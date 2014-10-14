@@ -78,6 +78,7 @@ private:
         THROW(error) << msg;
     }
 
+    void doReallyLateWin(const std::shared_ptr<PostAuctionEvent>& event);
 
     /** We got a win/loss.  Match it up with its bid and pass on to the
         winning bidder.

@@ -32,7 +32,8 @@ struct FinishedInfo {
     {
     }
 
-    Date auctionTime;            ///< Time at which the auction started
+    Date auctionTime; ///< !!! WARNING !!! Not filled in by anyone.
+
     Id auctionId;       ///< Auction ID from host
     Id adSpotId;          ///< Spot ID from host
     int spotIndex;

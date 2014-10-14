@@ -42,7 +42,7 @@ struct SubmissionInfo {
         the acution.  In this case, we record that message here and replay
         it after the auction has finished.
     */
-    std::vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
+    std::vector<std::shared_ptr<PostAuctionEvent> > pendingWinEvents;
     std::vector<std::shared_ptr<PostAuctionEvent> > earlyCampaignEvents;
 
     std::string serializeToString() const;

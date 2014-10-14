@@ -108,7 +108,7 @@ struct Router : public ServiceBase,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
            bool logBids = false,
-           Amount maxBidAmount = USD_CPM(200),
+           Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
 
@@ -118,7 +118,7 @@ struct Router : public ServiceBase,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
            bool logBids = false,
-           Amount maxBidAmount = USD_CPM(200),
+           Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
 
@@ -768,6 +768,8 @@ public:
     /* MonitorProvider interface */
     std::string getProviderClass() const;
     MonitorIndicator getProviderIndicators() const;
+
+    double slowModeTolerance;
 };
 
 

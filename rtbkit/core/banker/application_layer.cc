@@ -54,7 +54,7 @@ topupTransfer(const AccountKey &account,
 
 void
 HttpLayer::
-init(std::string bankerUri)
+init(std::string bankerUri, int activeConnections /* = 4 */)
 {
     if (bankerUri.empty())
         throw ML::Exception("bankerUri can not be empty");
@@ -62,9 +62,8 @@ init(std::string bankerUri)
     if (bankerUri.compare(0, 7, "http://"))
         bankerUri = "http://" + bankerUri;
 
-    // Since we send one HttpRequest per account when syncing, this is a good idea
-    // to keep a fairly large queue size in order to avoid deadlocks
-    httpClient.reset(new HttpClient(bankerUri, 4 /* numParallel */));
+    httpClient.reset(new HttpClient(bankerUri, activeConnections));
+    httpClient->sendExpect100Continue(false);
     addSource("HttpLayer::httpClient", httpClient);
 }
 
