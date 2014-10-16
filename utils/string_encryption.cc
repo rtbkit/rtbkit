@@ -1,5 +1,5 @@
 /* string_encryption.cc                                   -*- C++ -*-
-   Michael Burkat, 7 Octobre 2013
+   Michael Burkat, 7 Octobre 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
 */
