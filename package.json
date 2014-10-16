@@ -1,22 +1,12 @@
 {
     "name": "rtbkit",
-    "version": "0.1.0",
+    "version": "0.9.0",
     "author": "Datacratic <info@datacratic.com>",
-    "description": "A real-time bidder framwork", 
+    "description": "A real-time bidder framework", 
     "dependencies" : 
     {
         "vows":             "0.6.1",
-        "coffee-script":    "1.2.0",
-        "redis":            "0.7.1",
-        "zmq":              "git://github.com/datacratic/zeromq.node.git#a7ea1e2852af1b253698c65957a572151d1d05f3",
-        "pg":               "0.6.10",
-        "glob":             "3.0.1",
-        "moment":           "1.7.0",
-        "patcher":          "0.0.4",
-        "request":          "2.11.1",
-        "underscore":       "1.4.2",
-        "underscore.string":"2.3.0",
-        "node-inspector":   "0.1.10"
+        "coffee-script":    "1.2.0"
     }
 
 }

@@ -1,0 +1,88 @@
+{
+  "user": {
+    "ext": {
+      "nex_dma": "Boston",
+      "nex_hhi": 75000,
+      "nex_kids": "N",
+      "nex_marital": "M",
+      "nex_eth": "4"
+    },
+    "geo": {
+      "type": 3,
+      "region": "MA",
+      "zip": "02451",
+      "city": "Waltham",
+      "country": "USA"
+    },
+    "keywords": "sports",
+    "gender": "F",
+    "yob": 1961,
+    "id": "ASDFJKL"
+  },
+  "device": {
+    "geo": {
+      "country": "USA",
+      "lon": -71.227,
+      "lat": 42.378
+    },
+    "devicetype": 1,
+    "connectiontype": 3,
+    "didsha1": "132079238ec783b0b89dff308e1f9bdd08576273",
+    "dpidsha1": "f22711a823044bb9ce7ace097955de0286eb0182",
+    "ip": "166.137.138.18",
+    "carrier": "ATT",
+    "ua": "Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_2_1 like Mac OS X; el-gr) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8C148 Safari/6533.18.5",
+    "make": "Apple",
+    "model": "iPhone",
+    "osv": "3.1.2"
+  },
+  "site": {
+    "ext": {
+      "nex_coppa": 0
+    },
+    "publisher": {
+      "name": "RTB Bidder Integration Test Publisher",
+      "id": "98401"
+    },
+    "id": "99201",
+    "name": "Bidder Test Mobile WEB",
+    "domain": "rtbtest.nexage.com",
+    "cat": [
+      "IAB1"
+    ],
+    "keywords": "radiation",
+    "page": "http://www.nexage.com",
+    "ref": "http://www.iab.net",
+    "search": "radiation"
+  },
+  "imp": [
+    {
+      "ext": {
+        "nex_screen": 0
+      },
+      "video": {
+        "protocol": 2,
+        "maxduration": 30,
+        "minduration": 0,
+        "linearity": 1,
+        "mimes": [
+          "video/mp4",
+          "video/3gpp",
+          "video/x-m4v"
+        ],
+        "pos": 0,
+        "w": 300,
+        "h": 250
+      },
+      "banner": {
+        "pos": 0,
+        "w": 300,
+        "h": 250
+      },
+      "instl": 0,
+      "id": "bad98c87-fc20-402b-bab1-e90ebce2363c-1"
+    }
+  ],
+  "at": 2,
+  "id": "bad98c87-fc20-402b-bab1-e90ebce2363c"
+}

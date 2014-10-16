@@ -1,0 +1,49 @@
+{ 
+	"at": 2, 
+	"allimps": 0, 
+	"device": 
+	{ 
+		"devicetype": 2, 
+		"dnt": 0, 
+		"ip": "173.196.138.66", 
+		"js": 1, 
+		"ua": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:18.0) Gecko/20100101 Firefox/18.0" 
+	}, 
+	"id": "052cb51e-a906-4b54-9ff7-d9ff3caa19ac", 
+	"imp": 
+	[{ 
+		"banner": 
+		{ 
+			"battr": [ 1, 3, 5, 6, 8, 9, 10, 14, 15, 16 ], 
+			"h": 90, 
+			"id": "1", 
+			"pos": 1, 
+			"w": 728 
+		}, 
+		"bidfloor": 0.13, 
+		"id": "e52a31fb-6967-4477-ab85-8b8a521a6425", 
+		"instl": 0 
+	}], 
+	"site": 
+	{ 
+		"cat": ["IAB1"], 
+		"content": 
+		{ 
+			"context": "5", 
+			"id": "9eeae1fe-b6e7-45f6-8a9f-64ac5600a63e", 
+			"keywords": "HBase,PHP,groovy,hadoop,java,jquery", 
+			"title": "Marissa Mayer" 
+		}, 
+		"domain": "test.gumgum.com", 
+		"id": "ggumtest", 
+		"name": "GumGum Test", 
+		"page": "http://gumgum.com/", 
+		"publisher": { "id": "1", "name": "GumGum" } 
+	}, 
+	"tmax": 3000, 
+	"user": 
+	{ 
+		"buyeruid": "4112555229929124243", 
+		"id": "6d4ec685-8a4c-40da-a7e4-a41d0d54d369" 
+	} 
+}

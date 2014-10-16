@@ -1,0 +1,81 @@
+{
+  "ext": {
+    "ssp": "google"
+  },
+  "cur": [
+    "USD"
+  ],
+  "user": {
+    "buyeruid": "1234567890",
+    "id": "45asdf987656789adfad4678rew656789"
+  },
+  "device": {
+    "language": "en",
+    "ua": "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.16) Gecko/20110319 Firefox/3.6.16",
+    "geo": {
+      "zip": "10601",
+      "city": "White Plains",
+      "region": "NY",
+      "county": "US"
+    },
+    "ip": "64.124.253.1"
+  },
+  "site": {
+    "publisher": {
+      "id": "google_25"
+    },
+    "page": "http://siteabcd.com/page.htm",
+    "domain": "siteabcd.com",
+    "id": "234563"
+  },
+  "imp": [
+    {
+      "video": {
+        "ext": {
+          "skippable": 1
+        },
+        "companiontype": [
+          1,
+          2,
+          3
+        ],
+        "companionad": [
+          {
+            "id": 1,
+            "h": 250,
+            "w": 300
+          }
+        ],
+        "api": [
+          1
+        ],
+        "maxbitrate": 1500,
+        "minbitrate": 300,
+        "battr": [
+          13,
+          14
+        ],
+        "mimes": [
+          "video/x-flv",
+          "video/mp4",
+          "application/x-shockwave-flash",
+          "application/javascript"
+        ],
+        "linearity": 1,
+        "minduration": 5,
+        "maxduration": 30,
+        "protocol": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "w": 640,
+        "h": 480,
+        "startdelay": 0
+      },
+      "id": "1"
+    }
+  ],
+  "id": "1234534625253"
+}

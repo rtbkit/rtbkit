@@ -1,0 +1,146 @@
+{
+  "bid_request": {
+    "single_phase": false,
+    "excluded_attributes": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "test": false,
+    "debug_member_id": 99999,
+    "member_ad_profile_id": "12345",
+    "timestamp": "2011-06-07 14:39:35",
+    "bidder_timeout_ms": 100,
+    "bid_info": {
+      "model": 10001,
+      "make": 1001,
+      "carrier": 101,
+      "loc": "38.7875232696533,-77.2614831924438",
+      "app_id": "0382f0b5-91a5-11e2-adf6-28cfe94b60bf",
+      "is_secure": false,
+      "publisher_id": 1111,
+      "within_iframe": false,
+      "inventory_audits": [
+        {
+          "content_categories": [
+            171
+          ],
+          "inventory_attributes": [
+            1431,
+            1432,
+            1887
+          ],
+          "intended_audience": "general",
+          "auditor_member_id": 17
+        }
+      ],
+      "inventory_class": "class_2",
+      "domain": "foodandwine.com",
+      "url": "http://www.foodandwine.com/recipes/",
+      "selling_member_id": 3,
+      "total_clicks": 0,
+      "userdata_json": {
+        "key2": 1001,
+        "key": "value"
+      },
+      "time_zone": "America/New_York",
+      "gender": "male",
+      "no_cookies": false,
+      "no_flash": false,
+      "language": 1,
+      "accepted_languages": "en-US,en;q=0.8",
+      "operating_system": 8,
+      "user_agent": "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3",
+      "user_id_64": 2987961585469200400,
+      "age": 50,
+      "segments": [
+        {
+          "last_seen_min": 21108407,
+          "code": "PotentialCarBuyer",
+          "member_id": 6,
+          "id": 103
+        }
+      ],
+      "ip_address": "96.246.152.18",
+      "country": "US",
+      "region": "NY",
+      "city": "New York",
+      "postal_code": "10014",
+      "dma": 501
+    },
+    "members": [
+      {
+        "id": 6
+      }
+    ],
+    "tags": [
+      {
+        "smaller_sizes_allowed": false,
+        "creative_actions": [
+          "click-to-web",
+          "click-to-call"
+        ],
+        "creative_formats": [
+          "text",
+          "image"
+        ],
+        "supply_type": "web",
+        "default_creative_id": 4444,
+        "exclusive_default": false,
+        "tag_data": "Other data related to TinyTag ID",
+        "estimated_price_verified": true,
+        "estimated_average_price": 0.7,
+        "tag_format": "iframe",
+        "position": "unknown",
+        "sizes": [
+          "300x160",
+          "320x50"
+        ],
+        "size": "300x160",
+        "inventory_source_id": 476,
+        "site_id": 6666,
+        "id": 7777,
+        "auction_id_64": 8984480746668973000,
+        "allowed_media_types": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "allowed_media_subtypes": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "media_subtypes": [
+          "image"
+        ],
+        "inventory_audits": [
+          {
+            "content_categories": [
+              171
+            ],
+            "inventory_attributes": [
+              1431,
+              1432,
+              1887
+            ],
+            "intended_audience": "general",
+            "auditor_member_id": 17
+          }
+        ],
+        "venue_id": 0,
+        "ad_profile_id": 382,
+        "reserve_price": 1,
+        "estimated_clear_price": 0.95
+      }
+    ],
+    "allow_exclusive": false,
+    "debug_requested": false
+  }
+}

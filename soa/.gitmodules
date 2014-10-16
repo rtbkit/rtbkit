@@ -1,0 +1,12 @@
+[submodule "jml-build"]
+	path = jml-build
+	url = https://github.com/datacratic/jml-build.git
+[submodule "jml"]
+	path = jml
+	url = https://github.com/datacratic/jml.git
+[submodule "googleurl"]
+	path = googleurl
+	url = https://github.com/datacratic/google-url.git
+[submodule "tinyxml2"]
+	path = tinyxml2
+	url = https://github.com/datacratic/tinyxml2.git

@@ -1,0 +1,23 @@
+#! /bin/bash
+#------------------------------------------------------------------------------#
+# disabled-tests
+# by Remi Attab on 04-04-2013
+#
+# Simple script that looks for disabled tests in all the *.mk files.
+#
+# Disabled tests are either tests that are set to manual, noauto or have been
+# commented out.
+#
+#------------------------------------------------------------------------------#
+
+
+(
+find * -name "*.mk" | \
+    xargs grep '$(call [a-z_]*test,' | \
+    egrep 'manual|noauto' | \
+    sed -r 's_^(.*\.mk):.*call [a-z_]*test,([a-z0-9_]*),.*(manual|noauto).*_\1 \2 \3_';
+
+find * -name "*.mk" | \
+    xargs grep '#.*$(call [a-z_]*test,' | \
+    sed -r 's_^(.*\.mk):.*call [a-z_]*test,([a-z0-9_]*),.*_\1 \2 commented_'
+) | sort | column -t

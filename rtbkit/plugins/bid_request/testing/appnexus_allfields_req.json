@@ -1,0 +1,213 @@
+// Conforms to AppNexus Bid Request spec v. 2.0
+// See: https://datacratic.atlassian.net/wiki/download/attachments/10879383/Bid%20Request%20-%20Bidders%20-%20AppNexus%20Documentation.pdf?version=2&modificationDate=1363385991247&api=v2
+{
+    // Subsection: General data
+    "member_ad_profile_id":"12345",     // int
+    "timestamp":"2011-06-07 14:39:35",  // timestamp
+    "bidder_timeout_ms":100,            // int
+    "bid_info":{
+        // Subsection: user
+        "user_id_64":2987961585469200312, // int
+        "user_agent":                     // string
+          "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3",
+        // TODO Get actual values from here: https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service
+        "operating_system":8, // int
+        // "Accept-Language" header from browser (using ISO-639 language and ISO-3166 country codes)
+        "accepted_languages":"en-US,en;q=0.8",  // string
+        "language":1, // int
+        /* From lookup data:
+        0: Other
+        1: English
+        2: Chinese
+        3: Spanish
+        4: Japanese
+        5: French
+        6: German
+        7: Arabic
+        8: Portuguese
+        9: Russian
+        10: Korean
+        11: Italian
+        12: Dutch */
+        "no_flash":false,   // bool
+        "no_cookies":false, // bool
+        "gender":"male"     // enum: {"male", "female"}
+        "age":50            // int
+        "segments":[
+          {
+           "id":103,        // int
+           "member_id":6,   // int
+           // TODO Get values from "Segment Pixels" section in AN documentation
+           "code":"PotentialCarBuyer",  // string
+           "last_seen_min":21108407     // int, POSIX time
+          }
+        ]
+        // /Subsection: user
+        // Subsection: geographical data
+        "ip_address":"96.246.152.18",   // string
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "country":"US",                 // string
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "region":"NY",                  // string
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "city": "New York",             // string
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "postal_code": "10014",         // string
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "dma":501,                      // int
+        // TODO: no valid enum values, ISO or other standard for valid values in spec
+        "time_zone":"America/New_York", // string
+        // /Subsection: geographical data
+        // Subsection: userdata from server-side cookie storage
+        "userdata_json":  // JSON
+          {
+            "key":"value",
+            "key2":1001
+          },
+        "total_clicks":0,   // DEPRECATED // int
+        // /Subsection: userdata from server-side cookie storage
+        // Subsection: Inventory (page) information
+        "selling_member_id":3,  // int
+        "url":"http://www.foodandwine.com/recipes/",    // string
+        "domain":"foodandwine.com",   // string
+        "inventory_class":"class_2",  // DEPRECATED. enum: {"class_1", "class_2", "class_3", "unaudited", "blacklist"}
+        "inventory_audits":[
+          {
+            "auditor_member_id": 17,  // int
+            "intended_audience": "general",  // enum: {"general", "children", "young_adult", "mature"}
+            /* These ids can be found in the inventory-attribute service to determine what they mean.
+            The presence of an empty array in this field indicates that the site has been
+            audited and found to have no sensitive attributes. */
+            "inventory_attributes": [1431,1432,1887],
+            /* IDs of content categories of the site. These ids can be found in the content-category service to
+            determine what they mean. Note: you may see ids in this list that are not visible to you in the
+            content-category service. */
+            // TODO Need an API login to make the call to return category list:
+            // See here: https://wiki.appnexus.com/display/adnexusdocumentation/Category+Service
+            "content_categories": [171]
+          }
+        ],
+        "within_iframe":false,    // bool
+        "publisher_id":1111,      // int
+        "is_secure":false,        // bool // Note: All connections to secure inventory must be secure. This includes pixels, creatives and 3rd party calls.
+        // /Subsection: Inventory (page) information
+        // Subsection: Mobile-specific fields
+        "app_id":"0382f0b5-91a5-11e2-adf6-28cfe94b60bf",  // string UID
+        // Location of the user, provided in terms of latitude and longitude.
+        // Expressed in the format "snnn.ddddddddddddd,snnn.ddddddddddddd",
+        // where south and west are represented as negative.
+        // There may be up to 13 decimal places of precision.
+        "loc":,"38.7875232696533,-77.2614831924438",    // string
+        // /Subsection: Mobile-specific fields
+        // Subsection: Mobile fields not available in initial release
+        // A mapping of IDs to carrier names and countries will be available
+        // from the carrier read-only service.
+        // A special carrier "WIFI" will exist for users connecting via WiFi.
+        "carrier":101,  // int
+        // Identifier for the handset manufacturer.
+        // A mapping of IDs to manufacturer names and associated models will be available
+        // from the handset read-only service.
+        "make":1001,
+        // Identifier for the handset model.
+        // A mapping of IDs to model names and associated manufacturers will be available
+        // from the handset read-only service.
+        "model":10001,
+        // /Subsection: Mobile fields not available in initial release
+    },
+    "members":[
+        {
+            "id":6
+        },
+        {
+            "id":12
+        }
+    ],
+    "tags":[
+        {
+            // Subsection: Auction data
+            "auction_id_64":8984480746668973511,  // int
+            // /Subsection: Auction data
+            // Subsection: Inventory hierarchy data
+            /* The ID of the TinyTag. A a tag is a subset of inventory within
+            a site. Bidders cannot lookup what tag the ID corresponds
+            to, but these IDs can be used as anonymous, optimizeable
+            chunks of inventory */
+            "id":7777,  // int
+            /* The ID of the site. Sites are the second-largest groupings of
+            inventory for members that sell their inventory through
+            AppNexus. A site is a subset of inventory for a publisher.
+            Bidders cannot lookup what site the ID corresponds to, but
+            these IDs can be used as anonymous, optimizeable chunks
+            of inventory */
+            "site_id":6666,   // int
+            "inventory_source_id":476,  // int  // May be hidden OPT
+            // /Subsection: Inventory hierarchy data
+            // Subsection: General data
+            "size":"300x160", // string   // TODO get the enum set of allowed size strings, IAB standard?
+            "sizes":["300x160","320x50"]  // string   // TODO get the enum set of allowed size strings, IAB standard?
+            "position":"unknown",         // enum: {"below","above","unknown"}
+            "tag_format":"iframe",        // enum: {"iframe","javascript"}
+            "allowed_media_types":[1,2,3,4,5],  // arr int  // TODO need list of valid values
+            "allowed_media_subtypes":[1,2,3,4,5],   // arr int  // TODO need list of valid string values
+            "media_subtypes":["image"],   // arr string   // TODO need list of valid string values
+            "inventory_audits":[
+                {
+                    "auditor_member_id": 17,  // int
+                    "intended_audience": "general",  // enum: {"general", "children", "young_adult", "mature"}
+                    /* These ids can be found in the inventory-attribute service to determine what they mean.
+                    The presence of an empty array in this field indicates that the site has been
+                    audited and found to have no sensitive attributes. */
+                    "inventory_attributes": [1431,1432,1887],
+                    /* IDs of content categories of the site. These ids can be found in the content-category service to
+                    determine what they mean. Note: you may see ids in this list that are not visible to you in the
+                    content-category service. */
+                    // TODO Need an API login to make the call to return category list:
+                    // See here: https://wiki.appnexus.com/display/adnexusdocumentation/Category+Service
+                    "content_categories": [171]
+                }
+            ],
+            "venue_id":0,         // int  // Not Used
+            "ad_profile_id":382,  // int  // tag-level ad approval profile ID
+            // /Subsection: General data
+            // Subsection: Pricing data
+            // TODO CONFIRM THIS ASSUMPTION
+            // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
+            //  then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
+            // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
+            // So the code in appnexus_bid_request.cc for now simply assumes the AN price equals the OpenRTB price
+            "reserve_price":1.00,             // float
+            "estimated_clear_price":.95,      // double
+            "estimated_average_price":.70,    // double
+            "estimated_price_verified":true,  // bool
+            // /Subsection: Pricing data
+            // Subsection: Owner-specific data
+            "tag_data":"Other data related to TinyTag ID",  // string
+            "exclusive_default":false,  // bool
+            "default_creative_id":4444, // int  // default creative ID for TinyTag
+            // /Subsection: Owner-specific data
+            // Subsection: Mobile-specific fields
+            // Business rule: always sent for "mobile_app" and never sent for "web"
+            // TODO clarify if this is an enum, spec is undclear but it appears valid values are {"web", "mobile_browser", "mobile_app"}
+            "supply_type": "web",   // string
+            // TODO confirm this is an Array
+            "creative_formats":["text", "image"],   // array of string // 'enum' values given: "text", "image", "url-html", "url-js", "flash", "raw-js", "raw-html", "iframe-html", "urlvast"
+            // TODO confirm this is an Array
+            "creative_actions":["click-to-web", "click-to-call"],  // array of string  // 'enum' values given: "click-to-web", "click-to-call"
+            "smaller_sizes_allowed":false,  // bool
+            // /Subsection: Mobile-specific fields
+        }
+    ],
+    // /Subsection: General data
+    // Subsection: Owner-specific data
+    "allow_exclusive":false,  // bool
+    // /Subsection: Owner-specific data
+    // Subsection: Debug data
+    "debug_requested":false,  // bool
+    "debug_member_id":99999,  // int
+    "test":false,             // bool
+    // /Subsection: Debug data
+    // Subsection: Other data
+    "excluded_attributes":[1,2,3,4,5],   // array of int
+    "single_phase":false                 // bool
+    // /Subsection: Other data
+}

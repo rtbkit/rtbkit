@@ -1,0 +1,35 @@
+{
+    "auction_id_64":8984480746668973511,
+    "id":7777,
+    "site_id":6666,
+    "inventory_source_id":476,
+    "size":"300x160",
+    "sizes":["300x160","320x50"],
+    "position":"unknown",
+    "tag_format":"iframe",
+    "allowed_media_types":[1,2,3,4,5],
+    "allowed_media_subtypes":[1,2,3,4,5],
+    "media_subtypes":["image"],
+    "inventory_audits":[
+      {
+          "auditor_member_id":17,
+          "intended_audience":"general",
+          "inventory_attributes":[1431,1432,1887],
+          "content_categories":[171]
+      }
+    ],
+    "venue_id":0,
+    "ad_profile_id":382,
+    "reserve_price":1.00,
+    "estimated_clear_price":0.9573626272727627,
+    "estimated_average_price":0.7382921098716125,
+    "estimated_price_verified":true,
+    "tag_data":"Other data related to TinyTag ID",
+    "exclusive_default":false,
+    "default_creative_id":4444,
+    "supply_type":"web",
+    "creative_formats":["text","image"],
+    "creative_actions":["click-to-web","click-to-call"],
+    "smaller_sizes_allowed":false
+}
+

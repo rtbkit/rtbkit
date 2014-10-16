@@ -1,0 +1,165 @@
+Worker_Task
+
+* Make worker_task wait for all threads to startup before continuing (otherwise we have a race condition where it exits straight away)
+* Allow jobs to be reserved for the current thread to avoid context switches (so that a task that creates a lot of jobs then waits for a group to finish will get at least one of the jobs to be done)
+
+Generic
+* Implement minivec
+* Implement compact_vector (DONE)
+* Use compact_vector for Label_Dist class
+* Include amount of example weight in W matrix
+* Standardize and fix NaN handling (x < x doesn't work) (DONE)
+  * Move from isnan() to ismissing() and check performance of isnan()
+* Least squares: fall back to gelsd if rank deficient in gels (DONE)
+* Use eigen2 matrix and vector classes (stop using boost::multi_array) (NO).  The eigen2 classes have a size limit of 10000 in each dimension and are unuseable.  It's a shame.
+
+Datasets
+* Deterministic adaptive quantization
+* Allow @filename syntax
+* Add feature set filters
+* Allow "nan" in a dataset (shouldn't make it catagorical)
+* Store if a feature type has been inferred and relax the rules if it has
+* Allow filtered initialization that never allocates memory for those feature vectors that are filtered out
+* Don't index NaN values *at all* in the training data (DONE)
+  * Unless there is also a non-missing value of the same feature in the same example...
+
+Explaining
+* Add explanations (DONE)
+
+Classifier
+* Add in Feature_Set_Mapping class (DONE)
+* Add in optimized predict functionality (DONE)
+* Add single label predict methods (DONE)
+* Enumerate types of output (prob, +/- one, +/- infinity) and include as a specification of the classifier to generate
+
+Boosting
+* Use optimized predict to calculate weights (DONE)
+
+Decision Trees
+* Split subtree training over multiple threads (DONE)
+* Split features over multiple threads (DONE)
+* For one dimensional weight arrays, don't create pointers (manipulate arrays directly)
+* Test explicit NaN, -inf, inf split points work properly
+* Implement random forest building blocks and options (DONE)
+* Implement pruning
+* Add in optimization (DONE)
+* Check for >= vs < and unsafe less values
+* Fix problems with zero weight in the class
+* Add min split weight and min split samples to avoid overfitting; choose a good default
+* Use double for Z values
+* Improve detection of conditions where no progress possible
+* Keep trying to progress where no feature found (eg, XOR problem)
+* Unify split class with boosted stumps (DONE)
+* Multithreading unit test
+* Unify equal/<= handling with stumps (DONE)
+* SIMD speedups
+* Re-code recursive algorithms as non-recursive to allow porting to non-recursive architectures (eg CUDA)
+* Unit test for -INF value in the distribution
+* Unit test for INF value in the distribution
+* Unit test for values with no floating point numbers between them
+* Unit test that the split point agrees with the training
+* Test and fix up regression
+* Detect when, in a lower part of the tree, that there is no more weight to transfer (because all weights are at zero as the upper part of the tree cut this off) and stop transferring weight when this happens:
+
+added split 0.4148 with 0 missing and score 0.144743
+before: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.50403   0.03679  0.14743  0.14474
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+bucket contents: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.00000   0.00000  0.00000  0.00000
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+after: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.50403   0.03679  0.14743  0.14474
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+Default_w is the same as W_regress.
+
+
+Stumps
+* Use a spinlock for the accum function with multiple threads
+* Implement optimized predict
+* Clean up Z nearly-equal behaviour
+* Implement multithreaded speedup
+* Speed up accumulate in multithreaded mode
+* Unit test for multithreaded training
+* Unit test for splitting
+* Unify Stump::Relation, Stump::Update with decision tree version (DONE)
+
+Searching core
+* Parameterize W on double class 
+* Used fixed point class for W
+* Clean up and parameterize
+* Speed up buckets core
+* Don't bother searching except where there is a label transition (speedup)
+* Parallel feature searching (DONE)
+* Coalesce parallel feature searching so that we don't create too many tasks to be run
+* Deal with the situation where a feature has multiple values, one of which is missing and the others not
+
+Probabilizer
+* Allow GLZ probabilizers to be merged together to allow better averaging behaviour
+* Use optimized classifier to produce output (DONE)
+* Parallelize running of the classifier (DONE)
+* Use ridge regression option
+
+Algorithms
+* Implement adtrees
+* Implement combining of decision trees into an adtree
+* Implement decision tree re-arranging
+
+Speedup
+* Port splitting core to CUDA
+* Port splitting core to CAL
+* Port splitting core to OpenCL
+
+Bugs
+* Figure out why it doesn't matter what direction the LESS relation is in split.h (similar results seem to be obtained anyway) (DONE).  Because the split is run to generate the classes, so they are always compatible.
+* Make sure that the binsym always returns the same as the non-binsym versions
+* Finding an out-of-range split point for categorical feature TESTING-COMMAND6
+
+* Running out of precision (?) in logsoftmax:
+  ../build/x86_64/bin/classifier_training_tool letters.dat.gz -V 10 -T 20 type=perceptron max_iter=50 learning_rate=20 verbosity=3 arch=100 batch_size=1 profile=1 use_cuda=0 training_algo=1 training_mode=1 -R min_examples_per_job=1 batch_size=20 output_activation=logsoftmax
+
+* decorrelate optional in Perceptron_Generator (done)
+* compare against fprop (done)
+   ./fexp -d ../../../optbprop/letters.dat / --oh -h 100 -e 20 -l 0.01 --lsm
+
+
+Bagging
+* Use group-aware and sampled (via weights) split scheme, not naive version that is currently used
+* Unify code to split into training/validation sets from all over the place
+* Use thread-reproducible RNG for bags (DONE)
+* Use group-aware sampling scheme
+* Use weighted sampling
+* Handle run away threading (DONE)
+
+Perceptrons
+* Get a handle on the domain and range of classifiers and treat automatically
+* Make regression work
+* Make regression work for arbitrary label range
+
+GLZ classifier
+* Use ridge regression for training (DONE)
+* Optimization (DONE)
+
+
+
+Other
+* Use scheme from ausdm to remove linearly dependent columns and unify between GLZ classifier and perceptron
+* Ridge regression (DONE)
+* Unified input stage for 
+* Allow regression-like classifiers (GLZ, perceptrons) to handle missing values via guard features and default activations
+
+Worker_Task
+* Reduce lock contention (use lock-free algorithms; divide work ahead of time; etc)
+
+Ridge Regression
+* Allow weighted ridge regression directly (currently, you have to use IRLS if the weights aren't uniform) and modify in GLZ classifier
+

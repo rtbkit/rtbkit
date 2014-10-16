@@ -1,0 +1,49 @@
+#ifndef CURRENCY
+# error "This header should not be included directly"
+#endif
+
+#define CURRENCY_CODE BOOST_PP_CAT(CurrencyCode::CC_, CURRENCY)
+#define MICRO_CURRENCY BOOST_PP_CAT(Micro, CURRENCY)
+#define CURRENCY_CPM BOOST_PP_CAT(CURRENCY, _CPM)
+#define MICRO_CURRENCY_CPM BOOST_PP_CAT(BOOST_PP_CAT(Micro, CURRENCY), _CPM)
+
+
+typedef CurrencyTemplate<CURRENCY_CODE, Micro> MICRO_CURRENCY;
+typedef CurrencyTemplate<CURRENCY_CODE, NaturalCurrency> CURRENCY;
+typedef CurrencyTemplate<CURRENCY_CODE, CPM> CURRENCY_CPM;
+typedef CurrencyTemplate<CURRENCY_CODE, MicroCPM> MICRO_CURRENCY_CPM;
+
+template <>
+inline detail::CurrencyConverter<Micro>
+amountToCurrencyRatio<CURRENCY_CODE, Micro>(const Amount & amount)
+{
+    return MICRO_CURRENCY(amount);
+
+}
+
+template <>
+inline detail::CurrencyConverter<NaturalCurrency>
+amountToCurrencyRatio<CURRENCY_CODE, NaturalCurrency>(const Amount & amount)
+{
+    return CURRENCY(amount);
+}
+
+template <>
+inline detail::CurrencyConverter<CPM>
+amountToCurrencyRatio<CURRENCY_CODE, CPM>(const Amount & amount)
+{
+    return CURRENCY_CPM(amount);
+}
+
+template <>
+inline detail::CurrencyConverter<MicroCPM>
+amountToCurrencyRatio<CURRENCY_CODE, MicroCPM>(const Amount & amount)
+{
+    return MICRO_CURRENCY_CPM(amount);
+}
+
+
+#undef CURRENCY_CODE
+#undef MICRO_CURRENCY
+#undef CURRENCY_CPM
+#undef MICRO_CURRENCY_CPM

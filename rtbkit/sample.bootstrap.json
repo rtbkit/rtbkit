@@ -1,0 +1,52 @@
+// Contains basic configuration options for an rtbkit installation. Can be
+// provided to services by either:
+//
+// - Renaming the file to bootstrap.json and placing in the current working
+//   directory.
+// - Setting the environment variable RTBKIT_BOOTSTRAP to the path of the
+//   bootstrap.json file.
+// - Set the -B or --bootstrap command line argument to the path of the
+//   bootstrap.json file.
+{
+    // Defines a namespace within zookeeper and carbon.
+    "installation": "rtb-test",
+
+    // Defines the current location the installation used to filter services
+    // and divide the carbon hierarchy.
+    "location": "mtl",
+
+    // Location of the Zookeeper instance which will be used to do service
+    // discovery. If missing, then all will need to be located in the same
+    // process and share a single instance of the ServiceProxies object (useful
+    // for tests).
+    "zookeeper-uri": "localhost:2181",
+
+    // Location of the Carbon instances which will be used to log various
+    // metrics. If missing, then a barebone internal event logger will be
+    // created which can be useful to write tests.
+    // "carbon-uri": ["carbon1.kittens.org:2003", "carbonA.kittens.org:2003"],
+
+    // Port ranges that various services can use to listen for incoming
+    // connections. These can be specified either as a single port or a range of
+    // ports where the last element is exclusive. Note that these port ranges
+    // must not overlap.
+    "portRanges": {
+        "logs":                   [16000, 17000],
+        "router":                 [17000, 18000],
+        "augmentors":             [18000, 19000],
+        "configuration":          [19000, 20000],
+        "postAuctionLoop":        [20000, 21000],
+        "postAuctionLoopAgents":  [21000, 22000],
+
+        "banker.zmq":             [22000, 23000],
+        "banker.http":              9985,
+
+        "agentConfiguration.zmq": [23000, 24000],
+        "agentConfiguration.http":  9986,
+
+        "monitor.zmq":            [24000, 25000],
+        "monitor.http":             9987,
+
+        "adServer.logger":        [25000, 26000]
+    }
+}

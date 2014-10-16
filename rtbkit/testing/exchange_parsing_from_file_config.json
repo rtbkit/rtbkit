@@ -1,0 +1,19 @@
+[
+    {
+        "exchangeType" : "openrtb",
+        "expectedRejected" : 0,
+        "samples" :
+            [
+                "./rtbkit/testing/exchange_parsing_from_file_bid_request.json",
+                "./rtbkit/testing/exchange_parsing_from_file_bid_request2.json"
+            ]
+    },
+    {
+        "exchangeType" : "bidswitch",
+        "expectedRejected" : 1,
+        "samples" :
+            [
+                "./rtbkit/testing/exchange_parsing_from_file_bidswitch_bid_request.json"
+            ]
+    }
+]
