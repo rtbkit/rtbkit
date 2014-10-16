@@ -427,7 +427,12 @@ doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
     else stats.matchedLosses++;
 
     event->publish(logger);
-    bidder->sendWinLossMessage(*event);
+
+    deliverEvent("bidResult." + event->typeString(), "doWinLossEvent", event->response.account,
+        [&](const AgentConfigEntry& entry)
+        {
+            bidder->sendWinLossMessage(entry.config, *event);
+        });
 }
 
 void
@@ -442,24 +447,38 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
 
     // For the moment, send the message to all of the agents that are
     // bidding on this account
-
-    bool sent = false;
-    auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
+    //
+    deliverEvent("delivery." + event->label, "doCampaignEvent", event->account,
+        [&](const AgentConfigEntry& entry)
         {
-            if (!entry.config) return;
-            bidder->sendCampaignEventMessage(entry.name, *event);
-            sent = true;
-        };
+            bidder->sendCampaignEventMessage(entry.config, entry.name, *event);
+        });
 
-    const AccountKey & account = event->account;
+}
+
+void
+PostAuctionService::
+deliverEvent(const std::string& label, const std::string& eventType,
+             const AccountKey& account,
+             std::function<void(const AgentConfigEntry& entry)> onAgent)
+{
+    bool sent = false;
+    auto onMatchingAgent = [&](const AgentConfigEntry& entry)
+    {
+        if (!entry.config) return;
+        onAgent(entry);
+        sent = true;
+    };
+
     configListener.forEachAccountAgent(account, onMatchingAgent);
-
     if (!sent) {
-        recordHit("delivery.%s.orphaned", event->label);
-        logPAError("doCampaignEvent.noListeners" + event->label,
-                "nothing listening for account " + account.toString());
+        recordHit("%s.orphaned", label);
+        logPAError(ML::format("%s.noListeners%s", eventType, label),
+                   "nothing listening for account " + account.toString());
     }
-    else recordHit("delivery.%s.delivered", event->label);
+    else {
+        recordHit("%s.delivered", label);
+    }
 }
 
 void
