@@ -109,7 +109,7 @@ public:
         /* All the amounts in the storage accounts must have a counterpart in
          * the banker accounts and their value must be inferior or equal to
          * the corresponding amounts in the banker. */
-        return (budgetIncreases.isSameOrPastVersion(otherAccount.budgetIncreases)
+        bool same = (budgetIncreases.isSameOrPastVersion(otherAccount.budgetIncreases)
                 && budgetDecreases.isSameOrPastVersion(otherAccount.budgetDecreases)
                 && recycledIn.isSameOrPastVersion(otherAccount.recycledIn)
                 && allocatedIn.isSameOrPastVersion(otherAccount.allocatedIn)
@@ -121,6 +121,9 @@ public:
                 && commitmentsMade.isSameOrPastVersion(otherAccount.commitmentsMade)
                 && adjustmentsOut.isSameOrPastVersion(otherAccount.adjustmentsOut)
                 && spent.isSameOrPastVersion(otherAccount.spent));
+        if (same) return true;
+        std::cerr << "isSameOrPastVersion:\n" << toJson() << std::endl << otherAccount.toJson() << std::endl;
+        return false;
     }
 
     Json::Value toJson() const
@@ -367,14 +370,12 @@ public:
         parentAccount.balance -= fromRecycled;
         recycledIn += fromRecycled;
         balance += fromRecycled;
-        parentAccount.status = ACTIVE;
         
         // Give back to budget
         parentAccount.allocatedOut += fromBudget;
         parentAccount.balance -= fromBudget;
         budgetIncreases += fromBudget;
         balance += fromBudget;
-        status = ACTIVE;
 
         // Give to parent recycled
         parentAccount.recycledIn += toRecycled;
@@ -442,8 +443,10 @@ public:
 
 struct ShadowAccount {
     ShadowAccount()
-        : attachedBids(0), detachedBids(0)
+        : status(Account::ACTIVE), attachedBids(0), detachedBids(0)
         {}
+
+    Account::Status status;
 
     // credit
     CurrencyPool netBudget;          ///< net of fields not mentioned here
@@ -671,6 +674,10 @@ struct ShadowAccount {
         balance = netBudget + commitmentsRetired
             - commitmentsMade - spent;
 
+        if (status == Account::ACTIVE && masterAccount.status == Account::CLOSED) {
+            std::cout << "syncFromMaster closing slave account" << std::endl;
+            status = masterAccount.status;
+        }
         checkInvariants();
     }
 
@@ -844,6 +851,16 @@ struct Accounts {
         return ensureAccount(account, type);
     }
 
+    bool removeArchivedAccount(const AccountKey & account)
+    {
+        Guard guard(lock);
+        auto it = accounts.find(account);
+        if (it == accounts.end()) return false;
+
+        accounts.erase(it);
+        return true;
+    }
+
     void restoreAccount(const AccountKey & accountKey,
                         const Json::Value & jsonValue,
                         bool overwrite = false) {
@@ -874,6 +891,17 @@ struct Accounts {
         newAccount.status = Account::ACTIVE;
     }
 
+    void reactivateAccount(const AccountKey & accountKey) 
+    {
+        Guard guard(lock);
+        AccountKey parents = accountKey;
+        while (!parents.empty()) {
+            getAccountImpl(parents).status = Account::ACTIVE;
+            std::cout << getAccountImpl(parents).status << " " << parents.toString() << std::endl;
+            parents.pop_back();
+        }
+    }
+
     const Account createBudgetAccount(const AccountKey & account)
     {
         Guard guard(lock);
@@ -896,16 +924,16 @@ struct Accounts {
         return getAccountImpl(account);
     }
 
-    int accountPresentAndActive(const AccountKey & account) const
+    std::pair<bool, bool> accountPresentAndActive(const AccountKey & account) const
     {
         Guard guard(lock);
         auto it = accounts.find(account);
         if (it == accounts.end())
-            return 0;
+            return std::make_pair(false, false);
         if (it->second.status == Account::CLOSED)
-            return 0;
+            return std::make_pair(true, false);
         else
-            return 1;
+            return std::make_pair(true, true);
     }
     
     /** closeAccount behavior is to close all children then close itself,
@@ -1252,12 +1280,15 @@ private:
 
     const Account closeAccountImpl(const AccountKey & account) 
     {
+        std::cout << "closing account: " << account.toString() << std::endl;
         AccountInfo accountInfo = getAccountImpl(account);
-        
+        if (accountInfo.status == Account::CLOSED)
+            return accountInfo;
+
         if (accountInfo.children.size() > 0) {
             for ( AccountKey child : accountInfo.children) {
+                std::cout << "closing child: " << child.toString() << std::endl;
                 closeAccountImpl(child);
-                using namespace std;
             }
         }
         
@@ -1265,7 +1296,8 @@ private:
             getAccountImpl(account).recuperateTo(getParentAccount(account));
 
         getAccountImpl(account).status = Account::CLOSED;
-        
+        std::cout << getAccountImpl(account).status << " " << account.toString() << std::endl;
+
         return getAccountImpl(account); 
     }
 
@@ -1605,7 +1637,7 @@ public:
         Guard guard(lock);
         
         for (auto & a: accounts) {
-            if (a.second.uninitialized)
+            if (a.second.uninitialized || a.second.status == Account::CLOSED)
                 continue;
             onAccount(a.first, a.second);
         }

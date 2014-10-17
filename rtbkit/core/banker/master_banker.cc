@@ -181,6 +181,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
             ExcAssert(reply.type() == ARRAY);
 
             Json::Value badAccounts(Json::arrayValue);
+            Json::Value archivedAccounts(Json::arrayValue);
 
             /* All accounts known to the banker are fetched.
                We need to check them and restore them (if needed). */
@@ -242,8 +243,8 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                                     && storageAccount.status == Account::ACTIVE) {
                                 storeCommands.push_back(SMOVE("banker:accounts",
                                             "banker:archive", key));
+                                archivedAccounts.append(Json::Value(key));
                             }
-                            // move an account from Closed archive to Active accounts
                             else if (bankerAccount.status == Account::ACTIVE
                                     && storageAccount.status == Account::CLOSED) {
                                 storeCommands.push_back(SMOVE("banker:archive",
@@ -322,7 +323,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
 
                      if (results.ok()) {
                          saveResult.status = SUCCESS;
-                         onSaved(saveResult, "");
+                         onSaved(saveResult, boost::trim_copy(archivedAccounts.toString()));
                      }
                      else {
                          LOG(error) << "phase2 save operation failed with error '"
@@ -648,7 +649,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         if (parentsToRestore.size() > 0) {
             this->moveToActiveAndSave(parentsToRestore, onRestored);
         } else {
-#if DEBUG_RESTORE
+#if 1
             LOG(print) << "no Parents to restore" << endl;
 #endif
             onRestored(make_shared<Accounts>(), SUCCESS, "");
@@ -876,18 +877,15 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        "Close an account and all of its child accounts, "
                        "transfers all remaining balances to parent.",
                        "Account: Representation of the modified account",
-                       [] (const std::vector<AccountSummary> & a) { 
+                       [] (bool success) ->Json::Value {
                             Json::Value result(Json::objectValue);
-                            result["account_before_close"] = a[0].toJson();
-                            result["account_after_close"] = a[1].toJson();
-                            if (a.size() == 4) {
-                                result["parent_before_close"] = a[2].toJson();
-                                result["parent_after_close"] = a[3].toJson();
+                            if ( ! success ) {
+                                result["error"] = "account couldn't be closed";
+                                return result;
                             } else {
-                                result["parent_before_close"] = "No Parent Account";
-                                result["parent_after_close"] = "No Parent Account";
+                                result["success"] = "account was closed";
+                                return result;
                             }
-                            return result;
                        },
                        &MasterBanker::closeAccount,
                        this,
@@ -935,6 +933,16 @@ Json::Value
 MasterBanker::
 createAccount(const AccountKey & key, AccountType type)
 {
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+
+    if (!presentActive.first) {
+        LOG(print) << "create restore: " << key.toString() << endl;
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
+    }
+
     Account account = accounts.createAccount(key, type);
     return account.toJson();
 
@@ -960,6 +968,15 @@ onStateSaved(const BankerPersistence::Result& result,
              const string & info)
 {
     if (result.status == BankerPersistence::SUCCESS) {
+        if (info != "") {
+            Json::Value archivedAccountKeys = Json::parse(info);
+            ExcAssert(archivedAccountKeys.type() == Json::arrayValue);
+            for (Json::Value jsonKey : archivedAccountKeys) {
+                ExcAssert(jsonKey.type() == Json::stringValue);
+                string arKey = jsonKey.asString();
+                LOG(print) << "account " << arKey << " was moved from accounts to archive" << endl;
+            }
+        }
         //cerr << __FUNCTION__
         //     <<  ": banker state saved successfully to backend" << endl;
         recordHit("save.success");
@@ -1008,6 +1025,11 @@ saveState()
     if (!storage_ || saving)
         return;
 
+    auto onAccount = [&] (const AccountKey & ak, const Account & a) {
+        LOG(print) << a.status << " " << ak.toString() << endl;
+    };
+    accounts.forEachAccount(onAccount);
+
     saving = true;
     storage_->saveAll(accounts, bind(&MasterBanker::onStateSaved, this,
                                           placeholders::_1,
@@ -1047,6 +1069,7 @@ MasterBanker::
 loadStateSync()
 {
     recordHit("load.attempts");
+    LOG(print) << "load attempt" << endl;
 
     if (!storage_)
         return;
@@ -1079,7 +1102,16 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
             recordHit("restored.success." + ak.toString());
+            // check if account already there,
+            pair<bool, bool> pAndA = accounts.accountPresentAndActive(ak);
+            LOG(print) << ak.toString() << " present: " << pAndA.first
+                       << " active: " << pAndA.second << endl;
+            // check status
             accounts.restoreAccount(ak, a.toJson());
+            pAndA = accounts.accountPresentAndActive(ak);
+            LOG(print) << ak.toString() << " present: " << pAndA.first
+                       << " active: " << pAndA.second << endl;
+            LOG(print) << "successfully restored " << ak.toString() << endl;
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
@@ -1106,8 +1138,23 @@ MasterBanker::
 restoreAccount(const AccountKey & key)
 {
     recordHit("restore.attempts." + key.toString());
-    
+    LOG(print) << "restore attempts: " << key.toString() << endl;
+
     Guard guard(saveLock);
+
+    AccountKey parent = key;
+    while (!parent.empty()) {
+        pair<bool, bool> pAndA = accounts.accountPresentAndActive(parent);
+        LOG(print) << parent.toString() << " present: " << pAndA.first
+                   << " active: " << pAndA.second << endl;
+        if (pAndA.first && pAndA.second == Account::CLOSED) {
+            accounts.reactivateAccount(parent);
+            pAndA = accounts.accountPresentAndActive(parent);
+            LOG(print) << "reactivated " <<  parent.toString() << " present: " << pAndA.first
+                   << " active: " << pAndA.second << endl;
+        }
+        parent.pop_back();
+    }
 
     if (!storage_)
         return;
@@ -1170,7 +1217,17 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
- 
+
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    
+    if (!presentActive.first) {
+        LOG(print) << "setBalance restore: " << key.toString() << endl;
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
+    }
+
     return accounts.setBudget(key, newBudget);
 }
 
@@ -1185,15 +1242,26 @@ onCreateAccount(const AccountKey &key, AccountType type)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
+    
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    
+    if (!presentActive.first) {
+        LOG(print) << "onCreate restore: " << key.toString() << endl;
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
+    }
 
     return accounts.createAccount(key, type);
 }
 
-const std::vector<AccountSummary>
+bool
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
     Record record(this, "closeAccount." + key.toString());
+    LOG(print) << "close Account: " << key.toString() << endl;
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1201,27 +1269,28 @@ closeAccount(const AccountKey &key)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
  
-    AccountKey parentKey = key;
-    if (key.size() > 1) {
-        parentKey.pop_back();
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    
+    if (!presentActive.first) {
+        return false;
+    }
+    else if (presentActive.first && !presentActive.second) {
+        return false;
     }
 
-    AccountSummary before = accounts.getAccountSummary(key);
-    AccountSummary beforeParent = accounts.getAccountSummary(parentKey);
+    auto account = accounts.closeAccount(key);
+   
+    AccountKey parent = key; 
+    while (!parent.empty()) {
+        auto account = accounts.getAccount(parent);
+        LOG(print) << account.status << " " << parent.toString() << endl;
+        parent.pop_back();
+    }
 
-    accounts.closeAccount(key);
-    
-    AccountSummary after = accounts.getAccountSummary(key);
-    AccountSummary afterParent = accounts.getAccountSummary(parentKey);
-
-    std::vector<AccountSummary> testClose = {before, after};
-    
-    if (key.size() > 1) {
-        testClose.push_back(beforeParent);
-        testClose.push_back(afterParent);
-    }  
-
-    return testClose;
+    if (account.status == Account::CLOSED)
+        return true;
+    else
+        return false;
 }
 
 const std::vector<AccountKey>
@@ -1249,8 +1318,17 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
 
-    if ( ! accounts.accountPresentAndActive(key) )
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    
+    if (!presentActive.first) {
+        LOG(print) << "setBalance restore: " << key.toString() << endl;
         restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        LOG(print) << "setBalance reactivate: " << key.toString() << endl;
+        accounts.reactivateAccount(key);
+    }
+
     return accounts.setBalance(key, amount, type);
 }
 
@@ -1264,6 +1342,16 @@ addAdjustment(const AccountKey &key, CurrencyPool amount)
         JML_TRACE_EXCEPTIONS(false);
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+    }
+    
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    
+    if (!presentActive.first) {
+        LOG(print) << "addAdjustment restore: " << key.toString() << endl;
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
     }
 
     return accounts.addAdjustment(key, amount);
@@ -1280,6 +1368,11 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
+
+    // ignore if account is closed.
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    if (presentActive.first && !presentActive.second)
+        return accounts.getAccount(key);
 
     return accounts.syncFromShadow(key, shadow);
 }

@@ -356,7 +356,7 @@ private:
     void reportLatencies(const std::string& category,
                          const BankerPersistence::LatencyMap& latencies) const;
 
-    const std::vector<AccountSummary> closeAccount(const AccountKey &key);
+    bool closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
     void restoreAccount(const AccountKey & key);
 };

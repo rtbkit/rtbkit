@@ -276,7 +276,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     vector<AccountKey> filteredKeys;
     for (auto k: allKeys)
-    	if (accounts.isInitialized(k))
+    	if (accounts.isInitialized(k) && accounts.getAccount(k).status == Account::ACTIVE)
     		filteredKeys.push_back(k);
 
     allKeys.swap(filteredKeys);
