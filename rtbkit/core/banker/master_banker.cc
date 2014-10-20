@@ -1340,7 +1340,7 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
     string sKey = key.toString();
     replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".setFromShadow");
+    Record record(this, "account." + sKey + ".syncFromShadow");
 
     {
         JML_TRACE_EXCEPTIONS(false);
