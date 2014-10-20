@@ -649,7 +649,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         if (parentsToRestore.size() > 0) {
             this->moveToActiveAndSave(parentsToRestore, onRestored);
         } else {
-#if 1
+#if DEBUG_RESTORE
             LOG(print) << "no Parents to restore" << endl;
 #endif
             onRestored(make_shared<Accounts>(), SUCCESS, "");
@@ -1022,9 +1022,6 @@ saveState()
     if (!storage_ || saving)
         return;
 
-    auto onAccount = [&] (const AccountKey & ak, const Account & a) {
-        LOG(print) << a.status << " " << ak.toString() << endl;
-    };
     accounts.forEachAccount(onAccount);
 
     saving = true;
@@ -1066,7 +1063,6 @@ MasterBanker::
 loadStateSync()
 {
     recordHit("load.attempts");
-    LOG(print) << "load attempt" << endl;
 
     if (!storage_)
         return;
@@ -1103,7 +1099,6 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
-        LOG(print) << "successfully restored " << numAccounts << " accounts" << endl;
     }
     else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         recordHit("restored.inconsistencies");
@@ -1126,7 +1121,6 @@ MasterBanker::
 restoreAccount(const AccountKey & key)
 {
     recordHit("restore.attempts." + key.toString());
-    LOG(print) << "restore attempts: " << key.toString() << endl;
 
     Guard guard(saveLock);
 
@@ -1201,7 +1195,6 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
     if (!presentActive.first) {
-        LOG(print) << "setBalance restore: " << key.toString() << endl;
         restoreAccount(key);
     }
     else if (presentActive.first && !presentActive.second) {
@@ -1239,7 +1232,6 @@ MasterBanker::
 closeAccount(const AccountKey &key)
 {
     Record record(this, "closeAccount." + key.toString());
-    LOG(print) << "close Account: " << key.toString() << endl;
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1312,7 +1304,6 @@ addAdjustment(const AccountKey &key, CurrencyPool amount)
 
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
     if (!presentActive.first) {
-        LOG(print) << "addAdjustment restore: " << key.toString() << endl;
         restoreAccount(key);
     }
     else if (presentActive.first && !presentActive.second) {
