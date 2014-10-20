@@ -934,9 +934,7 @@ MasterBanker::
 createAccount(const AccountKey & key, AccountType type)
 {
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-
     if (!presentActive.first) {
-        LOG(print) << "create restore: " << key.toString() << endl;
         restoreAccount(key);
     }
     else if (presentActive.first && !presentActive.second) {
@@ -973,8 +971,7 @@ onStateSaved(const BankerPersistence::Result& result,
             ExcAssert(archivedAccountKeys.type() == Json::arrayValue);
             for (Json::Value jsonKey : archivedAccountKeys) {
                 ExcAssert(jsonKey.type() == Json::stringValue);
-                string arKey = jsonKey.asString();
-                LOG(print) << "account " << arKey << " was moved from accounts to archive" << endl;
+                recordHit("save.archived." + jsonKey.asString());
             }
         }
         //cerr << __FUNCTION__
@@ -1101,17 +1098,8 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         // insert the restored accounts into the account list;
         int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
-            recordHit("restored.success." + ak.toString());
-            // check if account already there,
-            pair<bool, bool> pAndA = accounts.accountPresentAndActive(ak);
-            LOG(print) << ak.toString() << " present: " << pAndA.first
-                       << " active: " << pAndA.second << endl;
-            // check status
             accounts.restoreAccount(ak, a.toJson());
-            pAndA = accounts.accountPresentAndActive(ak);
-            LOG(print) << ak.toString() << " present: " << pAndA.first
-                       << " active: " << pAndA.second << endl;
-            LOG(print) << "successfully restored " << ak.toString() << endl;
+            recordHit("restored.success." + ak.toString());
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
@@ -1143,17 +1131,10 @@ restoreAccount(const AccountKey & key)
     Guard guard(saveLock);
 
     AccountKey parent = key;
-    while (!parent.empty()) {
-        pair<bool, bool> pAndA = accounts.accountPresentAndActive(parent);
-        LOG(print) << parent.toString() << " present: " << pAndA.first
-                   << " active: " << pAndA.second << endl;
-        if (pAndA.first && pAndA.second == Account::CLOSED) {
-            accounts.reactivateAccount(parent);
-            pAndA = accounts.accountPresentAndActive(parent);
-            LOG(print) << "reactivated " <<  parent.toString() << " present: " << pAndA.first
-                   << " active: " << pAndA.second << endl;
-        }
-        parent.pop_back();
+    pair<bool, bool> pAndA = accounts.accountPresentAndActive(parent);
+    if (pAndA.first && pAndA.second == Account::CLOSED) {
+        accounts.reactivateAccount(parent);
+        return;
     }
 
     if (!storage_)
@@ -1219,7 +1200,6 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
     }
 
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    
     if (!presentActive.first) {
         LOG(print) << "setBalance restore: " << key.toString() << endl;
         restoreAccount(key);
@@ -1242,11 +1222,9 @@ onCreateAccount(const AccountKey &key, AccountType type)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-    
+ 
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    
     if (!presentActive.first) {
-        LOG(print) << "onCreate restore: " << key.toString() << endl;
         restoreAccount(key);
     }
     else if (presentActive.first && !presentActive.second) {
@@ -1270,7 +1248,6 @@ closeAccount(const AccountKey &key)
     }
  
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    
     if (!presentActive.first) {
         return false;
     }
@@ -1279,14 +1256,6 @@ closeAccount(const AccountKey &key)
     }
 
     auto account = accounts.closeAccount(key);
-   
-    AccountKey parent = key; 
-    while (!parent.empty()) {
-        auto account = accounts.getAccount(parent);
-        LOG(print) << account.status << " " << parent.toString() << endl;
-        parent.pop_back();
-    }
-
     if (account.status == Account::CLOSED)
         return true;
     else
@@ -1319,13 +1288,10 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
     }
 
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    
     if (!presentActive.first) {
-        LOG(print) << "setBalance restore: " << key.toString() << endl;
         restoreAccount(key);
     }
     else if (presentActive.first && !presentActive.second) {
-        LOG(print) << "setBalance reactivate: " << key.toString() << endl;
         accounts.reactivateAccount(key);
     }
 
@@ -1343,9 +1309,8 @@ addAdjustment(const AccountKey &key, CurrencyPool amount)
         if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
-    
+
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    
     if (!presentActive.first) {
         LOG(print) << "addAdjustment restore: " << key.toString() << endl;
         restoreAccount(key);

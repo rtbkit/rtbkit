@@ -109,7 +109,7 @@ public:
         /* All the amounts in the storage accounts must have a counterpart in
          * the banker accounts and their value must be inferior or equal to
          * the corresponding amounts in the banker. */
-        bool same = (budgetIncreases.isSameOrPastVersion(otherAccount.budgetIncreases)
+        return (budgetIncreases.isSameOrPastVersion(otherAccount.budgetIncreases)
                 && budgetDecreases.isSameOrPastVersion(otherAccount.budgetDecreases)
                 && recycledIn.isSameOrPastVersion(otherAccount.recycledIn)
                 && allocatedIn.isSameOrPastVersion(otherAccount.allocatedIn)
@@ -121,9 +121,6 @@ public:
                 && commitmentsMade.isSameOrPastVersion(otherAccount.commitmentsMade)
                 && adjustmentsOut.isSameOrPastVersion(otherAccount.adjustmentsOut)
                 && spent.isSameOrPastVersion(otherAccount.spent));
-        if (same) return true;
-        std::cerr << "isSameOrPastVersion:\n" << toJson() << std::endl << otherAccount.toJson() << std::endl;
-        return false;
     }
 
     Json::Value toJson() const
@@ -891,15 +888,15 @@ struct Accounts {
         newAccount.status = Account::ACTIVE;
     }
 
-    void reactivateAccount(const AccountKey & accountKey) 
+    void reactivateAccount(const AccountKey & accountKey)
     {
         Guard guard(lock);
         AccountKey parents = accountKey;
         while (!parents.empty()) {
             getAccountImpl(parents).status = Account::ACTIVE;
-            std::cout << getAccountImpl(parents).status << " " << parents.toString() << std::endl;
             parents.pop_back();
         }
+        reactivateAccountChildren(accountKey);
     }
 
     const Account createBudgetAccount(const AccountKey & account)
@@ -927,20 +924,14 @@ struct Accounts {
     std::pair<bool, bool> accountPresentAndActive(const AccountKey & account) const
     {
         Guard guard(lock);
-        auto it = accounts.find(account);
-        if (it == accounts.end())
-            return std::make_pair(false, false);
-        if (it->second.status == Account::CLOSED)
-            return std::make_pair(true, false);
-        else
-            return std::make_pair(true, true);
+        return accountPresentAndActiveImpl(account);
     }
     
     /** closeAccount behavior is to close all children then close itself,
         always transfering from children to parent. If top most account, 
         then throws an error after closing all children first.
     */
-    const Account closeAccount(const AccountKey & account) 
+    const Account closeAccount(const AccountKey & account)
     {
         Guard guard(lock);
         return closeAccountImpl(account);
@@ -1278,29 +1269,45 @@ private:
         return it->second;
     }
 
-    const Account closeAccountImpl(const AccountKey & account) 
+    std::pair<bool, bool> accountPresentAndActiveImpl(const AccountKey & account) const
     {
-        std::cout << "closing account: " << account.toString() << std::endl;
-        AccountInfo accountInfo = getAccountImpl(account);
-        if (accountInfo.status == Account::CLOSED)
-            return accountInfo;
-
-        if (accountInfo.children.size() > 0) {
-            for ( AccountKey child : accountInfo.children) {
-                std::cout << "closing child: " << child.toString() << std::endl;
-                closeAccountImpl(child);
-            }
-        }
-        
-        if (account.size() > 1)
-            getAccountImpl(account).recuperateTo(getParentAccount(account));
-
-        getAccountImpl(account).status = Account::CLOSED;
-        std::cout << getAccountImpl(account).status << " " << account.toString() << std::endl;
-
-        return getAccountImpl(account); 
+        auto it = accounts.find(account);
+        if (it == accounts.end())
+            return std::make_pair(false, false);
+        if (it->second.status == Account::CLOSED)
+            return std::make_pair(true, false);
+        else
+            return std::make_pair(true, true);
     }
 
+
+    const Account closeAccountImpl(const AccountKey & accountKey)
+    {
+        AccountInfo & account = getAccountImpl(accountKey);
+        if (account.status == Account::CLOSED)
+            return account;
+
+        for ( AccountKey child : account.children ) {
+            closeAccountImpl(child);
+        }
+
+        if (accountKey.size() > 1)
+            account.recuperateTo(getParentAccount(accountKey));
+
+        account.status = Account::CLOSED;
+
+        return account;
+    }
+
+    void reactivateAccountChildren(const AccountKey & accountKey) {
+        if (accountPresentAndActiveImpl(accountKey).first) {
+            AccountInfo & account = getAccountImpl(accountKey);
+            for (auto child : account.children)
+                reactivateAccountChildren(child);
+
+            account.status = Account::ACTIVE;
+        }
+    }
 
     const AccountInfo & getAccountImpl(const AccountKey & account) const
     {

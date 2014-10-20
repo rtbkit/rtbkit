@@ -176,7 +176,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* the new accounts should have been registered in the "banker:accounts"
        set */
@@ -219,7 +218,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* the same accounts should be registered in the "banker:accounts" set */
     result = connection->exec(SMEMBERS("banker:accounts"), 5);
@@ -255,7 +253,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     }
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
     /* make sure "parent:child" has been properly updated with the value from
      * accounts2 */
     result = connection->exec(GET("banker-parent:child"), 5);
@@ -291,7 +288,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     }
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     result = connection->exec(GET("banker-parent:child"), 5);
     BOOST_CHECK(result.ok());
@@ -340,7 +336,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* the new accounts should have been registered in the "banker:accounts"
        set */
@@ -385,7 +380,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* check if parent is in banker:accounts */
     result = connection->exec(SMEMBERS("banker:accounts"), 5);
@@ -449,7 +443,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* check if both parent and child are in banker:accounts */
     result = connection->exec(SMEMBERS("banker:accounts"), 5);
