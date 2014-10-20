@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <algorithm>
 #include "soa/jsoncpp/value.h"
 #include <boost/algorithm/string.hpp>
 #include <jml/arch/futex.h>
@@ -972,7 +973,9 @@ onStateSaved(const BankerPersistence::Result& result,
             ExcAssert(archivedAccountKeys.type() == Json::arrayValue);
             for (Json::Value jsonKey : archivedAccountKeys) {
                 ExcAssert(jsonKey.type() == Json::stringValue);
-                recordHit("save.archived." + jsonKey.asString());
+                string sKey = jsonKey.asString();
+                replace(sKey.begin(), sKey.end(), '.', '_'); 
+                recordHit("account." + sKey + ".movedToArchive" );
             }
         }
         //cerr << __FUNCTION__
@@ -989,6 +992,8 @@ onStateSaved(const BankerPersistence::Result& result,
             string keyStr = jsonKey.asString();
             accounts.markAccountOutOfSync(AccountKey(keyStr));
             LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
+            replace(keyStr.begin(), keyStr.end(), '.', '_');
+            recordHit("account." + keyStr + ".outOfSync");
         }
     }
     else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
@@ -1094,7 +1099,9 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
             accounts.restoreAccount(ak, a.toJson());
-            recordHit("restored.success." + ak.toString());
+            string sKey = ak.toString();
+            replace(sKey.begin(), sKey.end(), '.', '_');
+            recordHit("account." + sKey + ".restored");
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
@@ -1112,42 +1119,6 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
     else {
         recordHit("restored.unknown");
         throw ML::Exception("status code is not handled");
-    }
-}
-
-void
-MasterBanker::
-restoreAccount(const AccountKey & key)
-{
-    recordHit("restore.attempts." + key.toString());
-
-    Guard guard(saveLock);
-
-    AccountKey parent = key;
-    pair<bool, bool> pAndA = accounts.accountPresentAndActive(parent);
-    if (pAndA.first && pAndA.second == Account::CLOSED) {
-        accounts.reactivateAccount(parent);
-        return;
-    }
-
-    if (!storage_)
-        return;
-
-    int done = 0;
-    
-    BankerPersistence::OnRestoredCallback onRestored =
-            [&] (shared_ptr<Accounts> accountsRestored,
-                 const BankerPersistence::PersistenceCallbackStatus status,
-                 const string & info) {
-        this->onAccountRestored(accountsRestored, status, info);
-        done = 1;
-        ML::futex_wake(done);
-    };
-
-    storage_->restoreFromArchive(key, onRestored);
-
-    while (!done) {
-        ML::futex_wait(done, 0);
     }
 }
 
@@ -1180,11 +1151,54 @@ private:
 
 } // namespace anonymous
 
+void
+MasterBanker::
+restoreAccount(const AccountKey & key)
+{
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".restoreAttempt");
+ 
+    Guard guard(saveLock);
+
+    pair<bool, bool> pAndA = accounts.accountPresentAndActive(key);
+    if (pAndA.first && pAndA.second == Account::CLOSED) {
+        accounts.reactivateAccount(key);
+        recordHit("account." + sKey + ".reactivated");
+        return;
+    } else if (pAndA.first && pAndA.second == Account::ACTIVE) {
+        recordHit("account." + sKey + ".alreadyActive");
+        return;
+    }
+
+    if (!storage_)
+        return;
+
+    int done = 0;
+    
+    BankerPersistence::OnRestoredCallback onRestored =
+            [&] (shared_ptr<Accounts> accountsRestored,
+                 const BankerPersistence::PersistenceCallbackStatus status,
+                 const string & info) {
+        this->onAccountRestored(accountsRestored, status, info);
+        done = 1;
+        ML::futex_wake(done);
+    };
+
+    storage_->restoreFromArchive(key, onRestored);
+
+    while (!done) {
+        ML::futex_wait(done, 0);
+    }
+}
+
 const Account
 MasterBanker::
 setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
-    Record record(this, "setBudget." + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".setBudget");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1207,7 +1221,9 @@ const Account
 MasterBanker::
 onCreateAccount(const AccountKey &key, AccountType type)
 {
-    Record record(this, "createAccount." + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".onCreateAccount");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1230,7 +1246,9 @@ bool
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
-    Record record(this, "closeAccount." + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".closeAccount");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1270,7 +1288,9 @@ const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
-    Record record(this, "setBalance." + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".setBalance");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1293,7 +1313,9 @@ const Account
 MasterBanker::
 addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
-    Record record(this, "addAdjustment" + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".addAdjustment");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1316,7 +1338,9 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
-    Record record(this, "syncFromShadow." + key.toString());
+    string sKey = key.toString();
+    replace(sKey.begin(), sKey.end(), '.', '_');
+    Record record(this, "account." + sKey + ".setFromShadow");
 
     {
         JML_TRACE_EXCEPTIONS(false);
