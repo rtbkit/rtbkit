@@ -46,6 +46,8 @@ Logging::Category BankerPersistence::error("BankerPersistence Error", BankerPers
 /* REDIS BANKER PERSISTENCE                                                  */
 /*****************************************************************************/
 
+const string RedisBankerPersistence::PREFIX = "banker-";
+
 struct RedisBankerPersistence::Itl {
     shared_ptr<Redis::AsyncConnection> redis;
 
@@ -98,7 +100,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
     for (int i = 0; i < keysReply.length(); i++) {
         string key(keysReply[i].asString());
         keys.push_back(key);
-        fetchCommand.addArg("banker-" + key);
+        fetchCommand.addArg(PREFIX + key);
     }
 
     result = itl->redis->exec(fetchCommand, itl->timeout);
@@ -151,7 +153,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
         {
             string keyStr = key.toString();
             keys.push_back(keyStr);
-            fetchCommand.addArg("banker-" + keyStr);
+            fetchCommand.addArg(PREFIX + keyStr);
         };
     toSave.forEachAccount(onAccount);
 
@@ -287,7 +289,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                         }
                     }
 
-                    Redis::Command command = SET("banker-" + key,
+                    Redis::Command command = SET(PREFIX + key,
                                                  boost::trim_copy(bankerValue.toString()));
                     storeCommands.push_back(command);
                 }
@@ -395,7 +397,7 @@ moveToActiveAndSave(const vector<AccountKey> & archivedAccountKeys, OnRestoredCa
     // get accounts from redis.
     Redis::Command getAccountsCommand(MGET);
     for (const auto & a: archivedAccountKeys)
-        getAccountsCommand.addArg("banker-" + a.toString());
+        getAccountsCommand.addArg(PREFIX + a.toString());
     Redis::Result result = itl->redis->exec(getAccountsCommand, itl->timeout);
     
     if (!result.ok()) {
@@ -431,7 +433,7 @@ moveToActiveAndSave(const vector<AccountKey> & archivedAccountKeys, OnRestoredCa
     vector<Redis::Command> reActivateCommand; 
     
     auto makeQuery = [&reActivateCommand] (const AccountKey & k, const Account & a) {
-        reActivateCommand.push_back(SET("banker-" + k.toString(),
+        reActivateCommand.push_back(SET(PREFIX + k.toString(),
                     boost::trim_copy(a.toJson().toString())));
     };
     archivedAccounts->forEachAccount(makeQuery);
@@ -480,7 +482,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
 
     // check if key is in banker:accounts and is it part of accounts or archive
     vector<Redis::Command> existanceCommands;
-    existanceCommands.push_back(EXISTS("banker-" + accountName));
+    existanceCommands.push_back(EXISTS(PREFIX + accountName));
     existanceCommands.push_back(SISMEMBER("banker:accounts", accountName));
     existanceCommands.push_back(SISMEMBER("banker:archive", accountName));
     
@@ -516,7 +518,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         {
             // move it, it's parents and children to banker:active
             AccountKey accountKey = key;
-            Redis::Command getChildrenCommand(KEYS("banker-" + accountKey.toString() + ":*"));
+            Redis::Command getChildrenCommand(KEYS(PREFIX + accountKey.toString() + ":*"));
             Redis::Result result = itl->redis->exec(getChildrenCommand, itl->timeout);
 
             if (!result.ok()) {
@@ -534,15 +536,14 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
             LOG(print) << s << endl;
 #endif
 
-            const string prefix = "banker-";
             vector<AccountKey> keysToCheck;
             auto childKeysReply = result.reply();
             if (childKeysReply.type() == ARRAY) {
                 for (int i = 0; i < childKeysReply.length(); ++i) {
                     string childKey = childKeysReply[i];
-                    size_t pos = childKey.find(prefix);
+                    size_t pos = childKey.find(PREFIX);
                     if (pos != string::npos) {
-                        childKey = childKey.substr(pos + prefix.size());
+                        childKey = childKey.substr(pos + PREFIX.size());
                         keysToCheck.push_back(childKey);
                     }
                 }
@@ -605,7 +606,7 @@ restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored)
         vector<Redis::Command> checkForParents;
         // add account key and parent key;
         while (!accountKey.empty()) {
-            checkForParents.push_back(EXISTS("banker-" + accountKey.toString()));
+            checkForParents.push_back(EXISTS(PREFIX + accountKey.toString()));
             checkForParents.push_back(SISMEMBER("banker:archive", accountKey.toString()));
             accountKey.pop_back();
         }
@@ -1021,8 +1022,6 @@ saveState()
 
     if (!storage_ || saving)
         return;
-
-    accounts.forEachAccount(onAccount);
 
     saving = true;
     storage_->saveAll(accounts, bind(&MasterBanker::onStateSaved, this,

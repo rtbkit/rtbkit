@@ -246,6 +246,7 @@ struct RedisBankerPersistence : public BankerPersistence {
 
     struct Itl;
     std::shared_ptr<Itl> itl;
+    static const std::string PREFIX;
 
     void loadAll(const std::string & topLevelKey, OnLoadedCallback onLoaded);
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
@@ -359,6 +360,7 @@ private:
     bool closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
     void restoreAccount(const AccountKey & key);
+    
 };
 
 } // namespace RTBKIT
