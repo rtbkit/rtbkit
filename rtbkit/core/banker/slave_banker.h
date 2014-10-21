@@ -287,7 +287,6 @@ private:
     }
 
     std::atomic<bool> shutdown_;
-
     std::atomic<bool> reauthorizing;
     Date reauthorizeDate;
     double lastReauthorizeDelay;

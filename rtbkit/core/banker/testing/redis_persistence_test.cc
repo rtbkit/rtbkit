@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
                const string & info) {
         /* this could be a DATA_INCONSISTENCY error, but it is handled
            directly by the backend */
-        BOOST_CHECK_EQUAL(result.status, BankerPersistence::BACKEND_ERROR);
+        BOOST_CHECK_EQUAL(result.status, BankerPersistence::PERSISTENCE_ERROR);
         BOOST_CHECK(info.length() != 0); /* we ignore the actual message */
         done = true;
         ML::futex_wake(done);
@@ -194,7 +194,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     const Reply & parentReply = result.reply();
     BOOST_CHECK_EQUAL(parentReply.type(), STRING);
     Json::Value accountJson(accounts.getAccount(parentKey).toJson());
-    accountJson["spent-tracking"] = Json::Value(Json::objectValue);
     Json::Value storageJson = Json::parse(parentReply.asString());
     BOOST_CHECK_EQUAL(accountJson, storageJson);
 

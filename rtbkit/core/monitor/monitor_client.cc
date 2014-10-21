@@ -25,7 +25,7 @@ MonitorClient::
 init(std::shared_ptr<ConfigurationService> & config,
      const std::string & serviceName)
 {
-    addPeriodic("MonitorClient::checkStatus", 1.0,
+    addPeriodic("MonitorClient::checkStatus", 0.5,
                 std::bind(&MonitorClient::checkStatus, this),
                 true);
 
@@ -77,42 +77,29 @@ void
 MonitorClient::
 onResponseReceived(exception_ptr ext, int responseCode, const string & body)
 {
-    bool newStatus(false);
-
     if (responseCode == 200) {
         ML::Set_Trace_Exceptions notrace(false);
         try {
             Json::Value parsedBody = Json::parse(body);
             if (parsedBody.isMember("status") && parsedBody["status"] == "ok") {
-                newStatus = true;
+                lastSuccess = lastCheck;
             }
         }
         catch (const Json::Exception & exc) {
         }
     }
 
-    lastStatus = newStatus;
     lastCheck = Date::now();
     pendingRequest = false;
 }
 
 bool
 MonitorClient::
-getStatus()
+getStatus(double tolerance)
     const
 {
-    bool status;
-
-    if (testMode)
-        status = testResponse;
-    else {
-        Date now = Date::now();
-
-        status = (lastStatus
-                  && (lastCheck.plusSeconds(checkTimeout_) >= now));
-    }
-
-    return status;
+    if (testMode) return testResponse;
+    return Date::now().secondsSince(lastSuccess) < tolerance;
 }
 
 } // RTB

@@ -178,7 +178,7 @@ void StoreAccounts(shared_ptr<Redis::AsyncConnection> & redis,
             }
             break;
         }
-        case BankerPersistence::BACKEND_ERROR: {
+        case BankerPersistence::PERSISTENCE_ERROR: {
             /* the backend is unavailable */
             cerr << "! a redis error occurred: " + info << endl;
         }

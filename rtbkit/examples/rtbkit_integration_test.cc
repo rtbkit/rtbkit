@@ -456,7 +456,7 @@ int main(int argc, char ** argv)
     }
 
     cerr << "SHUTDOWN\n";
-    exit(0);
+    _exit(0);
     // Test is done; clean up time.
     components.shutdown();
 

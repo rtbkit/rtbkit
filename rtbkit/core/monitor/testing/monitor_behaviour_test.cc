@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
 
     cerr << "test: expect computed status to be TRUE"
          << " after quering the Monitor" << endl;
-    client.lastStatus = false;
+    client.lastSuccess = Date::now().addSeconds(-10.0);
     endpoint.providersStatus_["c1"]["tim"].lastCheck = Date::now();
     endpoint.providersStatus_["c1"]["tim"].lastStatus = true;
     Date initialCheck = client.lastCheck;
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
 
     cerr << "test: expect computed status to be FALSE"
          << " after quering the Monitor" << endl;
-    client.lastStatus = true;
+    client.lastSuccess = Date::now();
     endpoint.providersStatus_["c1"]["tim"].lastStatus = false;
     initialCheck = client.lastCheck;
     while (client.lastCheck == initialCheck) {

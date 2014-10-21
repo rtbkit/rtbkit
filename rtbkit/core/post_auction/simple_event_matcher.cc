@@ -290,13 +290,11 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
                 return;
             }
             else {
-                recordHit("bidResult.%s.duplicateWithDifferentPrice",
-                          typeStr);
+                recordHit("bidResult.%s.duplicateWithDifferentPrice", typeStr);
                 return;
             }
         }
-        else recordHit("bidResult.%s.auctionAlreadyFinished",
-                       typeStr);
+        else recordHit("bidResult.%s.auctionAlreadyFinished", typeStr);
 
         if (event->type == PAE_WIN) {
             // Late win with auction still around
@@ -316,6 +314,9 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
             recordOutcome(winPrice.value,
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
                           typeStr, winPrice.getCurrencyStr());
+
+            auto winLatency = Date::now().secondsSince(info.bidRequest->timestamp);
+            recordOutcome(winLatency * 1000.0, "winLatencyMs");
         }
 
         return;
@@ -565,6 +566,9 @@ doBidResult(
 
         auto transId = makeBidId(auctionId, adSpotId, agent);
         banker->winBid(account, transId, price, LineItems());
+
+        auto winLatency = Date::now().secondsSince(submission.bidRequest->timestamp);
+        recordOutcome(winLatency * 1000.0, "winLatencyMs");
     }
 
     // Finally, place it in the finished queue

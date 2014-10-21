@@ -279,6 +279,7 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
             for (unsigned k = 0;  k < config.augmentations.size();  ++k) {
                 const std::string & name = config.augmentations[k].name;
                 augmentors.insert(name);
+                entry->augmentorAgents[name].insert(bidder.agent);
             }
         }
     }
@@ -395,19 +396,8 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
         }
         recordHit("augmentor.%s.instances.%s.request", *it, instance->addr);
 
-        set<string> agents;
-        const auto& bidderGroups = entry->info->potentialGroups;
-
-        for (auto jt = bidderGroups.begin(), end = bidderGroups.end();
-             jt != end; ++jt)
-        {
-            for (auto kt = jt->begin(), end = jt->end();
-                 kt != end; ++kt)
-            {
-                agents.insert(kt->agent);
-            }
-        }
-
+        set<string> agents = entry->augmentorAgents[*it];
+        
         std::ostringstream availableAgentsStr;
         ML::DB::Store_Writer writer(availableAgentsStr);
         writer.save(agents);

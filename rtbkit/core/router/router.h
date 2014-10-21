@@ -768,6 +768,8 @@ public:
     /* MonitorProvider interface */
     std::string getProviderClass() const;
     MonitorIndicator getProviderIndicators() const;
+
+    double slowModeTolerance;
 };
 
 

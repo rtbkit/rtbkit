@@ -151,7 +151,8 @@ Router(ServiceBase & parent,
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      slowModeTolerance(MonitorClient::DefaultTolerance)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -200,7 +201,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
       accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      slowModeTolerance(MonitorClient::DefaultTolerance)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -253,7 +255,6 @@ init()
     configListener.onConfigChange = [=] (const std::string & agent,
                                          std::shared_ptr<const AgentConfig> config)
         {
-            cerr << endl << endl << "agent " << agent << " got new configuration" << endl;
             configBuffer.push(make_pair(agent, config));
         };
 
@@ -510,6 +511,9 @@ run()
     };
 
     std::map<std::string, TimesEntry> times;
+    auto recordTime = [&] (std::string name, double start) {
+        times[std::move(name)].add(microsecondsBetween(getTime(), start));
+    };
 
 
     // Attempt to wake up once per millisecond
@@ -518,44 +522,54 @@ run()
 
     while (!shutdown_) {
         beforeSleep = getTime();
-
         totalActive += beforeSleep - afterSleep;
-        dutyCycleCurrent.nsProcessing
-            += microsecondsBetween(beforeSleep, afterSleep);
+        dutyCycleCurrent.nsProcessing += microsecondsBetween(beforeSleep, afterSleep);
 
         int rc = 0;
 
-        for (unsigned i = 0;  i < 20 && rc == 0;  ++i)
-            rc = zmq_poll(items, 2, 0);
-        if (rc == 0) {
-            ++numTimesCouldSleep;
-            checkExpiredAuctions();
+        {
+            double atStart = getTime();
 
-#if 1
-            // Try to sleep only once per 1/2 a millisecond to avoid too many
-            // context switches.
-            Date now = Date::now();
-            double timeSinceSleep = lastSleep.secondsUntil(now);
-            double timeToWait = 0.0005 - timeSinceSleep;
-            if (timeToWait > 0) {
-                ML::sleep(timeToWait);
-            }
-            lastSleep = now;
-#endif
+            for (unsigned i = 0;  i < 20 && rc == 0;  ++i)
+                rc = zmq_poll(items, 2, 0);
 
-
-            rc = zmq_poll(items, 2, 50 /* milliseconds */);
+            recordTime("spinPoll", atStart);
         }
 
-        //cerr << "rc = " << rc << endl;
+        if (rc == 0) {
+            ++numTimesCouldSleep;
+
+            {
+                double atStart = getTime();
+                checkExpiredAuctions();
+                recordTime("checkExpiredAuctions", atStart);
+            }
+
+            {
+                double atStart = getTime();
+
+                // Try to sleep only once per 1/2 a millisecond to avoid too
+                // many context switches.
+                Date now = Date::now();
+                double timeSinceSleep = lastSleep.secondsUntil(now);
+                double timeToWait = 0.0005 - timeSinceSleep;
+                if (timeToWait > 0) {
+                    ML::sleep(timeToWait);
+                }
+                lastSleep = now;
+
+                recordTime("sleep", atStart);
+            }
+
+            double pollStart = getTime();
+            rc = zmq_poll(items, 2, 50 /* milliseconds */);
+            recordTime("sleepPoll", pollStart);
+        }
 
         afterSleep = getTime();
 
-        dutyCycleCurrent.nsSleeping
-            += microsecondsBetween(afterSleep, beforeSleep);
+        dutyCycleCurrent.nsSleeping += microsecondsBetween(afterSleep, beforeSleep);
         dutyCycleCurrent.nEvents += 1;
-
-        times["asleep"].add(microsecondsBetween(afterSleep, beforeSleep));
 
         if (rc == -1 && zmq_errno() != EINTR) {
             cerr << "zeromq error: " << zmq_strerror(zmq_errno()) << endl;
@@ -568,18 +582,23 @@ run()
                 doStartBidding(info);
             }
 
-            double atEnd = getTime();
-            times["doStartBidding"].add(microsecondsBetween(atEnd, atStart));
+            recordTime("doStartBidding", atStart);
         }
 
         {
+            double atStart = getTime();
+
             BidMessage message;
             while (doBidBuffer.tryPop(message)) {
                 doBidImpl(message);
             }
+
+            recordTime("doBid", atStart);
         }
 
         {
+            double atStart = getTime();
+
             std::shared_ptr<ExchangeConnector> exchange;
             while (exchangeBuffer.tryPop(exchange)) {
                 for (auto & agent : agents) {
@@ -588,6 +607,8 @@ run()
                                              *agent.second.config);
                 };
             }
+
+            recordTime("configureAgentOnExchange", atStart);
         }
 
         {
@@ -596,67 +617,65 @@ run()
             std::pair<std::string, std::shared_ptr<const AgentConfig> > config;
             while (configBuffer.tryPop(config)) {
                 if (!config.second) {
-                    // deconfiguration
-                    // TODO
-                    cerr << "agent " << config.first << " lost configuration"
-                         << endl;
+                    cerr << "agent " << config.first << " lost configuration" << endl;
                 }
                 else {
                     doConfig(config.first, config.second);
                 }
             }
 
-            double atEnd = getTime();
-            times["doConfig"].add(microsecondsBetween(atEnd, atStart));
+            recordTime("doConfig", atStart);
         }
 
         {
             double atStart = getTime();
+
             std::shared_ptr<Auction> auction;
             while (submittedBuffer.tryPop(auction))
                 doSubmitted(auction);
 
-            double atEnd = getTime();
-            times["doSubmitted"].add(microsecondsBetween(atEnd, atStart));
+            recordTime("doSubmitted", atStart);
         }
 
         if (items[0].revents & ZMQ_POLLIN) {
-            double beforeMessage = getTime();
+            double atStart = getTime();
             // Agent message
             vector<string> message;
             try {
                 message = recvAll(bridge.agents.getSocketUnsafe());
                 bridge.agents.handleMessage(std::move(message));
-                double atEnd = getTime();
-                times[message.at(1)].add(microsecondsBetween(atEnd, beforeMessage));
+
             } catch (const std::exception & exc) {
                 cerr << "error handling agent message " << message
                      << ": " << exc.what() << endl;
                 logRouterError("handleAgentMessage", exc.what(),
                                message);
             }
+
+            recordTime(message.at(1), atStart);
         }
 
         if (items[1].revents & ZMQ_POLLIN) {
             wakeupMainLoop.read();
         }
 
-        //checkExpiredAuctions();
-
         double now = ML::wall_time();
-        double beforeChecks = getTime();
 
         if (now - lastPings > 1.0) {
+            double atStart = getTime();
+
             // Send out pings and interpret the results of the last lot of
             // pinging.
             sendPings();
-
             lastPings = now;
+
+            recordTime("sendPings", atStart);
         }
 
+        double beforeChecks = getTime();
+
         if (now - last_check_pace > 10.0) {
-            recordEvent("numTimesCouldSleep", ET_LEVEL,
-                        numTimesCouldSleep);
+            recordEvent("numTimesCouldSleep", ET_LEVEL, numTimesCouldSleep);
 
             totalSleeps += numTimesCouldSleep;
 
@@ -711,12 +730,16 @@ run()
             last_check = now;
         }
 
-        times["checks"].add(microsecondsBetween(getTime(), beforeChecks));
+        recordTime("checks", beforeChecks);
 
         if (now - lastTimestamp >= 1.0) {
+            double atStart = getTime();
+
             banker->logBidEvents(*this);
             //issueTimestamp();
             lastTimestamp = now;
+
+            recordTime("logBidEvents", atStart);
         }
     }
 
@@ -1953,7 +1976,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         // authorize an amount of money computed from the win cost model.
         Amount price = message.wcm.evaluate(bid, bid.price);
 
-        if (!monitorClient.getStatus()) {
+        if (!monitorClient.getStatus(slowModeTolerance)) {
             Date now = Date::now();
             if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
                     < (uint32_t) now.secondsSinceEpoch()) {
@@ -2300,7 +2323,7 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
-    if (!monitorClient.getStatus()) {
+    if (!monitorClient.getStatus(slowModeTolerance)) {
         // check if slow mode active and in the same second then ignore the Auction
         Date now = Date::now();
         if (slowModeActive && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
@@ -2323,14 +2346,6 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (request.userIds.exchangeId) ++numFields;
     if (request.userIds.providerId) ++numFields;
 
-    if (numFields > 1) {
-        logMessageNoTimestamp("BEHAVIOUR",
-                              ML::format("%.2f", request.timestamp),
-                              request.exchange,
-                              reduceUrl(request.url),
-                              request.userIds.exchangeId,
-                              request.userIds.providerId);
-    }
     auto info = preprocessAuction(auction);
 
     if (info) {

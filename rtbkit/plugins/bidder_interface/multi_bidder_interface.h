@@ -137,6 +137,8 @@ struct MultiBidderInterface : public BidderInterface {
     void sendPingMessage(std::string const & agent,
                          int ping);
 
+    void registerLoopMonitor(LoopMonitor *monitor) const;
+
     Stats stats() const {
         return stats_;
     }

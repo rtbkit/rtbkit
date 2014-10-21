@@ -41,6 +41,7 @@ struct RouterRunner {
     std::string bankerUri;
     std::string spendRate;
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
+    int slowModeTolerance;
 
     bool useHttpBanker;
     int httpActiveConnections;

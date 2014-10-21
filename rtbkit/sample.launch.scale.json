@@ -19,7 +19,7 @@
                     "root": ".",
                     "path": "build/x86_64/bin/adserver_runner",
                     "arg": [
-                        "-N", "st1.mock-ad-server",
+                        "-N", "st1.mockAdServer",
                         "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
@@ -39,7 +39,7 @@
                     "root": ".",
                     "path": "build/x86_64/bin/agent_configuration_service_runner",
                     "arg": [
-                        "-N", "st1.agent-configuration",
+                        "-N", "st1.agentConfiguration",
                         "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
@@ -69,7 +69,7 @@
                     "root": ".",
                     "path": "build/x86_64/bin/post_auction_runner",
                     "arg": [
-                        "-N", "st1.post-auction",
+                        "-N", "st1.postAuction",
                         "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true

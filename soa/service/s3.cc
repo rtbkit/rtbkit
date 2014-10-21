@@ -1656,8 +1656,7 @@ struct StreamingDownloadSource {
 
         impl.reset(new Impl());
         impl->owner = getS3ApiForUri(urlStr);
-        impl->bucket = url.host();
-        impl->object = url.path().substr(1);
+        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
         impl->info = impl->owner->getObjectInfo(urlStr);
         impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
@@ -1865,12 +1864,20 @@ struct StreamingDownloadSource {
                     auto partResult
                         = owner->get(bucket, "/" + object,
                                      S3Api::Range(start, chunkSize));
+                    
                     if (partResult.code_ != 206) {
                         throw ML::Exception("http error "
                                             + to_string(partResult.code_)
                                             + " while getting part "
                                             + partResult.bodyXmlStr());
                     }
+                    // it can sometimes happen that a file changes during download
+                    // i.e it is being overwritten. Make sure we check for this condition
+                    // and throw an appropriate exception
+                    string chunkEtag = partResult.getHeader("etag") ;
+                    if(chunkEtag != info.etag)
+                        throw ML::Exception("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!", chunkEtag.c_str(), info.etag.c_str(), object.c_str());
+                    ExcAssert(partResult.body().size() == chunkSize);
 
                     while (true) {
                         if (shutdown || lastExc) {
@@ -1944,9 +1951,8 @@ struct StreamingUploadSource {
         Url url(urlStr);
 
         impl.reset(new Impl());
-        impl->owner = s3Api;
-        impl->bucket = url.host();
-        impl->object = url.path().substr(1);
+        impl->owner = getS3ApiForUri(urlStr);
+        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
         impl->metadata = metadata;
         impl->onException = excCallback;
         impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up

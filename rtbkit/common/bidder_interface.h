@@ -87,8 +87,7 @@ struct BidderInterface : public ServiceBase
     void sendPingMessage(std::string const & agent,
                          int ping) = 0;
 
-
-    virtual void registerLoopMonitor(LoopMonitor *monitor) { }
+    virtual void registerLoopMonitor(LoopMonitor *monitor) const { }
 
     //
     // factory

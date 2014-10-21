@@ -63,6 +63,7 @@ init(std::string bankerUri, int activeConnections /* = 4 */)
         bankerUri = "http://" + bankerUri;
 
     httpClient.reset(new HttpClient(bankerUri, activeConnections));
+    httpClient->sendExpect100Continue(false);
     addSource("HttpLayer::httpClient", httpClient);
 }
 

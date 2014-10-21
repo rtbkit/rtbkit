@@ -429,6 +429,44 @@ std::string bootstrapConfigPath()
     return "";
 }
 
+static void
+checkSysLimits()
+{
+    enum { MinFds = 1 << 16 };
+
+    rlimit fdLimit;
+    int ret = getrlimit(RLIMIT_NOFILE, &fdLimit);
+
+    if (ret < 0) {
+        std::cerr << "Unable to read ulimits: " << strerror(errno) << std::endl
+            << "Skipping checks on system limits." << std::endl;
+        return;
+    }
+
+    if (fdLimit.rlim_cur >= MinFds) {
+        std::cerr << "FD limit at: " << fdLimit.rlim_cur << std::endl;
+        return;
+    }
+
+    std::cerr << "FD limit too low: "
+        << fdLimit.rlim_cur << "/" << fdLimit.rlim_max
+        << " smaller then recomended " << MinFds
+        << std::endl;
+
+    fdLimit.rlim_cur = std::min<rlim_t>(MinFds, fdLimit.rlim_max);
+
+    ret = setrlimit(RLIMIT_NOFILE, &fdLimit);
+    if (ret < 0) {
+        std::cerr << "Unable to raise FD limit to "
+            << fdLimit.rlim_cur << ": " << strerror(errno)
+            << std::endl;
+        return;
+    }
+
+    std::cerr << "FD limit raised to: " << fdLimit.rlim_cur << std::endl;
+}
+
+
 } // namespace anonymous
 
 ServiceProxies::
@@ -438,6 +476,7 @@ ServiceProxies()
       ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
+    checkSysLimits();
     bootstrap(bootstrapConfigPath());
 }
 
