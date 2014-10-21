@@ -176,6 +176,7 @@ struct BankerPersistence {
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
+    static Logging::Category debug;
 
     /* callback types */
     typedef std::function<void (std::shared_ptr<Accounts>,
@@ -252,7 +253,7 @@ struct RedisBankerPersistence : public BankerPersistence {
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
     void restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored);
 private:
-    void moveToActiveAndSave(const std::vector<AccountKey> & archivedAccountKeys,
+    void moveToActive(const std::vector<AccountKey> & archivedAccountKeys,
                                 OnRestoredCallback onRestored);
 };
 
@@ -346,6 +347,7 @@ struct MasterBanker
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
+    static Logging::Category debug;
 
 private:
     const Account onCreateAccount(const AccountKey &account, AccountType type);

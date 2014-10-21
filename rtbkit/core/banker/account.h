@@ -672,7 +672,6 @@ struct ShadowAccount {
             - commitmentsMade - spent;
 
         if (status == Account::ACTIVE && masterAccount.status == Account::CLOSED) {
-            std::cout << "syncFromMaster closing slave account" << std::endl;
             status = masterAccount.status;
         }
         checkInvariants();
@@ -846,16 +845,6 @@ struct Accounts {
         if (account.empty())
             throw ML::Exception("can't create account with empty key");
         return ensureAccount(account, type);
-    }
-
-    bool removeArchivedAccount(const AccountKey & account)
-    {
-        Guard guard(lock);
-        auto it = accounts.find(account);
-        if (it == accounts.end()) return false;
-
-        accounts.erase(it);
-        return true;
     }
 
     void restoreAccount(const AccountKey & accountKey,
