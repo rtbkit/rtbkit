@@ -43,7 +43,7 @@ struct OpenRTBBidRequestParser
                                         const std::string & provider,
                                         const std::string & exchange);
 
-    static std::shared_ptr<OpenRTBBidRequestParser>
+    static std::unique_ptr<OpenRTBBidRequestParser>
         openRTBBidRequestParserFactory(const std::string & version);
 
     struct OpenRTBParsingContext {

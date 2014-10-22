@@ -21,14 +21,14 @@ namespace RTBKIT {
 
     static DefaultDescription<OpenRTB::BidRequest> desc;
 
-std::shared_ptr<OpenRTBBidRequestParser>
+std::unique_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
 openRTBBidRequestParserFactory(const std::string & version) {
 
     if(version == "2.0" || version == "2.1") {
-        return std::shared_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
+        return std::unique_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
     } else if(version == "2.2") {
-        return std::shared_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
+        return std::unique_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
     }
 
     THROW(OpenRTBBidRequestLogs::error) << "Version : " << version << " not supported in RTBkit." << endl;
