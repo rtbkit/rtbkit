@@ -868,7 +868,7 @@ handleAgentMessage(const std::vector<std::string> & message)
             string configName = message.at(2);
             if (!agents.count(configName)) {
                 // We don't yet know about its configuration
-                bidder->sendMessage(address, "NEEDCONFIG");
+                bidder->sendMessage(nullptr, address, "NEEDCONFIG");
                 return;
             }
             agents[configName].address = address;
@@ -1020,7 +1020,7 @@ checkDeadAgents()
 
                     this->recordHit("accounts.%s.lostBids", account);
 
-                    bidder->sendBidLostMessage(it->first, inFlight[id].auction);
+                    bidder->sendBidLostMessage(info.config, it->first, inFlight[id].auction);
 
                     toExpire.push_back(id);
                 }
@@ -1070,7 +1070,7 @@ checkDeadAgents()
                 // agent is dead
                 cerr << "agent " << it->first << " appears to be dead"
                      << endl;
-                bidder->sendMessage(it->first, "BYEBYE");
+                bidder->sendMessage(info.config, it->first, "BYEBYE");
                 deadAgents.push_back(it);
             }
         }
@@ -1124,7 +1124,7 @@ checkExpiredAuctions()
                         this->recordHit("accounts.%s.droppedBids",
                                         info.config->account.toString('.'));
 
-                        bidder->sendBidDroppedMessage(agent, auctionInfo.auction);
+                        bidder->sendBidDroppedMessage(info.config, agent, auctionInfo.auction);
                     }
                 }
 
@@ -1177,7 +1177,9 @@ returnErrorResponse(const std::vector<std::string> & message,
     using namespace std;
     if (message.empty()) return;
     logMessage("ERROR", error, message);
-    bidder->sendErrorMessage(message[0], error, message);
+    const auto& agent = message[0];
+    AgentInfo & info = this->agents[agent];
+    bidder->sendErrorMessage(info.config, agent, error, message);
 }
 
 void
@@ -1213,7 +1215,7 @@ returnInvalidBid(
          << formatted << endl;
     cerr << bidData << endl;
 
-    bidder->sendBidInvalidMessage(agent, formatted, auction);
+    bidder->sendBidInvalidMessage(agentConfig, agent, formatted, auction);
 }
 
 void
@@ -1875,6 +1877,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
     auto biddersIt = auctionInfo.bidders.find(agent);
     auto & config = *biddersIt->second.agentConfig;
     AgentInfo & info = agents[agent];
+    const auto& agentConfig = info.config;
 
     const auto& bids = message.bids;
     auto bidsString = bids.toJson().toStringNoNewLine();
@@ -1993,7 +1996,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
             if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit.value) {
                 slowModeActive = true;
-                bidder->sendBidDroppedMessage(agent, auctionInfo.auction);
+                bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
                 recordHit("slowMode.droppedBid");
                 continue;
             }
@@ -2004,7 +2007,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         {
             ++info.stats->noBudget;
 
-            bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
+            bidder->sendNoBudgetMessage(agentConfig, agent, auctionInfo.auction);
 
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
@@ -2079,15 +2082,15 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             switch (localResult.val) {
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
-                bidder->sendLossMessage(agent, auctionId.toString());
+                bidder->sendLossMessage(agentConfig, agent, auctionId.toString());
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
-                bidder->sendTooLateMessage(agent, auctionInfo.auction);
+                bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
-                bidder->sendBidInvalidMessage(agent, msg, auctionInfo.auction);
+                bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
                 break;
             default:
                 throw ML::Exception("logic error");
@@ -2220,6 +2223,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             if (!agents.count(response.agent)) continue;
 
             AgentInfo & info = agents[response.agent];
+            const auto& agentConfig = info.config;
 
             Amount bid_price = response.price.maxPrice;
 
@@ -2259,13 +2263,13 @@ doSubmitted(std::shared_ptr<Auction> auction)
                 bidStatus = BS_LOSS;
                 ++info.stats->losses;
                 msg = "LOSS";
-                bidder->sendLossMessage(response.agent, auctionId.toString());
+                bidder->sendLossMessage(agentConfig, response.agent, auctionId.toString());
                 break;
             case Auction::WinLoss::TOOLATE:
                 bidStatus = BS_TOOLATE;
                 ++info.stats->tooLate;
                 msg = "TOOLATE";
-                bidder->sendTooLateMessage(response.agent, auction);
+                bidder->sendTooLateMessage(agentConfig, response.agent, auction);
                 break;
             default:
                 throwException("doSubmitted.unknownStatus",
@@ -2445,7 +2449,7 @@ doConfig(const std::string & agent,
 
     configure(agent, *newConfig);
     info.configured = true;
-    bidder->sendMessage(agent, "GOTCONFIG");
+    bidder->sendMessage(config, agent, "GOTCONFIG");
 
     info.filterIndex = filters.addConfig(agent, info);
 
@@ -2568,13 +2572,14 @@ sendPings()
          it != end;  ++it) {
         const string & agent = it->first;
         AgentInfo & info = it->second;
+        const auto& agentConfig = info.config;
 
         // 1.  Send out new pings
         Date now = Date::now();
         if (info.sendPing(0, now))
-            bidder->sendPingMessage(agent, 0);
+            bidder->sendPingMessage(agentConfig, agent, 0);
         if (info.sendPing(1, now))
-            bidder->sendPingMessage(agent, 1);
+            bidder->sendPingMessage(agentConfig, agent, 1);
 
         // 2.  Look at the trend
         //double mean, max;

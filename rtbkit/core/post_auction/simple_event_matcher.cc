@@ -360,8 +360,6 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         uids  = info.bidRequest->userIds;
     }
 
-    recordHit("bidResult.%s.delivered", typeStr);
-
     auto confidence = status == BS_WIN ?
         MatchedWinLoss::Guaranteed : MatchedWinLoss::Inferred;
 
