@@ -6,6 +6,7 @@ LIBAGENT_CONFIGURATION_SOURCES := \
 	include_exclude.cc \
 	agent_configuration_listener.cc \
 	agent_configuration_service.cc \
+	latlonrad.cc \
 
 LIBAGENT_CONFIGURATION_LINK := \
 	rtb zeromq boost_thread opstats gc services utils monitor

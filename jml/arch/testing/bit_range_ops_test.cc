@@ -346,4 +346,18 @@ BOOST_AUTO_TEST_CASE( testMaskLower )
     }
 }
 
-// Check that accessing as bytes is same as another type
+// Test skip, by ensuring the value returned by current_offset matches the
+// offset passed as param.
+BOOST_AUTO_TEST_CASE( test_skip )
+{
+    /* "buffer" does not need to be a huge buffer for this test, as no
+       write/read is actually performed from it */
+    char buffer[] = { '\0' };
+
+    ML::Bit_Writer<char> writer(buffer);
+
+    /* we ensure that values close to UINT_MAX are not converted to negative
+       64 ints */
+    writer.skip(4294967295);
+    BOOST_CHECK_EQUAL(writer.current_offset(buffer), 4294967295);
+}

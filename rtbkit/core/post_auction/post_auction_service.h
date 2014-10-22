@@ -273,6 +273,10 @@ private:
     void doUnmatched(std::shared_ptr<UnmatchedEvent> event);
     void doError(std::shared_ptr<PostAuctionErrorEvent> error);
 
+    void deliverEvent(const std::string& label, const std::string& eventType,
+                      const AccountKey& account,
+                      std::function<void(const AgentConfigEntry& entry)> onAgent);
+
 
     float auctionTimeout;
     float winTimeout;

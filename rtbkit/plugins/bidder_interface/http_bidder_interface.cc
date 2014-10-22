@@ -318,12 +318,15 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                      { } /* queryParams */, headers);
 }
 
-void HttpBidderInterface::sendLossMessage(std::string const & agent,
-                                          std::string const & id) {
+void HttpBidderInterface::sendLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & id) {
 
 }
 
-void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
+void HttpBidderInterface::sendWinLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        MatchedWinLoss const & event) {
     if (event.type == MatchedWinLoss::Loss) return;
 
     auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
@@ -356,12 +359,14 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
 }
 
 
-void HttpBidderInterface::sendBidLostMessage(std::string const & agent,
-                                             std::shared_ptr<Auction> const & auction) {
+void HttpBidderInterface::sendBidLostMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 }
 
-void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
-                                                   MatchedCampaignEvent const & event) {
+void HttpBidderInterface::sendCampaignEventMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, MatchedCampaignEvent const & event) {
     auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
         [=](const HttpRequest &, HttpClientError errorCode,
             int statusCode, const std::string &, std::string &&body)
@@ -387,34 +392,41 @@ void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
     
 }
 
-void HttpBidderInterface::sendBidDroppedMessage(std::string const & agent,
-                                                std::shared_ptr<Auction> const & auction) {
+void HttpBidderInterface::sendBidDroppedMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 }
 
-void HttpBidderInterface::sendBidInvalidMessage(std::string const & agent,
-                                                std::string const & reason,
-                                                std::shared_ptr<Auction> const & auction) {
+void HttpBidderInterface::sendBidInvalidMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & reason,
+        std::shared_ptr<Auction> const & auction) {
 }
 
-void HttpBidderInterface::sendNoBudgetMessage(std::string const & agent,
-                                              std::shared_ptr<Auction> const & auction) {
+void HttpBidderInterface::sendNoBudgetMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 }
 
-void HttpBidderInterface::sendTooLateMessage(std::string const & agent,
-                                             std::shared_ptr<Auction> const & auction) {
+void HttpBidderInterface::sendTooLateMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 }
 
-void HttpBidderInterface::sendMessage(std::string const & agent,
-                                      std::string const & message) {
+void HttpBidderInterface::sendMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & message) {
 }
 
-void HttpBidderInterface::sendErrorMessage(std::string const & agent,
-                                           std::string const & error,
-                                           std::vector<std::string> const & payload) {
+void HttpBidderInterface::sendErrorMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & error,
+        std::vector<std::string> const & payload) {
 }
 
-void HttpBidderInterface::sendPingMessage(std::string const & agent,
-                                          int ping) {
+void HttpBidderInterface::sendPingMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, int ping) {
     ExcCheck(ping == 0 || ping == 1, "Bad PING level, must be either 0 or 1");
 
     auto encodeDate = [](Date date) {

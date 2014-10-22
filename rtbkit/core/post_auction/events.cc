@@ -248,7 +248,8 @@ UnmatchedEvent::
 publish(ZmqNamedPublisher& logger) const
 {
     logger.publish(
-            "UNMATCHED" + event.label,                           // 0
+            // Use event type not label since label is only defined for campaign events.
+            "UNMATCHED" + event.type,                            // 0
             publishTimestamp(),                                  // 1
 
             reason,                                              // 2

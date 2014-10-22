@@ -210,8 +210,8 @@ void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 
     enum { DBITS = sizeof(Data) * 8 };
 
-    int bits0 = std::min<int>(bits, DBITS - bit);
-    int bits1 = bits - bits0;
+    shift_t bits0 = std::min<shift_t>(bits, DBITS - bit);
+    shift_t bits1 = bits - bits0;
 
 #if 0
     using namespace std;
@@ -376,7 +376,7 @@ struct Bit_Buffer {
 
         This allows further optimizations to be made.
     */
-    Data extractFast(int bits)
+    Data extractFast(shift_t bits)
     {
         Data result = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
         advance(bits);
@@ -384,9 +384,9 @@ struct Bit_Buffer {
     }
 
     /// Extracts bits starting from the most-significant bits of the buffer.
-    Data rextract(int bits)
+    Data rextract(shift_t bits)
     {
-        if (JML_UNLIKELY(bits <= 0)) return Data(0);
+        if (JML_UNLIKELY(bits == 0)) return Data(0);
 
         enum { DBITS = 8 * sizeof(Data) };
 
@@ -420,7 +420,7 @@ struct Bit_Buffer {
 
 private:
     MemBuf data;
-    int bit_ofs;     // number of bits from start
+    size_t bit_ofs;     // number of bits from start
 };
 
 
@@ -513,10 +513,10 @@ struct Bit_Extractor {
 
     template<typename T1, typename T2, typename T3, typename T4>
     JML_COMPUTE_METHOD
-    void extract(T1 & where1, int num_bits1,
-                 T2 & where2, int num_bits2,
-                 T3 & where3, int num_bits3,
-                 T4 & where4, int num_bits4)
+    void extract(T1 & where1, shift_t num_bits1,
+                 T2 & where2, shift_t num_bits2,
+                 T3 & where3, shift_t num_bits3,
+                 T4 & where4, shift_t num_bits4)
     {
         where1 = buf.extract(num_bits1);
         where2 = buf.extract(num_bits2);
@@ -531,7 +531,7 @@ struct Bit_Extractor {
     }
 
     template<typename T, class OutputIterator>
-    OutputIterator extract(int num_bits, size_t num_objects,
+    OutputIterator extract(shift_t num_bits, size_t num_objects,
                            OutputIterator where);
 
     size_t current_offset(const Data * start)
@@ -541,7 +541,7 @@ struct Bit_Extractor {
 
 private:
     Buffer buf;
-    int bit_ofs;
+    size_t bit_ofs;
 };
 
 
@@ -557,9 +557,9 @@ struct Bit_Writer {
     }
 
     /// Writes bits starting from the least-significant bits of the buffer.
-    void write(Data val, int bits)
+    void write(Data val, shift_t bits)
     {
-        if (JML_UNLIKELY(bits <= 0)) return;
+        if (JML_UNLIKELY(bits == 0)) return;
 
         //using namespace std;
         //cerr << "write: val = " << val << " bits = " << bits << endl;
@@ -582,9 +582,9 @@ struct Bit_Writer {
     }
 
     /// Writes bits starting from the most-significant bits of the buffer.
-    void rwrite(Data val, int bits)
+    void rwrite(Data val, shift_t bits)
     {
-        if (JML_UNLIKELY(bits <= 0)) return;
+        if (JML_UNLIKELY(bits == 0)) return;
 
         enum { DBITS = sizeof(Data) * 8 };
 
@@ -600,7 +600,7 @@ struct Bit_Writer {
         skip(bits);
     }
 
-    void skip(int bits) {
+    void skip(shift_t bits) {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
         bit_ofs %= sizeof(Data) * 8;

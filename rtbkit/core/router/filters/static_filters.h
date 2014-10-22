@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
-
+#include <cmath>
 
 namespace RTBKIT {
 
@@ -354,5 +354,91 @@ private:
     std::unordered_map<std::string, ConfigSet> domains;
     std::unordered_set<std::string> required;
 };
+
+
+struct LatLongDevFilter : public RTBKIT::FilterBaseT<LatLongDevFilter>
+{
+    static constexpr const char* name = "latLongDevFilter";
+
+    /**
+     * To see if a point is inside a required area we aproximate that area (
+     * circular) with a square, and check that the point is within the
+     * boundaries.
+     */
+    struct Square{
+        float x_max;
+        float x_min;
+        float y_max;
+        float y_min;
+    };
+
+    typedef std::vector<Square> SquareList;
+    std::unordered_map<unsigned, SquareList> squares_by_confindx;
+    ConfigSet configs_with_filt;
+
+    unsigned priority() const { return Priority::LatLong; } //low priority
+
+    static constexpr float LONGITUDE_1DEGREE_KMS = 111.321;
+    static constexpr float LATITUDE_1DEGREE_KMS = 111.0;
+
+    /**
+     * Convert the lat long in a 2D square of side radius.
+     * Make it with the following approximations:
+     * 1 degree of latitude = 111 kms
+     * 1 degre of longitude = 111.321 * cos(latitude) kms
+     */
+    static Square squareFromLatLongRadius(float lat, float lon, float radius);
+
+    /**
+     * Save the squares for each config index.
+     * Important: We only filter by those who has the filter.
+     */
+    virtual void addConfig(unsigned cfgIndex,
+            const std::shared_ptr<RTBKIT::AgentConfig>& config);
+
+    /**
+     * Remove the square list for the given config index.
+     */
+    virtual void removeConfig(unsigned cfgIndex,
+            const std::shared_ptr<RTBKIT::AgentConfig>& config);
+
+    /**
+     * Particular implementation of virtual method for this filter type.
+     */
+    virtual void filter(RTBKIT::FilterState& state) const ;
+
+    /**
+     * Check if it is present in the bid request:
+     * - the device
+     * - the the geo in the device
+     * - the lat and lon in the geo (from the device)
+     * If they are present, return true. Otherwise return false.
+     */
+    bool checkLatLongPresent(const RTBKIT::BidRequest & req) const ;
+
+    /**
+     * Return true is the point is inside in at least one of the given
+     * square of the list given. Otherwise false.
+     */
+    static bool pointInsideAnySquare(float lat, float lon,
+            const SquareList & squares);
+
+    /**
+     * Check if the given point defined by (x, y) is inside of the square
+     * defined by the two edges (x_max,y_max) and (x_min, y_min).
+     */
+    inline static bool insideSquare(float x, float y, const Square & sq )
+    {
+        return x < sq.x_max && x > sq.x_min && y < sq.y_max && y > sq.y_min;
+    }
+
+    inline static float cosInDegrees(float degrees)
+    {
+        static const double deeToGrad = 3.14159265 / 180.0;
+        return cos(degrees * deeToGrad);
+    }
+
+};
+
 
 } // namespace RTBKIT

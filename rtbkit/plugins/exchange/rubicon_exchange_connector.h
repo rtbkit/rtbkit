@@ -50,6 +50,7 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
     struct CreativeInfo {
         std::string adm;                                ///< Ad markup
         std::vector<std::string> adomain;               ///< Advertiser domains
+        Id cid;                                         ///< Optional Campaign ID
         Id crid;                                        ///< Creative ID
         OpenRTB::List<OpenRTB::CreativeAttribute> attr; ///< Creative attributes
         std::string ext_creativeapi;                    ///< Creative API

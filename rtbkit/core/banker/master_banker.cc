@@ -187,7 +187,6 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                We need to check them and restore them (if needed). */
             for (int i = 0; i < reply.length(); i++) {
                 const string & key = keys[i];
-                bool isParentAccount(key.find(":") == string::npos);
                 const Accounts::AccountInfo & bankerAccount
                     = toSave.getAccount(key);
                 if (toSave.isAccountOutOfSync(key)) {
@@ -223,21 +222,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                            JSON content.
                         */
                         saveAccount = (bankerValue != storageValue);
-
                         if (saveAccount) {
-                            if (isParentAccount) {
-                                /* set and update the "spent-tracking" output for top
-                                * accounts, by integrating the past */
-                                if (storageValue.isMember("spent-tracking")) {
-                                    bankerValue["spent-tracking"]
-                                        = storageValue["spent-tracking"];
-                                }
-                                else {
-                                    bankerValue["spent-tracking"]
-                                        = Json::Value(Json::objectValue);
-                                }
-                            }
-
                             // move an account from Active accounts to Closed archive
                             if (bankerAccount.status == Account::CLOSED
                                     && storageAccount.status == Account::ACTIVE) {
@@ -263,32 +248,10 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                        create it. */
                     storeCommands.push_back(SADD("banker:accounts", key));
                     saveAccount = true;
-                    if (isParentAccount) {
-                        bankerValue["spent-tracking"]
-                            = Json::Value(Json::objectValue);
-                    }
                 }
 
                 if (saveAccount) {
-                    if (isParentAccount) {
-                        const AccountSummary & summary = toSave.getAccountSummary(key);
-                        if (summary.spent != bankerAccount.initialSpent) {
-                            // cerr << "adding tracking entry" << endl;
-                            string sessionStartStr = toSave.sessionStart.printClassic();
-                            bankerValue["spent-tracking"][sessionStartStr]
-                                = Json::Value(Json::objectValue);
-                            Json::Value & tracking
-                                = bankerValue["spent-tracking"][sessionStartStr];
-                            CurrencyPool delta(summary.spent
-                                               - bankerAccount.initialSpent);
-                            tracking["spent"] = delta.toJson();
-                            string lastModifiedStr = Date::now().printClassic();
-                            tracking["date"] = lastModifiedStr;
-                        }
-                    }
-
-                    Redis::Command command = SET(PREFIX + key,
-                                                 boost::trim_copy(bankerValue.toString()));
+                    Redis::Command command = SET(PREFIX + key, boost::trim_copy(bankerValue.toString()));
                     storeCommands.push_back(command);
                 }
             }
