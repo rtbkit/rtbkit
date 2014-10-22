@@ -282,7 +282,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
     for (auto k: allKeys)
     	if (accounts.isInitialized(k) && accounts.getAccount(k).status == Account::ACTIVE)
     		filteredKeys.push_back(k);
-        } else {
+        else {
             if (accounts.isStalled(k)) {
                 LOG(bankerDebug) << "CRITICAL:" << k << std::endl;
 
