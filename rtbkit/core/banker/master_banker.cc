@@ -888,13 +888,7 @@ Json::Value
 MasterBanker::
 createAccount(const AccountKey & key, AccountType type)
 {
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        restoreAccount(key);
-    }
-    else if (presentActive.first && !presentActive.second) {
-        accounts.reactivateAccount(key);
-    }
+    reactivatePresentAccounts(key);
 
     Account account = accounts.createAccount(key, type);
     return account.toJson();
@@ -1144,6 +1138,17 @@ restoreAccount(const AccountKey & key)
         ML::futex_wait(done, 0);
     }
 }
+void 
+MasterBanker::
+reactivatePresentAccounts(const AccountKey & key) {
+    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+    if (!presentActive.first) {
+        restoreAccount(key);
+    }
+    else if (presentActive.first && !presentActive.second) {
+        accounts.reactivateAccount(key);
+    }
+}
 
 const Account
 MasterBanker::
@@ -1159,14 +1164,7 @@ setBudget(const AccountKey &key, const CurrencyPool &newBudget)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
 
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        restoreAccount(key);
-    }
-    else if (presentActive.first && !presentActive.second) {
-        accounts.reactivateAccount(key);
-    }
-
+    reactivatePresentAccounts(key); 
     return accounts.setBudget(key, newBudget);
 }
 
@@ -1184,14 +1182,7 @@ onCreateAccount(const AccountKey &key, AccountType type)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
  
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        restoreAccount(key);
-    }
-    else if (presentActive.first && !presentActive.second) {
-        accounts.reactivateAccount(key);
-    }
-
+    reactivatePresentAccounts(key);
     return accounts.createAccount(key, type);
 }
 
@@ -1209,14 +1200,7 @@ closeAccount(const AccountKey &key)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
  
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        return false;
-    }
-    else if (presentActive.first && !presentActive.second) {
-        return false;
-    }
-
+    reactivatePresentAccounts(key);
     auto account = accounts.closeAccount(key);
     if (account.status == Account::CLOSED)
         return true;
@@ -1251,14 +1235,7 @@ setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
 
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        restoreAccount(key);
-    }
-    else if (presentActive.first && !presentActive.second) {
-        accounts.reactivateAccount(key);
-    }
-
+    reactivatePresentAccounts(key);
     return accounts.setBalance(key, amount, type);
 }
 
@@ -1276,14 +1253,7 @@ addAdjustment(const AccountKey &key, CurrencyPool amount)
             throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
     }
 
-    pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
-    if (!presentActive.first) {
-        restoreAccount(key);
-    }
-    else if (presentActive.first && !presentActive.second) {
-        accounts.reactivateAccount(key);
-    }
-
+    reactivatePresentAccounts(key);
     return accounts.addAdjustment(key, amount);
 }
 

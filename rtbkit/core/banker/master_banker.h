@@ -362,6 +362,7 @@ private:
     bool closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
     void restoreAccount(const AccountKey & key);
+    void reactivatePresentAccounts(const AccountKey & key);
     
 };
 
