@@ -756,7 +756,7 @@ public:
     Date slowModeLastAuction;
     bool slowModeActive;    
     Amount slowModeAuthorizedMoneyLimit;
-    std::atomic<uint64_t> accumulatedBidMoneyInThisSecond;
+    std::atomic<uint64_t> accumulatedBidMoneyInThisPeriod;
 
     /* MONITOR PROVIDER */
     /* Post service health status to Monitor */
