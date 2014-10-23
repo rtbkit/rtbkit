@@ -305,7 +305,8 @@ BOOST_AUTO_TEST_CASE( test_account_close )
     BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::CLOSED);
    
     accounts.setBalance(strategy, USD(5), AT_NONE); 
-    
+    accounts.reactivateAccount(strategy);
+
     BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::ACTIVE);
     BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::ACTIVE);
 
