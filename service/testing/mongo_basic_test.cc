@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE( test_mongo_connection )
 {
     MongoTemporaryServer mongo;
 
-    sleep(5.0);
+    sleep(10.0);
     cerr << "Shutting down the mongo server " << endl;
     mongo.shutdown();
 }
