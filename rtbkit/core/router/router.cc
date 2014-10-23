@@ -149,7 +149,7 @@ Router(ServiceBase & parent,
       monitorClient(getZmqContext(), secondsUntilSlowMode),
       slowModeActive(false),
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
-      accumulatedBidMoneyInThisSecond(0),
+      accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance)
@@ -199,7 +199,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorClient(getZmqContext(), secondsUntilSlowMode),
       slowModeActive(false),
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
-      accumulatedBidMoneyInThisSecond(0),
+      accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance)
@@ -1985,21 +1985,29 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     < (uint32_t) now.secondsSinceEpoch()) {
                 slowModeLastAuction = now;
                 slowModeActive = false;
-                accumulatedBidMoneyInThisSecond = price.value;
+                // TODO Insure in router.cc (not router_runner) that
+                // maxBidPrice <= slowModeAuthorizedMoneyLimit
+                // Here we're garanteed that price.value >= slowModeAuthorizedMoneyLimit
+                accumulatedBidMoneyInThisPeriod = price.value;
 
                 recordHit("monitor.systemInSlowMode"); 
             }
 
             else {
-                accumulatedBidMoneyInThisSecond += price.value;
-            }
-
-            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit.value) {
-                slowModeActive = true;
-                bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
-                recordHit("slowMode.droppedBid");
+                accumulatedBidMoneyInThisPeriod += price.value;
+                // Check if we're spending more in this period than what slowModeAuthorizedMoneyLimit
+                // allows us to.
+                if (accumulatedBidMoneyInThisPeriod > slowModeAuthorizedMoneyLimit.value) {
+                    slowModeActive = true;
+                    bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
+                    recordHit("slowMode.droppedBid");
                 continue;
+                }
             }
+        } else {
+            // Make sure slowModeActive is false if monitor success is satisfied.
+            // There is a possible (90% sure..) code path where slowModeActive is not resetted
+            slowModeActive = false;
         }
 
         if (!banker->authorizeBid(config.account, auctionKey, price)
