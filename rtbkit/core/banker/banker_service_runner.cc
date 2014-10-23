@@ -45,6 +45,8 @@ int main(int argc, char ** argv)
     int redisTimeout = 0;
     int saveInterval = 0;
 
+    bool debug = false;
+
     std::vector<std::string> fixedHttpBindAddresses;
 
     configuration_options.add_options()
@@ -59,7 +61,9 @@ int main(int argc, char ** argv)
         ("save-interval", value<int>(&saveInterval)->default_value(10),
          "Periodic delay at which state will be saved")
         ("fixed-http-bind-address,a", value(&fixedHttpBindAddresses),
-         "Fixed address (host:port or *:port) at which we will always listen");
+         "Fixed address (host:port or *:port) at which we will always listen")
+        ("debug", bool_switch(&debug),
+         "Debug mode enabled");
 
     options_description all_opt;
     all_opt
@@ -87,6 +91,9 @@ int main(int argc, char ** argv)
     MasterBanker banker(proxies, serviceName);
     std::shared_ptr<Redis::AsyncConnection> redis;
 
+    if (debug)
+        banker.debug.activate();
+
     if (redisUri != "nopersistence") {
         std::cout << " redisUri=" << redisUri << std::endl;
         auto address = Redis::Address(redisUri);
@@ -96,8 +103,11 @@ int main(int argc, char ** argv)
         if(redisDatabase != 0)
             redis->select(redisDatabase);
         redis->test();
+        auto persistence = std::make_shared<RedisBankerPersistence>(redis, redisTimeout);
+        if (debug)
+            persistence->debug.activate();
         banker.init(
-                std::make_shared<RedisBankerPersistence>(redis, redisTimeout),
+                persistence,
                 saveInterval);
     }
     else {

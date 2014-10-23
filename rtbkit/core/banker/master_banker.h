@@ -176,6 +176,7 @@ struct BankerPersistence {
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
+    static Logging::Category debug;
 
     /* callback types */
     typedef std::function<void (std::shared_ptr<Accounts>,
@@ -185,12 +186,19 @@ struct BankerPersistence {
     typedef std::function<void (const Result& result,
                                 const std::string & info)>
         OnSavedCallback;
+    
+    typedef std::function<void (std::shared_ptr<Accounts>,
+                                PersistenceCallbackStatus,
+                                const std::string & info)>
+        OnRestoredCallback;
 
     /* backend methods */
     virtual void loadAll(const std::string & topLevelKey,
                          OnLoadedCallback onLoaded) = 0;
     virtual void saveAll(const Accounts & toSave,
                          OnSavedCallback onDone) = 0;
+    virtual void restoreFromArchive(const AccountKey & accountName,
+                         OnRestoredCallback onRestored) = 0;
 };
 
 
@@ -219,6 +227,12 @@ struct NoBankerPersistence : public BankerPersistence {
         onDone(Result { SUCCESS }, "");
     }
 
+    virtual void
+    restoreFromArchive(const AccountKey & key,
+                       OnRestoredCallback onRestored)
+    {
+        onRestored(std::make_shared<Accounts>(), SUCCESS, "");
+    }
 };
 
 /*****************************************************************************/
@@ -233,9 +247,14 @@ struct RedisBankerPersistence : public BankerPersistence {
 
     struct Itl;
     std::shared_ptr<Itl> itl;
+    static const std::string PREFIX;
 
     void loadAll(const std::string & topLevelKey, OnLoadedCallback onLoaded);
     void saveAll(const Accounts & toSave, OnSavedCallback onDone);
+    void restoreFromArchive(const AccountKey & key, OnRestoredCallback onRestored);
+private:
+    void moveToActive(const std::vector<AccountKey> & archivedAccountKeys,
+                                OnRestoredCallback onRestored);
 };
 
 /*****************************************************************************/
@@ -318,6 +337,9 @@ struct MasterBanker
                        const std::string & info);
     void onStateSaved(const BankerPersistence::Result& result,
                       const std::string & info);
+    void onAccountRestored(std::shared_ptr<Accounts> restoredAccounts,
+                           const BankerPersistence::Result& result,
+                           const std::string & info);
 
     Date lastWin;
     Date lastImpression;
@@ -325,6 +347,7 @@ struct MasterBanker
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
+    static Logging::Category debug;
 
 private:
     const Account onCreateAccount(const AccountKey &account, AccountType type);
@@ -336,8 +359,11 @@ private:
     void reportLatencies(const std::string& category,
                          const BankerPersistence::LatencyMap& latencies) const;
 
-    const std::vector<AccountSummary> closeAccount(const AccountKey &key);
+    bool closeAccount(const AccountKey &key);
     const std::vector<AccountKey> getActiveAccounts();
+    void restoreAccount(const AccountKey & key);
+    void reactivatePresentAccounts(const AccountKey & key);
+    
 };
 
 } // namespace RTBKIT
