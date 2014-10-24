@@ -753,10 +753,11 @@ public:
     /* Client connection to the Monitor, determines if we can process bid
        requests */
     MonitorClient monitorClient;
+    // TODO Make this thread safe
     Date slowModeLastAuction;
-    bool slowModeActive;    
+    std::atomic<bool> slowModePeriodicSpentReached;    
     Amount slowModeAuthorizedMoneyLimit;
-    std::atomic<uint64_t> accumulatedBidMoneyInThisPeriod;
+    uint64_t accumulatedBidMoneyInThisPeriod;
 
     /* MONITOR PROVIDER */
     /* Post service health status to Monitor */
