@@ -2338,6 +2338,8 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (!monitorClient.getStatus(slowModeTolerance)) {
         // check if slow mode active and in the same second then ignore the Auction
         Date now = Date::now();
+        // TODO slowModeLastAuction is not atomic and a race condition could happen since it's
+        // used by router loop AND exchange connector threads
         if (slowModePeriodicSpentReached && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
                 == (uint32_t) now.secondsSinceEpoch() ) {
             recordHit("monitor.ignoredAuctions");
