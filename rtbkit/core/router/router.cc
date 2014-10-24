@@ -147,9 +147,9 @@ Router(ServiceBase & parent,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeActive(false),
+      slowModePeriodicSpentReached(false),
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
-      accumulatedBidMoneyInThisSecond(0),
+      accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance)
@@ -197,9 +197,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeActive(false),
+      slowModePeriodicSpentReached(false),
       slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
-      accumulatedBidMoneyInThisSecond(0),
+      accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance)
@@ -1927,7 +1927,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
 
         if (bid.price.isNegative() || bid.price > maxBidAmount) {
-            if (slowModeActive) {
+            if (slowModePeriodicSpentReached) {
                 bid.price = maxBidAmount;
             } else {
                 returnInvalidBid(agent, bidsString, auctionInfo.auction,
@@ -1984,22 +1984,30 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
                     < (uint32_t) now.secondsSinceEpoch()) {
                 slowModeLastAuction = now;
-                slowModeActive = false;
-                accumulatedBidMoneyInThisSecond = price.value;
+                slowModePeriodicSpentReached = false;
+                // TODO Insure in router.cc (not router_runner) that
+                // maxBidPrice <= slowModeAuthorizedMoneyLimit
+                // Here we're garanteed that price.value >= slowModeAuthorizedMoneyLimit
+                accumulatedBidMoneyInThisPeriod = price.value;
 
                 recordHit("monitor.systemInSlowMode"); 
             }
 
             else {
-                accumulatedBidMoneyInThisSecond += price.value;
-            }
-
-            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit.value) {
-                slowModeActive = true;
-                bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
-                recordHit("slowMode.droppedBid");
+                accumulatedBidMoneyInThisPeriod += price.value;
+                // Check if we're spending more in this period than what slowModeAuthorizedMoneyLimit
+                // allows us to.
+                if (accumulatedBidMoneyInThisPeriod > slowModeAuthorizedMoneyLimit.value) {
+                    slowModePeriodicSpentReached = true;
+                    bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
+                    recordHit("slowMode.droppedBid");
                 continue;
+                }
             }
+        } else {
+            // Make sure slowModePeriodicSpentReached is false if monitor success is satisfied.
+            // There is a possible (90% sure..) code path where slowModePeriodicSpentReached is not resetted
+            slowModePeriodicSpentReached = false;
         }
 
         if (!banker->authorizeBid(config.account, auctionKey, price)
@@ -2330,7 +2338,9 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (!monitorClient.getStatus(slowModeTolerance)) {
         // check if slow mode active and in the same second then ignore the Auction
         Date now = Date::now();
-        if (slowModeActive && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
+        // TODO slowModeLastAuction is not atomic and a race condition could happen since it's
+        // used by router loop AND exchange connector threads
+        if (slowModePeriodicSpentReached && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
                 == (uint32_t) now.secondsSinceEpoch() ) {
             recordHit("monitor.ignoredAuctions");
             auction->finish();
