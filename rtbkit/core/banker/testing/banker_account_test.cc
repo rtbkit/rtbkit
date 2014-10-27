@@ -65,7 +65,9 @@ BOOST_AUTO_TEST_CASE( test_account_set_budget )
     account.balance = USD(3);
     account.checkInvariants();
     account.setBudget(USD(9));
-    BOOST_CHECK_EQUAL(account.balance, USD(6));
+    BOOST_CHECK_EQUAL(account.balance, USD(0));
+    BOOST_CHECK_EQUAL(account.budgetIncreases, USD(14));
+    BOOST_CHECK_EQUAL(account.budgetDecreases, USD(4));
 
     /* we adjust the budget down the the least possible value and ensure that
        "available" is adjusted by taking the "allocatedOut" into account */
