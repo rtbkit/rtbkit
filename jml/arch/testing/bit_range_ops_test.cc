@@ -361,3 +361,30 @@ BOOST_AUTO_TEST_CASE( test_skip )
     writer.skip(4294967295);
     BOOST_CHECK_EQUAL(writer.current_offset(buffer), 4294967295);
 }
+
+// Test Bit_Buffer_advance.
+BOOST_AUTO_TEST_CASE( test_Bit_Buffer_advance )
+{
+    /* "buffer" does not need to be a huge buffer for this test, as no
+       write/read is actually performed to/from it */
+    uint64_t data[] = {0};
+
+    ML::Bit_Buffer<uint64_t> buffer(data);
+    BOOST_CHECK_EQUAL(buffer.current_offset(data), 0);
+
+    // simple forward
+    buffer.advance(1);
+    BOOST_CHECK_EQUAL(buffer.current_offset(data), 1);
+
+    // simple backward
+    buffer.advance(-1);
+    BOOST_CHECK_EQUAL(buffer.current_offset(data), 0);
+
+    // 0xffffffff is considered as a positive int
+    buffer.advance(UINT_MAX);
+    BOOST_CHECK_EQUAL(buffer.current_offset(data), UINT_MAX);
+
+    // a positive int64_t is considered as a positive int
+    buffer.advance(int64_t(UINT_MAX) + 1);
+    BOOST_CHECK_EQUAL(buffer.current_offset(data), (1LL << 33) - 1);
+}

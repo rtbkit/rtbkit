@@ -1,6 +1,7 @@
 $(eval $(call test,tick_counter_test,arch,boost))
 $(eval $(call test,bitops_test,arch,boost))
 $(eval $(call test,cpuid_test,arch,boost))
+$(eval $(call test,futex_test,arch,boost))
 $(eval $(call test,simd_test,arch,boost))
 $(eval $(call test,cmp_xchg_test,arch boost_thread boost_system,boost))
 $(eval $(call test,simd_vector_test,arch,boost))

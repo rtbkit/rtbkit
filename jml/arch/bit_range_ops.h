@@ -354,7 +354,7 @@ struct Bit_Buffer {
     }
 
     /// Extracts bits starting from the least-significant bits of the buffer.
-    Data extract(int bits)
+    Data extract(shift_t bits)
     {
         if (JML_UNLIKELY(bits <= 0)) return Data(0);
 
@@ -363,8 +363,8 @@ struct Bit_Buffer {
             // TODO: simplify
             result = extract_bit_range(data.curr(), Data(0), bit_ofs, bits);
         else
-            result = extract_bit_range(data.curr(), data.next(), bit_ofs,
-                                        bits);
+            result
+                = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
         advance(bits);
         return result;
     }
@@ -406,7 +406,11 @@ struct Bit_Buffer {
         return result;
     }
 
-    void advance(int bits)
+    /// Increase the cursor in the bit buffer. For performance reasons, no
+    /// bound checking is performed and it is up to the caller to ensure that
+    /// the sum of the current offset and the "bits" parameter is within
+    /// [0, sizeof(buffer)[.
+    void advance(ssize_t bits)
     {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
@@ -525,7 +529,7 @@ struct Bit_Extractor {
     }
 
     JML_COMPUTE_METHOD
-    void advance(int bits)
+    void advance(ssize_t bits)
     {
         buf.advance(bits);
     }
