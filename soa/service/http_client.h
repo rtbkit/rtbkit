@@ -35,7 +35,6 @@
 #include <curlpp/Types.hpp>
 
 #include "jml/arch/wakeup_fd.h"
-
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
@@ -203,6 +202,14 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    bool enqueueRequest(const std::string & verb,
+                        const std::string & resource,
+                        const std::shared_ptr<HttpClientCallbacks> & callbacks,
+                        const HttpRequest::Content & content,
+                        const RestParams & queryParams,
+                        const RestParams & headers,
+                        int timeout = -1);
+
     size_t queuedRequests() const;
 
     HttpClient & operator = (HttpClient && other) noexcept;
@@ -213,13 +220,6 @@ private:
     virtual bool processOne();
 
     /* Local */
-    bool enqueueRequest(const std::string & verb,
-                        const std::string & resource,
-                        const std::shared_ptr<HttpClientCallbacks> & callbacks,
-                        const HttpRequest::Content & content,
-                        const RestParams & queryParams,
-                        const RestParams & headers,
-                        int timeout = -1);
     std::vector<HttpRequest> popRequests(size_t number);
 
     void handleEvents();
@@ -308,6 +308,8 @@ enum struct HttpClientError {
     Timeout,
     HostNotFound,
     CouldNotConnect,
+    SendError,
+    RecvError
 };
 
 std::ostream & operator << (std::ostream & stream, HttpClientError error);

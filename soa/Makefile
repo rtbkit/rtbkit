@@ -2,7 +2,7 @@ CXX ?= g++
 CC ?= gcc
 FC := gfortran
 NODEJS_ENABLED:=1
-PYTHON_ENABLED:=0
+PYTHON_ENABLED:=1
 
 LOCAL_DIR?=$(HOME)/local
 NODE_PREFIX:=$(LOCAL_DIR)
@@ -12,7 +12,6 @@ LOCAL_LIB_DIR?=$(LOCAL_DIR)/lib /usr/local/lib
 LOCAL_INCLUDE_DIR?=$(LOCAL_DIR)/include
 
 MACHINE_NAME:=$(shell uname -n)
-
 
 -include local.mk
 VIRTUALENV ?= $(LOCAL_DIR)/platform_virtualenv
@@ -47,7 +46,7 @@ CXX_VERSION?=$(shell g++ --version | head -n1 | sed 's/.* //g')
 
 CFLAGS += -fno-strict-overflow -msse4.2
 
-CXXFLAGS += -Wno-deprecated -Wno-uninitialized -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I/usr/local/include -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
+CXXFLAGS += -Wno-deprecated -Wno-uninitialized -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I/usr/local/include -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
 CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
 CFLAGS +=  -Wno-unused-but-set-variable
 
@@ -63,11 +62,9 @@ include $(JML_BUILD)/tcmalloc.mk
 
 SUBDIRS := jml tinyxml2 googleurl soa
 
-
 PREMAKE := 1
 
 $(eval $(call include_sub_makes,$(SUBDIRS)))
-
 
 PREMAKE := 0
 
