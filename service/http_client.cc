@@ -45,6 +45,12 @@ translateError(CURLcode curlError)
     case CURLE_COULDNT_CONNECT:
         error = HttpClientError::CouldNotConnect;
         break;
+    case CURLE_SEND_ERROR:
+        error = HttpClientError::SendError;
+        break;
+    case CURLE_RECV_ERROR:
+        error = HttpClientError::RecvError;
+        break;
     default:
         ::fprintf(stderr, "returning 'unknown' for code %d\n", curlError);
         error = HttpClientError::Unknown;
@@ -85,6 +91,8 @@ errorMessage(HttpClientError errorCode)
     static const string hostNotFound = "Host not found";
     static const string couldNotConnect = "Could not connect";
     static const string timeout = "Request timed out";
+    static const string sendError = "Failure sending network data";
+    static const string recvError = "Failure receiving network data";
 
     switch (errorCode) {
     case HttpClientError::None:
@@ -97,6 +105,10 @@ errorMessage(HttpClientError errorCode)
         return hostNotFound;
     case HttpClientError::CouldNotConnect:
         return couldNotConnect;
+    case HttpClientError::SendError:
+        return sendError;
+    case HttpClientError::RecvError:
+        return recvError;
     default:
         throw ML::Exception("invalid error code");
     };
