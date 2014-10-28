@@ -132,12 +132,14 @@ struct MongoTemporaryServer : boost::noncopyable {
 
         cerr << "about to run command using runner " << endl;
         runner_.run({"/usr/bin/mongod",
-                    "--port", "28355",
+                    "--port", "28356",
                     "--logpath",logfile_.c_str(),"--bind_ip",
-                    "127.0.0.1","--dbpath",uniquePath.c_str(),"--unixSocketPrefix",
+                    "localhost","--dbpath",uniquePath.c_str(),"--unixSocketPrefix",
                     socketPath_.c_str(),"--nojournal"}, nullptr, nullptr,stdOutSink);
         // connect to the socket to make sure everything is working fine
         testConnection();
+        string payload("db.addUser('testuser','testpw',true)");
+        execute(loop_,{"/usr/bin/mongo","localhost:28356"}, nullptr, nullptr, payload);
         state = Running;
     }
 
