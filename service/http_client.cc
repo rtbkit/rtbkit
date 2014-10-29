@@ -297,6 +297,10 @@ addFd(int fd, bool isMod, int flags)
     int rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
                          fd, &event);
     if (rc == -1) {
+        rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
+                         fd, &event);
+    }
+    if (rc == -1) {
 	if (errno != EBADF) {
             throw ML::Exception(errno, "epoll_ctl");
         }
