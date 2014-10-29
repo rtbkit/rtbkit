@@ -13,6 +13,7 @@
 #include "rtbkit/common/auction_events.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
+#include "rtbkit/plugins/analytics/analytics.h"
 
 
 /******************************************************************************/
@@ -77,6 +78,7 @@ struct MatchedWinLoss
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 
 private:
     void initFinishedInfo(const FinishedInfo& info);

@@ -9,7 +9,7 @@ LIB_POST_AUCTION_SOURCES := \
 	submission_info.cc
 
 LIB_POST_AUCTION_LINK := \
-	agent_configuration zeromq boost_thread logger opstats leveldb services banker rtb
+	agent_configuration zeromq boost_thread logger opstats leveldb services banker rtb analytics
 
 $(eval $(call library,post_auction,$(LIB_POST_AUCTION_SOURCES),$(LIB_POST_AUCTION_LINK)))
 

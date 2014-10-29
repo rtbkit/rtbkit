@@ -7,6 +7,7 @@
 #pragma once
 
 #include <string>
+#include <sstream>
 #include <utility>
 
 #include "soa/service/rest_service_endpoint.h"
@@ -20,17 +21,39 @@
 
 struct AnalyticsClient : public Datacratic::MessageLoop {
 
-    int port;
-    std::string address;
+    std::string baseUrl;
     std::shared_ptr<Datacratic::HttpClient> client;
 
-    AnalyticsClient(int port, const std::string & address);
+    AnalyticsClient(const std::string & baseUrl);
+    AnalyticsClient(int port = 40000, const std::string & address = "http://127.0.0.1");
 
     void init();
     void start();
     void shutdown();
 
     void sendEvent(const std::string & type, const std::string & event);
+
+    template<typename Head>
+    void make_message(std::stringstream & ss, Head && head)
+    {
+        ss << head;
+    }
+
+    template<typename Head, typename... Tail>
+    void make_message(std::stringstream & ss, Head && head, Tail && ... tail)
+    {
+        ss << head << " ";
+        make_message(ss, std::forward<Tail>(tail)...);
+    }
+
+    template<typename... Args>
+    void publish(const std::string & channel, Args && ... args)
+    {
+        std::stringstream ss;
+        make_message(ss, std::forward<Args>(args)...);
+        sendEvent(channel, ss.str());
+    }
+
 
 };
 
@@ -53,3 +76,4 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase, public Datacratic
 
     Datacratic::RestRequestRouter router;
 };
+

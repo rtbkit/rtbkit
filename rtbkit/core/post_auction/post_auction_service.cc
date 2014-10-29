@@ -10,6 +10,7 @@
 #include "simple_event_matcher.h"
 #include "sharded_event_matcher.h"
 #include "rtbkit/common/messages.h"
+#include "rtbkit/plugins/analytics/analytics.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -47,7 +48,8 @@ PostAuctionService(
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+      analytics(proxies->analyticsUri)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -427,6 +429,7 @@ doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
     else stats.matchedLosses++;
 
     event->publish(logger);
+    event->publish(analytics);
 
     deliverEvent("bidResult." + event->typeString(), "doWinLossEvent", event->response.account,
         [&](const AgentConfigEntry& entry)
