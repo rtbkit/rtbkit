@@ -16,7 +16,12 @@ using namespace std;
 using namespace Datacratic;
 
 AnalyticsClient::
-AnalyticsClient(int port, const string & address) : port(port), address(address)
+AnalyticsClient(const string & baseUrl) : baseUrl(baseUrl) 
+{
+}
+
+AnalyticsClient::
+AnalyticsClient(int port, const string & address) : baseUrl(address + ":" + to_string(port))
 {
 }
 
@@ -24,7 +29,6 @@ void
 AnalyticsClient::
 init()
 {
-    string baseUrl = address + ":" + to_string(port);
     cout << "url: " << baseUrl << endl;
     client = make_shared<HttpClient>(baseUrl, 1);
     client->sendExpect100Continue(false);
@@ -64,6 +68,8 @@ sendEvent(const string & type, const string & event)
     client->post(ressource, cbs, {}, { { "type", type },
                                       { "event", event } });
 }
+
+
 
 AnalyticsRestEndpoint::
 AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
