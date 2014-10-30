@@ -106,6 +106,7 @@ init(size_t externalShard, size_t internalShards)
     initMatcher(internalShards);
     initConnections(externalShard);
     monitorProviderClient.init(getServices()->config);
+    analytics.init();
 }
 
 void
@@ -217,6 +218,7 @@ start(std::function<void ()> onStop)
     loopMonitor.start();
     matcher->start();
     bidder->start();
+    analytics.start();
 }
 
 void
@@ -231,6 +233,7 @@ shutdown()
     endpoint.shutdown();
     configListener.shutdown();
     monitorProviderClient.shutdown();
+    analytics.shutdown();
 }
 
 

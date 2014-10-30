@@ -16,7 +16,7 @@ using namespace std;
 using namespace Datacratic;
 
 AnalyticsClient::
-AnalyticsClient(const string & baseUrl) : baseUrl(baseUrl) 
+AnalyticsClient(const string & baseUrl) : baseUrl(baseUrl)
 {
 }
 
@@ -29,10 +29,10 @@ void
 AnalyticsClient::
 init()
 {
-    cout << "url: " << baseUrl << endl;
+    cout << "Analytics url: " << baseUrl << endl;
     client = make_shared<HttpClient>(baseUrl, 1);
     client->sendExpect100Continue(false);
-    addSource("analyticsClient", client);
+    addSource("analytics::client", client);
 }
 
 void
@@ -51,7 +51,7 @@ shutdown()
 
 void
 AnalyticsClient::
-sendEvent(const string & type, const string & event)
+sendEvent(const string type, const string event)
 {
     auto onResponse = [] (const HttpRequest & rq,
             HttpClientError error,
@@ -65,6 +65,7 @@ sendEvent(const string & type, const string & event)
     };
     string ressource("/v1/event");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    cout << "type: " << type << " event: " << event << endl;
     client->post(ressource, cbs, {}, { { "type", type },
                                       { "event", event } });
 }
