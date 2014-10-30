@@ -28,7 +28,9 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     AnalyticsClient(int port = 40000, const std::string & address = "http://127.0.0.1");
 
     void init();
+
     void start();
+
     void shutdown();
 
     void sendEvent(const std::string & type, const std::string & event);
@@ -62,13 +64,13 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase, public Datacratic
 
     AnalyticsRestEndpoint(std::shared_ptr<Datacratic::ServiceProxies> proxies, const std::string & serviceName);
 
-    void init();
-    
     std::pair<std::string, std::string>
     bindTcp();
 
     std::string addEvent(const std::string & type,
                          const std::string & event);
+
+    void init();
 
     void start();
 

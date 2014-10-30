@@ -305,6 +305,24 @@ publish(ZmqNamedPublisher& logger) const
         );
 }
 
+void
+UnmatchedEvent::
+publish(AnalyticsClient & logger) const
+{
+    logger.publish(
+            // Use event type not label since label is only defined for campaign events.
+            "UNMATCHED" + event.type,                            // 0
+            publishTimestamp(),                                  // 1
+
+            reason,                                              // 2
+            event.auctionId.toString(),                          // 3
+            event.adSpotId.toString(),                           // 4
+
+            std::to_string(event.timestamp.secondsSinceEpoch()), // 5
+            event.metadata.toJson()                              // 6
+        );
+}
+
 
 /******************************************************************************/
 /* POST AUCTION ERROR EVENT                                                   */

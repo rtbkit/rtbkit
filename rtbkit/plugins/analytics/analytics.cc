@@ -128,7 +128,7 @@ AnalyticsRestEndpoint::
 addEvent(const string & type, const string & event)
 {
     cout << "type: " << type << ", event: " << event << endl;
-    return "success";
+    return event;
 }
 
 pair<string, string>
