@@ -2072,7 +2072,7 @@ download(const std::string & uri,
     uint64_t downloaded(0);
     int chunkIndex(0);
     while (!downloader.endOfDownload()) {
-        char buffer[128 * 1024 * 1024];
+        char buffer[1024 * 1024];
         streamsize chunkSize = downloader.read(buffer, sizeof(buffer));
         onChunk(buffer, chunkSize, chunkIndex, downloaded, downloadSize);
         downloaded += chunkSize;
