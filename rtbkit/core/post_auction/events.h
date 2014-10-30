@@ -134,6 +134,7 @@ struct UnmatchedEvent
 
     std::string channel() const;
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 

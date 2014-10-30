@@ -490,6 +490,7 @@ doUnmatched(std::shared_ptr<UnmatchedEvent> event)
 {
     stats.unmatchedEvents++;
     event->publish(logger);
+    event->publish(analytics);
 }
 
 void
