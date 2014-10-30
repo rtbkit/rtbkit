@@ -33,7 +33,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 
     void shutdown();
 
-    void sendEvent(const std::string & type, const std::string & event);
+    void sendEvent(const std::string type, const std::string event);
 
     template<typename Head>
     void make_message(std::stringstream & ss, Head && head)
