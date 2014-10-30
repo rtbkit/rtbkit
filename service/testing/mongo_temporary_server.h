@@ -40,7 +40,7 @@ struct MongoTemporaryServer : boost::noncopyable {
                  << uniquePath << endl;
         }
 
-        this->uniquePath = uniquePath;
+        this->uniquePath_ = uniquePath;
         start();
     }
 
@@ -91,27 +91,26 @@ struct MongoTemporaryServer : boost::noncopyable {
     void start()
     {
         using namespace std;
-
+        namespace fs = boost::filesystem;
         // Check the unique path
-        if (uniquePath == "" || uniquePath[0] == '/' || uniquePath == "."
-            || uniquePath == "..")
+        if (uniquePath_ == "" || uniquePath_[0] == '/' || uniquePath_ == "."
+            || uniquePath_ == "..")
             throw ML::Exception("unacceptable unique path");
 
         // 1.  Create the directory
 
         // First check that it doesn't exist
         struct stat stats;
-        int res = stat(uniquePath.c_str(), &stats);
+        int res = stat(uniquePath_.c_str(), &stats);
         if (res != -1 || (errno != EEXIST && errno != ENOENT))
-            throw ML::Exception(errno, "unique path " + uniquePath
+            throw ML::Exception(errno, "unique path " + uniquePath_
                                 + " already exists");
-        cerr << "creating directory " << uniquePath << endl;
-        res = system(ML::format("mkdir -p %s", uniquePath).c_str());
-        if (res == -1)
-            throw ML::Exception(errno, "couldn't mkdir");
-        
-        socketPath_ = uniquePath + "/mongo-socket";
-        logfile_ = uniquePath + "/output.log";
+        cerr << "creating directory " << uniquePath_ << endl;
+        if(!fs::create_directory(fs::path(uniquePath_)))
+            throw ML::Exception("could not create unique path %s",uniquePath_.c_str());
+
+        socketPath_ = uniquePath_ + "/mongo-socket";
+        logfile_ = uniquePath_ + "/output.log";
         int UNIX_PATH_MAX=108;
 
         if (socketPath_.size() >= UNIX_PATH_MAX)
@@ -134,7 +133,7 @@ struct MongoTemporaryServer : boost::noncopyable {
         runner_.run({"/usr/bin/mongod",
                     "--port", "28356",
                     "--logpath",logfile_.c_str(),"--bind_ip",
-                    "localhost","--dbpath",uniquePath.c_str(),"--unixSocketPrefix",
+                    "localhost","--dbpath",uniquePath_.c_str(),"--unixSocketPrefix",
                     socketPath_.c_str(),"--nojournal"}, nullptr, nullptr,stdOutSink);
         // connect to the socket to make sure everything is working fine
         testConnection();
@@ -156,17 +155,16 @@ struct MongoTemporaryServer : boost::noncopyable {
 
     void shutdown()
     {
+        namespace fs = boost::filesystem;
         if(runner_.childPid() < 0) 
             return;
         runner_.kill();
         runner_.waitTermination();
-        if (uniquePath != "") {
+        if (uniquePath_ != "") {
             using namespace std;
-            cerr << "removing " << uniquePath << endl;
-            int rmstatus = system(("rm -rf " + uniquePath).c_str());
-            if (rmstatus)
-                throw ML::Exception(errno, "removing mongod path");
-
+            cerr << "removing " << uniquePath_ << endl;
+            // throws an exception on error
+            fs::remove_all(fs::path(uniquePath_));
             state = Stopped;
         }
     }
@@ -175,7 +173,7 @@ struct MongoTemporaryServer : boost::noncopyable {
 private:
     enum State { Inactive, Stopped, Suspended, Running };
     State state;
-    std::string uniquePath;
+    std::string uniquePath_;
     std::string socketPath_;
     std::string logfile_;
     int serverPid;
