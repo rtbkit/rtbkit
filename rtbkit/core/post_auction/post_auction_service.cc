@@ -49,7 +49,7 @@ PostAuctionService(
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
       router(!!getZmqContext()),
-      analytics(proxies->analyticsUri)
+      analytics(getServices()->analyticsUri)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -71,7 +71,8 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+      analytics(getServices()->analyticsUri)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -106,7 +107,8 @@ init(size_t externalShard, size_t internalShards)
     initMatcher(internalShards);
     initConnections(externalShard);
     monitorProviderClient.init(getServices()->config);
-    analytics.init();
+    if (getServices()->analyticsUri != "")
+        analytics.init();
 }
 
 void
@@ -450,6 +452,7 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
     lastCampaignEvent = Date::now();
 
     event->publish(logger);
+    event->publish(analytics);
 
     // For the moment, send the message to all of the agents that are
     // bidding on this account
@@ -502,6 +505,7 @@ doError(std::shared_ptr<PostAuctionErrorEvent> error)
 {
     stats.errors++;
     error->publish(logger);
+    error->publish(analytics);
 }
 
 

@@ -276,6 +276,31 @@ publish(ZmqNamedPublisher& logger) const
     );
 }
 
+void
+MatchedCampaignEvent::
+publish(AnalyticsClient & logger) const
+{
+    logger.publish(
+            "MATCHED" + label,    // 0
+            publishTimestamp(),   // 1
+
+            auctionId.toString(), // 2
+            impId.toString(),     // 3
+            requestStr,           // 4
+
+            bid,                  // 5
+            win,                  // 6
+            campaignEvents,       // 7
+            visits,               // 8
+
+            account.at(0, ""),    // 9
+            account.at(1, ""),    // 10
+            account.toString(),   // 11
+
+            requestStrFormat      // 12
+    );
+}
+
 
 /******************************************************************************/
 /* UNMATCHED EVENT                                                            */
@@ -341,5 +366,11 @@ publish(ZmqNamedPublisher& logger) const
     logger.publish("PAERROR", publishTimestamp(), key, message);
 }
 
+void
+PostAuctionErrorEvent::
+publish(AnalyticsClient & logger) const
+{
+    logger.publish("PAERROR", publishTimestamp(), key, message);
+}
 
 } // namepsace RTBKIT

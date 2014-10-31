@@ -23,6 +23,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 
     std::string baseUrl;
     std::shared_ptr<Datacratic::HttpClient> client;
+    bool initialized;
 
     AnalyticsClient(const std::string & baseUrl);
     AnalyticsClient(int port = 40000, const std::string & address = "http://127.0.0.1");
@@ -51,26 +52,30 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     template<typename... Args>
     void publish(const std::string & channel, Args && ... args)
     {
+        if (!initialized) return;
         std::stringstream ss;
         make_message(ss, std::forward<Args>(args)...);
         sendEvent(channel, ss.str());
     }
 
-
 };
 
 
-struct AnalyticsRestEndpoint : public Datacratic::ServiceBase, public Datacratic::RestServiceEndpoint {
+struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
+                               public Datacratic::RestServiceEndpoint {
 
-    AnalyticsRestEndpoint(std::shared_ptr<Datacratic::ServiceProxies> proxies, const std::string & serviceName);
+    AnalyticsRestEndpoint(std::shared_ptr<Datacratic::ServiceProxies> proxies,
+                          const std::string & serviceName);
 
-    std::pair<std::string, std::string>
-    bindTcp();
+    std::pair<std::string, std::string> bindTcp(int port = 0);
 
     std::string addEvent(const std::string & type,
                          const std::string & event);
 
-    void init();
+    std::string testEvent(const std::string & type,
+                          const std::string & event);
+
+    void init(bool test = false);
 
     void start();
 

@@ -118,6 +118,7 @@ struct MatchedCampaignEvent
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 
@@ -150,6 +151,7 @@ struct PostAuctionErrorEvent
 
     PostAuctionErrorEvent(std::string key, std::string message);
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 
