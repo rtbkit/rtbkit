@@ -95,6 +95,13 @@ getAccount(const AccountKey & accountKey,
 /* SLAVE BANKER                                                              */
 /*****************************************************************************/
 
+const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+
+SlaveBanker::SlaveBanker()
+    : createdAccounts(128), reauthorizing(false), numReauthorized(0)
+{
+}
+
 SlaveBanker::
 SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate)
     : createdAccounts(128), reauthorizing(false), numReauthorized(0)
@@ -523,6 +530,76 @@ getProviderIndicators() const
     return ind;
 }
 
-const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+/*****************************************************************************/
+/* SLAVE BANKER ARGUMENTS                                                    */
+/*****************************************************************************/
+
+SlaveBankerArguments::SlaveBankerArguments()
+    : useHttp(Defaults::UseHttp)
+    , httpConnections(0)
+    , tcpNoDelay(Defaults::TcpNoDelay)
+{
+}
+
+Logging::Category SlaveBankerArguments::print("SlaveBankerArguments");
+Logging::Category SlaveBankerArguments::error(
+        "SlaveBankerArguments Error", SlaveBankerArguments::print);
+Logging::Category SlaveBankerArguments::trace(
+        "SlaveBankerArguments Trace", SlaveBankerArguments::print);
+boost::program_options::options_description
+
+SlaveBankerArguments::makeProgramOptions(std::string title)
+{
+    namespace po = boost::program_options;
+
+    po::options_description options(std::move(title));
+    options.add_options()
+        ("use-http-banker", po::bool_switch(&useHttp),
+         "Communicate with the MasterBanker over http")
+        ("http-connections", po::value<int>(&httpConnections)
+                             ->default_value(Defaults::HttpConnections),
+         "Number of active http connections to use when http is enabled")
+        ("tcp-nodelay", po::bool_switch(&tcpNoDelay),
+          "Enable the TCP_NODELAY option for the http banker interface (use with caution)");
+
+    return options;
+}
+
+void
+SlaveBankerArguments::
+validate() const {
+    throw ML::Exception("Unimplemented");
+}
+
+std::shared_ptr<SlaveBanker>
+SlaveBankerArguments::makeBankerDefault(std::shared_ptr<ServiceProxies> proxies) const {
+    return makeBankerWithArgs(std::move(proxies));
+}
+
+std::shared_ptr<ApplicationLayer>
+SlaveBankerArguments::makeApplicationLayer(std::shared_ptr<ServiceProxies> proxies) const
+{
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttp) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        ExcCheck(httpConnections > 0,
+                "The number of active http connections must be > 0");
+        std::stringstream ss;
+        ss << "using http interface for the MasterBanker" << std::endl;
+        ss << "url                = " << bankerUri << std::endl;
+        ss << "active connections = " << httpConnections << std::endl;
+        ss << "tcp no delay       = " << tcpNoDelay;
+        LOG(print) << ss.str() << std::endl;
+        layer = make_application_layer<HttpLayer>(bankerUri, httpConnections, tcpNoDelay);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies);
+        LOG(print) << "using zmq interface for the MasterBanker" << std::endl;
+    }
+
+    return layer;
+}
 
 } // namespace RTBKIT

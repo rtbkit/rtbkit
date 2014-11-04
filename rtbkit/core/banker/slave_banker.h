@@ -17,6 +17,9 @@
 #include <thread>
 #include <atomic>
 
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+
 namespace RTBKIT {
 
 
@@ -104,7 +107,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
     }
 
     SlaveBanker(const std::string & accountSuffix,
-                CurrencyPool spenRate = DefaultSpendRate);
+                CurrencyPool spendRate = DefaultSpendRate);
 
     /** Initialize the slave banker.  
 
@@ -294,6 +297,57 @@ private:
     size_t accountsLeft;
 };
 
-} // naemspace RTBKIT
+/*****************************************************************************/
+/* SLAVE BANKER ARGUMENTS                                                     */
+/*****************************************************************************/
+
+/** Class used to automatically create a SlaveBanker. This class can be used
+ *  by all the components that need a SlaveBanker (router and post auction service)
+ */
+class SlaveBankerArguments
+{
+public:
+    struct Defaults {
+        static constexpr bool UseHttp = false;
+        static constexpr int HttpConnections = 1 << 3;
+        static constexpr bool TcpNoDelay = false;
+    };
+
+    SlaveBankerArguments();
+
+    boost::program_options::options_description
+    makeProgramOptions(std::string title = "Slave banker options");
+
+    void validate() const;
+
+    /** Create a SlaveBanker by calling the default constructor */
+    std::shared_ptr<SlaveBanker> makeBankerDefault(
+            std::shared_ptr<ServiceProxies> proxies) const;
+
+    /** Create a SlaveBanker by forwarding the arguments to the constructor */
+    template<typename... Args>
+    std::shared_ptr<SlaveBanker> makeBankerWithArgs(
+            std::shared_ptr<ServiceProxies> proxies, Args&& ...args) const {
+
+        auto banker = std::make_shared<SlaveBanker>(std::forward<Args>(args)...);
+
+        banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
+        return banker;
+    }
+
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
+
+private:
+    bool useHttp;
+    int httpConnections;
+    bool tcpNoDelay;
+
+    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
+            std::shared_ptr<ServiceProxies> proxies) const;
+};
+
+} // namespace RTBKIT
 
 #endif /* __banker__slave_banker_h__ */

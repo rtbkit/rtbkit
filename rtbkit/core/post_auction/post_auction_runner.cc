@@ -41,8 +41,7 @@ PostAuctionRunner() :
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
-    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
-    useHttpBanker(false)
+    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout)
 {
 }
 
@@ -57,10 +56,6 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("use-http-banker", bool_switch(&useHttpBanker),
-         "Communicate with the MasterBanker over http")
-        ("http-connections", value<int>(&httpActiveConnections)->default_value(4),
-         "Number of active http connections to use when http is enabled")
         ("shard,s", value<size_t>(&shard),
          "Shard index starting at 0 for this post auction loop")
         ("win-seconds", value<float>(&winTimeout),
@@ -75,7 +70,8 @@ doOptions(int argc, char ** argv,
     options_description all_opt = opts;
     all_opt
         .add(serviceArgs.makeProgramOptions())
-        .add(postAuctionLoop_options);
+        .add(postAuctionLoop_options)
+        .add(bankerArgs.makeProgramOptions());
 
     all_opt.add_options()
         ("help,h","print this message");
@@ -116,27 +112,8 @@ init()
     LOG(print) << "winLoss pipe timeout is " << winLossPipeTimeout << std::endl;
     LOG(print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
-    banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
-    std::shared_ptr<ApplicationLayer> layer;
-    if (useHttpBanker) {
-        auto bankerUri = proxies->bankerUri;
-        ExcCheck(!bankerUri.empty(),
-                "the banker-uri must be specified in the bootstrap.json");
-        ExcCheck(httpActiveConnections > 0,
-                "The number of active http connections must be > 0");
-        std::stringstream ss;
-        ss << "using http interface for the MasterBanker" << std::endl;
-        ss << "url                = " << bankerUri << std::endl;
-        ss << "active connections = " << httpActiveConnections;
-        LOG(print) << ss.str() << std::endl;
-        layer = make_application_layer<HttpLayer>(bankerUri, httpActiveConnections);
-    }
-    else {
-        layer = make_application_layer<ZmqLayer>(proxies);
-        LOG(print) << "using zmq interface for the MasterBanker" << std::endl;
-    }
-    banker->setApplicationLayer(layer);
-
+    banker = bankerArgs.makeBankerWithArgs(proxies,
+                                           postAuctionLoop->serviceName() + ".slaveBanker");
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
     postAuctionLoop->bindTcp();
