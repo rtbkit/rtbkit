@@ -55,4 +55,4 @@ $(eval $(call test,logs_test,services,boost))
 $(eval $(call test,sns_mock_test,cloud services,boost))
 $(eval $(call test,zmq_message_loop_test,services,boost))
 
-$(eval $(call test,mongo_basic_test,behaviour_service,boost))
+$(eval $(call test,mongo_basic_test,services boost_filesystem,boost))
