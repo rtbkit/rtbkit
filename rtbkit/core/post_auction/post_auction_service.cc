@@ -107,7 +107,7 @@ init(size_t externalShard, size_t internalShards)
     initMatcher(internalShards);
     initConnections(externalShard);
     monitorProviderClient.init(getServices()->config);
-   }
+}
 
 void
 PostAuctionService::
