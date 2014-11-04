@@ -671,9 +671,7 @@ struct ShadowAccount {
         balance = netBudget + commitmentsRetired
             - commitmentsMade - spent;
 
-        if (status == Account::ACTIVE && masterAccount.status == Account::CLOSED) {
-            status = masterAccount.status;
-        }
+        status = masterAccount.status;
         checkInvariants();
     }
 
@@ -1645,7 +1643,7 @@ public:
     }
 
     void
-    forEachInitializedAccount(const std::function<void (const AccountKey &,
+    forEachInitializedAndActiveAccount(const std::function<void (const AccountKey &,
                                                         const ShadowAccount &)> & onAccount)
     {
         Guard guard(lock);

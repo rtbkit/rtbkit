@@ -280,7 +280,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     vector<AccountKey> filteredKeys;
     for (auto k: allKeys)
-    	if (accounts.isInitialized(k) && accounts.getAccount(k).status == Account::ACTIVE)
+    	if (accounts.isInitialized(k))
     		filteredKeys.push_back(k);
         else {
             if (accounts.isStalled(k)) {
@@ -459,7 +459,7 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
                             payload.toString(),
                             onDone);
         };
-    accounts.forEachInitializedAccount(onAccount);
+    accounts.forEachInitializedAndActiveAccount(onAccount);
     
     if (accountsLeft > 0) {
         reauthorizing = true;
