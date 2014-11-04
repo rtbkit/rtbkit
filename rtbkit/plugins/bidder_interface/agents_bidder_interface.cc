@@ -60,7 +60,7 @@ void AgentsBidderInterface::sendWinLossMessage(
 
                               event.requestStrFormat,
                               event.requestStr,
-                              event.response.bidData,
+                              event.response.bidData.toJsonStr(),
                               event.response.meta,
                               event.augmentations.toJson());
 

@@ -2069,7 +2069,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 config.account,
                 config.test,
                 agent,
-                bidsString,
+                bids,
                 message.meta,
                 info.config,
                 config.visitChannels,

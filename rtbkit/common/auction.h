@@ -130,7 +130,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                  const AccountKey & account = AccountKey(),
                  bool test = true,
                  std::string agent = "",
-                 std::string bidData = "",
+                 Bids bids = Bids(),
                  std::string meta = "null",
                  std::shared_ptr<const AgentConfig> agentConfig
                      = std::shared_ptr<const AgentConfig>(),
@@ -140,7 +140,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
             : price(price),
               account(account),
               test(test), agent(agent),
-              bidData(bidData), meta(meta),
+              bidData(bids),
+              meta(meta),
               creativeId(creativeId),
               agentConfig(agentConfig),
               visitChannels(visitChannels),
@@ -156,7 +157,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         // Information about the agent who did the bidding
         std::string agent;    ///< Agent ID who's bidding
-        std::string bidData;   ///< Data that the bidder wants to keep
+
+        Bids bidData;   ///< Data that the bidder wants to keep
         std::string meta;      ///< Free form agent information about the bid
                                ///< (Passed back to agent with notification)
 
