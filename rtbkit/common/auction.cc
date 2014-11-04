@@ -93,7 +93,7 @@ toJson() const
 
     result["price"] = price.toJson();
     result["test"] = test;
-    result["bidData"] = bidData;
+    result["bidData"] = bidData.toJson();
 
     result["agent"] = agent;
     result["account"] = account.toJson();
@@ -125,8 +125,9 @@ Auction::Response::
 serialize(DB::Store_Writer & store) const
 {
     int version = 7;
+
     store << version << price.maxPrice << price.priority << account
-          << test << agent << bidData << meta << creativeId
+          << test << agent << bidData.toJsonStr() << meta << creativeId
           << creativeName << localStatus.val << visitChannels << wcm;
 }
 
@@ -135,13 +136,14 @@ Auction::Response::
 reconstitute(DB::Store_Reader & store)
 {
     int version, localStatusi;
+    string bidDataStr;
     store >> version;
     if (version == 1) {
         string campaign, strategy;
         string tag, click_url, tagId;
         store >> price.maxPrice >> price.priority
               >> tag >> click_url >> tagId >> strategy >> campaign
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi;
         account = { campaign, strategy };
     }
@@ -150,7 +152,7 @@ reconstitute(DB::Store_Reader & store)
         int maxPriceUSDMicrosCPM, tagId;
         store >> maxPriceUSDMicrosCPM >> price.priority
               >> tagId >> strategy >> campaign
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi;
         price.maxPrice = MicroUSD_CPM(maxPriceUSDMicrosCPM);
         account = { campaign, strategy };
@@ -160,7 +162,7 @@ reconstitute(DB::Store_Reader & store)
         int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> strategy >> campaign
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi;
         account = { campaign, strategy };
     }
@@ -168,29 +170,33 @@ reconstitute(DB::Store_Reader & store)
         int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi;
     }
     else if (version == 5) {
         int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels;
     }
     else if (version == 6) {
         int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels >> wcm;
     }
     else if (version == 7) {
         store >> price.maxPrice >> price.priority >> account
-              >> test >> agent >> bidData >> meta >> creativeId
+              >> test >> agent >> bidDataStr >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels >> wcm;
     }
     else throw ML::Exception("reconstituting wrong version");
+
+    //convert string to bids object
+    bidData = Bids::fromJson(bidDataStr);
+
     localStatus = (WinLoss)localStatusi;
 }
 
