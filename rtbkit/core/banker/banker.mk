@@ -9,7 +9,7 @@ LIBBANKER_SOURCES := \
 	application_layer.cc
 
 LIBBANKER_LINK := \
-	types services redis monitor
+	types services redis monitor boost_program_options
 
 $(eval $(call library,banker,$(LIBBANKER_SOURCES),$(LIBBANKER_LINK)))
 

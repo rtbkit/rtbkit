@@ -26,6 +26,7 @@ struct RouterRunner {
     RouterRunner();
 
     ServiceProxyArguments serviceArgs;
+    SlaveBankerArguments bankerArgs;
     std::vector<std::string> logUris;  ///< TODO: zookeeper
 
     std::string exchangeConfigurationFile;
@@ -42,9 +43,6 @@ struct RouterRunner {
     std::string spendRate;
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
     int slowModeTolerance;
-
-    bool useHttpBanker;
-    int httpActiveConnections;
 
     std::string slowModeMoneyLimit;
 
