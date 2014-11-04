@@ -62,7 +62,7 @@ struct MongoTemporaryServer : boost::noncopyable {
             namespace fs = boost::filesystem;
             fs::directory_iterator endItr;
             boost::filesystem::path socketdir(socketPath_);
-            int res;
+            int res=0;
             for (unsigned i = 0;  i < 1000;  ++i) {
                 // read the directory to wait for the socket file to appear
                 bool found = false;
