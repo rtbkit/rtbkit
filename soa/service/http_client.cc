@@ -250,6 +250,13 @@ sendExpect100Continue(bool value)
 
 void
 HttpClient::
+toggleTcpNoDelay(bool value)
+{
+    tcpNoDelay = value;
+}
+
+void
+HttpClient::
 enablePipelining()
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
@@ -296,6 +303,10 @@ addFd(int fd, bool isMod, int flags)
     event.data.fd = fd;
     int rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
                          fd, &event);
+    if (rc == -1) {
+        rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
+                         fd, &event);
+    }
     if (rc == -1) {
 	if (errno != EBADF) {
             throw ML::Exception(errno, "epoll_ctl");
@@ -424,7 +435,7 @@ handleWakeupEvent()
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks, expect100Continue, debug_);
+            conn->perform(noSSLChecks, expect100Continue, tcpNoDelay, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -636,7 +647,7 @@ HttpConnection()
 void
 HttpClient::
 HttpConnection::
-perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
+perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -696,6 +707,9 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
     }
     if (debug) {
         easy_.setOpt<curlopt::Verbose>(1L);
+    }
+    if (tcpNoDelay) {
+        easy_.setOpt<curlopt::TcpNoDelay>(true);
     }
 }
 

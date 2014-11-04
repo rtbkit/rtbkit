@@ -132,6 +132,9 @@ struct HttpClient : public AsyncEventSource {
 
     void sendExpect100Continue(bool value);
 
+    /** Toggle the TCP_NODELAY option, also known as the Nagle's algorithm */
+    void toggleTcpNoDelay(bool value);
+
     /** Use with servers that support HTTP pipelining */
     void enablePipelining();
 
@@ -253,6 +256,7 @@ private:
             uploadOffset_ = 0;
         }
         void perform(bool noSSLChecks, bool withExpect100Continue = true,
+                     bool tcpNoDelay = false,
                      bool debug = false);
 
         /* header and body write callbacks */
@@ -283,6 +287,7 @@ private:
 
     std::string baseUrl_;
     bool expect100Continue;
+    bool tcpNoDelay;
 
     int fd_;
     ML::Wakeup_Fd wakeup_;
