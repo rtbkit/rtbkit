@@ -250,6 +250,13 @@ sendExpect100Continue(bool value)
 
 void
 HttpClient::
+toggleTcpNoDelay(bool value)
+{
+    tcpNoDelay = value;
+}
+
+void
+HttpClient::
 enablePipelining()
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
@@ -428,7 +435,7 @@ handleWakeupEvent()
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks, expect100Continue, debug_);
+            conn->perform(noSSLChecks, expect100Continue, tcpNoDelay, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -640,7 +647,7 @@ HttpConnection()
 void
 HttpClient::
 HttpConnection::
-perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
+perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -700,6 +707,9 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
     }
     if (debug) {
         easy_.setOpt<curlopt::Verbose>(1L);
+    }
+    if (tcpNoDelay) {
+        easy_.setOpt<curlopt::TcpNoDelay>(true);
     }
 }
 
