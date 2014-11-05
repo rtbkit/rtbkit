@@ -34,7 +34,12 @@ init()
     client = make_shared<HttpClient>(baseUrl, 1);
     client->sendExpect100Continue(false);
     addSource("analytics::client", client);
-    initialized = true;
+    cout << "analytics client is initialized" << endl;
+
+    auto heartbeat = [&] (uint64_t wakeups) {
+        checkHeartbeat();
+    };
+    addPeriodic("analytics::heartbeat", 1.0, heartbeat);
 }
 
 void
@@ -72,6 +77,26 @@ sendEvent(const string type, const string event)
                                        { "event", event } });
 }
 
+void
+AnalyticsClient::
+checkHeartbeat()
+{
+    auto onResponse = [&] (const HttpRequest & rq,
+                          HttpClientError error,
+                          int status,
+                          string && headers,
+                          string && body)
+    {
+        if (status == 200)
+           live = true;
+        else
+           live = false;
+    };
+    string ressource("/heartbeat");
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    client->get(ressource, cbs);
+}
+
 
 
 AnalyticsRestEndpoint::
@@ -98,12 +123,12 @@ init(bool test)
         = [=] (const RestServiceEndpoint::ConnectionId & connection,
                 const RestRequest & request,
                 const RestRequestParsingContext & context) {
-            recordHit("ping");
-            connection.sendResponse(200, "pong");
+            recordHit("beat");
+            connection.sendResponse(200, "beat");
             return RestRequestRouter::MR_YES;
         };
 
-    router.addRoute("/ping", "GET", "availability request", pingRoute,
+    router.addRoute("/heartbeat", "GET", "availability request", pingRoute,
             Json::Value());
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API");
