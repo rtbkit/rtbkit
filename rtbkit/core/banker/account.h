@@ -367,14 +367,12 @@ public:
         parentAccount.balance -= fromRecycled;
         recycledIn += fromRecycled;
         balance += fromRecycled;
-        parentAccount.status = ACTIVE;
         
         // Give back to budget
         parentAccount.allocatedOut += fromBudget;
         parentAccount.balance -= fromBudget;
         budgetIncreases += fromBudget;
         balance += fromBudget;
-        status = ACTIVE;
 
         // Give to parent recycled
         parentAccount.recycledIn += toRecycled;
@@ -442,8 +440,10 @@ public:
 
 struct ShadowAccount {
     ShadowAccount()
-        : attachedBids(0), detachedBids(0)
+        : status(Account::ACTIVE), attachedBids(0), detachedBids(0)
         {}
+
+    Account::Status status;
 
     // credit
     CurrencyPool netBudget;          ///< net of fields not mentioned here
@@ -671,6 +671,9 @@ struct ShadowAccount {
         balance = netBudget + commitmentsRetired
             - commitmentsMade - spent;
 
+        if (status == Account::ACTIVE && masterAccount.status == Account::CLOSED) {
+            status = masterAccount.status;
+        }
         checkInvariants();
     }
 
@@ -871,6 +874,18 @@ struct Accounts {
         newAccount.balance = validAccount.balance;
         newAccount.lineItems = validAccount.lineItems;
         newAccount.adjustmentLineItems = validAccount.adjustmentLineItems;
+        newAccount.status = Account::ACTIVE;
+    }
+
+    void reactivateAccount(const AccountKey & accountKey)
+    {
+        Guard guard(lock);
+        AccountKey parents = accountKey;
+        while (!parents.empty()) {
+            getAccountImpl(parents).status = Account::ACTIVE;
+            parents.pop_back();
+        }
+        reactivateAccountChildren(accountKey);
     }
 
     const Account createBudgetAccount(const AccountKey & account)
@@ -894,12 +909,18 @@ struct Accounts {
         Guard guard(lock);
         return getAccountImpl(account);
     }
+
+    std::pair<bool, bool> accountPresentAndActive(const AccountKey & account) const
+    {
+        Guard guard(lock);
+        return accountPresentAndActiveImpl(account);
+    }
     
     /** closeAccount behavior is to close all children then close itself,
         always transfering from children to parent. If top most account, 
         then throws an error after closing all children first.
     */
-    const Account closeAccount(const AccountKey & account) 
+    const Account closeAccount(const AccountKey & account)
     {
         Guard guard(lock);
         return closeAccountImpl(account);
@@ -1237,25 +1258,45 @@ private:
         return it->second;
     }
 
-    const Account closeAccountImpl(const AccountKey & account) 
+    std::pair<bool, bool> accountPresentAndActiveImpl(const AccountKey & account) const
     {
-        AccountInfo accountInfo = getAccountImpl(account);
-        
-        if (accountInfo.children.size() > 0) {
-            for ( AccountKey child : accountInfo.children) {
-                closeAccountImpl(child);
-                using namespace std;
-            }
-        }
-        
-        if (account.size() > 1)
-            getAccountImpl(account).recuperateTo(getParentAccount(account));
-
-        getAccountImpl(account).status = Account::CLOSED;
-        
-        return getAccountImpl(account); 
+        auto it = accounts.find(account);
+        if (it == accounts.end())
+            return std::make_pair(false, false);
+        if (it->second.status == Account::CLOSED)
+            return std::make_pair(true, false);
+        else
+            return std::make_pair(true, true);
     }
 
+
+    const Account closeAccountImpl(const AccountKey & accountKey)
+    {
+        AccountInfo & account = getAccountImpl(accountKey);
+        if (account.status == Account::CLOSED)
+            return account;
+
+        for ( AccountKey child : account.children ) {
+            closeAccountImpl(child);
+        }
+
+        if (accountKey.size() > 1)
+            account.recuperateTo(getParentAccount(accountKey));
+
+        account.status = Account::CLOSED;
+
+        return account;
+    }
+
+    void reactivateAccountChildren(const AccountKey & accountKey) {
+        if (accountPresentAndActiveImpl(accountKey).first) {
+            AccountInfo & account = getAccountImpl(accountKey);
+            for (auto child : account.children)
+                reactivateAccountChildren(child);
+
+            account.status = Account::ACTIVE;
+        }
+    }
 
     const AccountInfo & getAccountImpl(const AccountKey & account) const
     {
@@ -1440,6 +1481,22 @@ struct ShadowAccounts {
         return !getAccountImpl(accountKey).uninitialized;
     }
 
+    bool isStalled(const AccountKey & accountKey) const
+    {
+        Guard guard(lock);
+        auto & account = getAccountImpl(accountKey);
+        return account.uninitialized && account.requested.minutesUntil(Date::now()) >= 1.0;
+    }
+
+    void reinitializeStalledAccount(const AccountKey & accountKey)
+    {
+        ExcAssert(isStalled(accountKey));
+        Guard guard(lock);
+        auto & account = getAccountImpl(accountKey);
+        account.first = true;
+        account.requested = Date::now();
+    }
+
     /*************************************************************************/
     /* BID OPERATIONS                                                        */
     /*************************************************************************/
@@ -1509,7 +1566,7 @@ private:
 
     struct AccountEntry : public ShadowAccount {
         AccountEntry(bool uninitialized = true, bool first = true)
-            : uninitialized(uninitialized), first(first)
+            : requested(Date::now()), uninitialized(uninitialized), first(first)
         {
         }
 
@@ -1523,6 +1580,8 @@ private:
             slave banker can both have different ideas of the state of the
             budget of an account.
         */
+
+        Date requested;
         bool uninitialized;
         bool first;
     };
@@ -1592,7 +1651,7 @@ public:
         Guard guard(lock);
         
         for (auto & a: accounts) {
-            if (a.second.uninitialized)
+            if (a.second.uninitialized || a.second.status == Account::CLOSED)
                 continue;
             onAccount(a.first, a.second);
         }

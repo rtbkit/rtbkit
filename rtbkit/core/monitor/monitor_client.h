@@ -21,8 +21,8 @@ struct MonitorClient : public RestProxy
 {
 
     enum {
-        DefaultCheckTimeout = 2,
-        DefaultTolerance = 1,
+        DefaultCheckTimeout = 1,
+        DefaultTolerance = 2,
     };
 
     MonitorClient(const std::shared_ptr<zmq::context_t> & context,

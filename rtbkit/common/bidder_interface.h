@@ -43,48 +43,59 @@ struct BidderInterface : public ServiceBase
                             std::map<std::string, BidInfo> const & bidders) = 0;
 
     virtual
-    void sendWinLossMessage(MatchedWinLoss const & event) = 0;
+    void sendWinLossMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            MatchedWinLoss const & event) = 0;
 
     virtual
-    void sendLossMessage(std::string const & agent,
+    void sendLossMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                         std::string const & agent,
                          std::string const & id) = 0;
 
     virtual
-    void sendCampaignEventMessage(std::string const & agent,
+    void sendCampaignEventMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                                  std::string const & agent,
                                   MatchedCampaignEvent const & event) = 0;
 
     virtual
-    void sendBidLostMessage(std::string const & agent,
+    void sendBidLostMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            std::string const & agent,
                             std::shared_ptr<Auction> const & auction) = 0;
 
     virtual
-    void sendBidDroppedMessage(std::string const & agent,
+    void sendBidDroppedMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                               std::string const & agent,
                                std::shared_ptr<Auction> const & auction) = 0;
 
     virtual
-    void sendBidInvalidMessage(std::string const & agent,
+    void sendBidInvalidMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                               std::string const & agent,
                                std::string const & reason,
                                std::shared_ptr<Auction> const & auction) = 0;
 
     virtual
-    void sendNoBudgetMessage(std::string const & agent,
+    void sendNoBudgetMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                             std::string const & agent,
                              std::shared_ptr<Auction> const & auction) = 0;
 
     virtual
-    void sendTooLateMessage(std::string const & agent,
+    void sendTooLateMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            std::string const & agent,
                             std::shared_ptr<Auction> const & auction) = 0;
 
     virtual
-    void sendMessage(std::string const & agent,
+    void sendMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                     std::string const & agent,
                      std::string const & message) = 0;
 
     virtual
-    void sendErrorMessage(std::string const & agent,
+    void sendErrorMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                          std::string const & agent,
                           std::string const & error,
                           std::vector<std::string> const & payload) = 0;
 
     virtual
-    void sendPingMessage(std::string const & agent,
+    void sendPingMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                         std::string const & agent,
                          int ping) = 0;
 
 

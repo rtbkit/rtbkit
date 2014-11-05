@@ -5,17 +5,23 @@
     Code to talk to s3.
 */
 
+/* last known compatible commit in master branch:
+ * dda48cb65cf6a1689efa9d6c7949fd0d43c964d7 */
+
 #include <atomic>
+#include <mutex>
+
 #include "soa/service/s3.h"
 #include "jml/utils/string_functions.h"
 #include "soa/types/date.h"
 #include "soa/types/url.h"
+#include "soa/utils/print_utils.h"
 #include "jml/arch/futex.h"
+#include "jml/arch/threads.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/utils/filter_streams.h"
-#include "jml/arch/timers.h"
 #include "jml/utils/ring_buffer.h"
 #include "jml/utils/hash.h"
 #include "jml/utils/file_functions.h"
@@ -28,19 +34,14 @@
 #include "crypto++/hmac.h"
 #include "crypto++/base64.h"
 
-#include <curlpp/cURLpp.hpp>
-#include <curlpp/Easy.hpp>
-#include <curlpp/Options.hpp>
-#include <curlpp/Info.hpp>
-#include <curlpp/Infos.hpp>
-
 #include <boost/iostreams/stream_buffer.hpp>
 #include <exception>
-#include <thread>
 #include <unordered_map>
 
 #include <boost/filesystem.hpp>
 
+#include "message_loop.h"
+#include "http_client.h"
 #include "fs_utils.h"
 
 
@@ -50,7 +51,125 @@ using namespace Datacratic;
 
 namespace {
 
-/* S3URLFSHANDLER */
+/****************************************************************************/
+/* S3 GLOBALS                                                               */
+/****************************************************************************/
+
+struct S3Globals {
+    S3Globals()
+        : baseRetryDelay(3), numRetries(-1)
+    {
+        if (numRetries == -1) {
+            char * numRetriesEnv = getenv("S3_RETRIES");
+            if (numRetriesEnv) {
+                numRetries = atoi(numRetriesEnv);
+            }
+            else {
+                numRetries = 45;
+            }
+        }
+
+        loop.start();
+    }
+
+    shared_ptr<HttpClient> &
+    getClient(const string & bucket,
+              const string & baseHostname = "s3.amazonaws.com")
+    {
+        string hostname = bucket;
+        if (hostname.size() > 0) {
+            hostname += ".";
+        }
+        hostname += baseHostname;
+
+        unique_lock<mutex> guard(clientsLock);
+        auto & client = clients[hostname];
+        if (!client) {
+            client.reset(new HttpClient(hostname, 30));
+            client->sendExpect100Continue(false);
+            loop.addSource("s3-client-" + hostname, client);
+        }
+
+        return client;
+    }
+
+    int baseRetryDelay;
+    int numRetries;
+    MessageLoop loop;
+
+private:
+    mutex clientsLock;
+    map<string, shared_ptr<HttpClient> > clients;
+};
+
+static S3Globals &
+getS3Globals()
+{
+    static S3Globals s3Config;
+    return s3Config;
+}
+
+
+/****************************************************************************/
+/* SYNC RESPONSE                                                            */
+/****************************************************************************/
+
+/* This class provides a standard way of propagating the response to an async
+ * requests from the worker thread to the caller. */
+
+struct SyncResponse {
+    SyncResponse()
+        : data_(new Data())
+    {
+    }
+
+    S3Api::Response response()
+    {
+        return std::move(data_->response());
+    }
+
+    void operator () (S3Api::Response && response)
+    {
+        data_->setResponse(std::move(response));
+    }
+
+private:
+    struct Data {
+        Data()
+            : done_(false)
+        {
+        }
+
+        S3Api::Response response()
+        {
+            while (!done_) {
+                ML::futex_wait(done_, false);
+            }
+            if (response_.excPtr_) {
+                rethrow_exception(response_.excPtr_);
+            }
+
+            return std::move(response_);
+        }
+
+        void setResponse(S3Api::Response && response)
+        {
+            response_ = std::move(response);
+            done_ = true;
+            ML::futex_wake(done_);
+        }
+
+        int done_;
+        S3Api::Response response_;
+    };
+
+    shared_ptr<Data> data_;
+};
+
+
+/****************************************************************************/
+/* S3 URL FS HANDLER                                                        */
+/****************************************************************************/
 
 struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo getInfo(const Url & url) const
@@ -123,16 +242,834 @@ struct S3UrlFsHandler : public UrlFsHandler {
     }
 };
 
+
+/****************************************************************************/
+/* S3 DOWNLOADER                                                            */
+/****************************************************************************/
+
+size_t getTotalSystemMemory()
+{
+    long pages = sysconf(_SC_PHYS_PAGES);
+    long page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
+}
+
+struct S3Downloader {
+    S3Downloader(const string & urlStr,
+                 ssize_t startOffset = 0, ssize_t endOffset = -1)
+        : owner(getS3ApiForUri(urlStr)),
+          info(owner->getObjectInfo(urlStr)),
+          offset(startOffset),
+          baseChunkSize(1024*1024), // start with 1MB and ramp up
+          closed(false),
+          readOffset(0),
+          readPartOffset(-1),
+          currentChunk(0),
+          requestedBytes(0),
+          currentRq(0),
+          activeRqs(0)
+    {
+        if (!info) {
+            throw ML::Exception("missing object: " + urlStr);
+        }
+
+        std::tie(bucket, object) = S3Api::parseUri(urlStr);
+        if (endOffset == -1 || endOffset > info.size) {
+            endOffset = info.size;
+        }
+        downloadSize = endOffset - startOffset;
+
+        /* Maximum chunk size is what we can do in 3 seconds, up to 1% of
+           system memory. */
+        maxChunkSize = owner->bandwidthToServiceMbps * 3.0 * 1000000;
+        size_t sysMemory = getTotalSystemMemory();
+        maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
+
+        /* The maximum number of concurrent requests is set depending on
+           the total size of the stream. */
+        maxRqs = 1;
+        if (info.size > 1024 * 1024)
+            maxRqs = 2;
+        if (info.size > 16 * 1024 * 1024)
+            maxRqs = 3;
+        if (info.size > 256 * 1024 * 1024)
+            maxRqs = 5;
+        chunks.resize(maxRqs);
+
+        /* Kick start the requests */
+        ensureRequests();
+    }
+
+    ~S3Downloader()
+    {
+        /* We ensure at runtime that "close" is called because it is mandatory
+           for the proper cleanup of active requests. Because "close" can
+           throw, we cannot however call it from the destructor. */
+        if (!closed) {
+            cerr << "destroying S3Downloader without invoking close()\n";
+            abort();
+        }
+    }
+
+    std::streamsize read(char * s, std::streamsize n)
+    {
+        if (closed) {
+            throw ML::Exception("invoking read() on a closed download");
+        }
+
+        if (endOfDownload()) {
+            return -1;
+        }
+
+        if (readPartOffset == -1) {
+            waitNextPart();
+        }
+        ensureRequests();
+
+        size_t toDo = min<size_t>(readPart.size() - readPartOffset,
+                                  n);
+        const char * start = readPart.c_str() + readPartOffset;
+        std::copy(start, start + toDo, s);
+
+        readPartOffset += toDo;
+        if (readPartOffset == readPart.size()) {
+            readPartOffset = -1;
+        }
+
+        readOffset += toDo;
+
+        return toDo;
+    }
+
+    uint64_t getDownloadSize()
+        const
+    {
+        return downloadSize;
+    }
+
+    bool endOfDownload()
+        const
+    {
+        return (readOffset == downloadSize);
+    }
+
+    void close()
+    {
+        closed = true;
+        while (activeRqs > 0) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        excPtrHandler.rethrowIfSet();
+    }
+
+private:
+    /* download Chunk */
+    struct Chunk {
+        enum State {
+            IDLE,
+            QUERY,
+            RESPONSE
+        };
+
+        Chunk() noexcept
+            : state(IDLE)
+        {
+        }
+
+        Chunk(Chunk && other) noexcept
+            : state(other.state.load()),
+              data(std::move(other.data))
+        {
+        }
+
+        void setQuerying()
+        {
+            ExcAssertEqual(state, IDLE);
+            setState(QUERY);
+        }
+
+        void assign(string newData)
+        {
+            ExcAssertEqual(state, QUERY);
+            data = move(newData);
+            setState(RESPONSE);
+            ML::futex_wake(state);
+        }
+
+        std::string retrieve()
+        {
+            ExcAssertEqual(state, RESPONSE);
+            string chunkData = std::move(data);
+            setState(IDLE);
+            return std::move(chunkData);
+        }
+
+        void setState(int newState)
+        {
+            state = newState;
+            ML::futex_wake(state);
+        }
+
+        bool isIdle()
+            const
+        {
+            return (state == IDLE);
+        }
+
+        bool waitResponse(double timeout)
+            const
+        {
+            if (timeout > 0.0) {
+                int old = state;
+                if (state != RESPONSE) {
+                    ML::futex_wait(state, old, timeout);
+                }
+            }
+
+            return (state == RESPONSE);
+        }
+
+    private:
+        std::atomic<int> state;
+        string data;
+    };
+
+    void waitNextPart()
+    {
+        unsigned int chunkNr(currentChunk % maxRqs);
+        Chunk & chunk = chunks[chunkNr];
+        while (!excPtrHandler.hasException() && !chunk.waitResponse(1.0));
+        excPtrHandler.rethrowIfSet();
+        readPart = chunk.retrieve();
+        readPartOffset = 0;
+        currentChunk++;
+    }
+
+    void ensureRequests()
+    {
+        while (true) {
+            if (excPtrHandler.hasException()) {
+                break;
+            }
+            if (activeRqs == maxRqs) {
+                break;
+            }
+            ExcAssert(activeRqs < maxRqs);
+            if (requestedBytes == downloadSize) {
+                break;
+            }
+            ExcAssert(requestedBytes < downloadSize);
+
+            Chunk & chunk = chunks[currentRq % maxRqs];
+            if (!chunk.isIdle()) {
+                break;
+            }
+
+            ensureRequest();
+        }
+    }
+
+    void ensureRequest()
+    {
+        size_t chunkSize = getChunkSize(currentRq);
+        uint64_t end = requestedBytes + chunkSize;
+        if (end > info.size) {
+            end = info.size;
+            chunkSize = end - requestedBytes;
+        }
+
+        unsigned int chunkNr = currentRq % maxRqs;
+        Chunk & chunk = chunks[chunkNr];
+        activeRqs++;
+        chunk.setQuerying();
+
+        auto onResponse = [&, chunkNr, chunkSize] (S3Api::Response && response) {
+            this->handleResponse(chunkNr, chunkSize, std::move(response));
+        };
+        S3Api::Range range(offset + requestedBytes, chunkSize);
+        owner->getAsync(onResponse, bucket, "/" + object, range);
+        ExcAssertLess(currentRq, UINT_MAX);
+        currentRq++;
+        requestedBytes += chunkSize;
+    }
+
+    void handleResponse(unsigned int chunkNr, size_t chunkSize,
+                        S3Api::Response && response)
+    {
+        try {
+            if (response.excPtr_) {
+                rethrow_exception(response.excPtr_);
+            }
+
+            if (response.code_ != 206) {
+                throw ML::Exception("http error "
+                                    + to_string(response.code_)
+                                    + " while getting chunk "
+                                    + response.bodyXmlStr());
+            }
+
+            /* It can sometimes happen that a file changes during download i.e
+               it is being overwritten. Make sure we check for this condition
+               and throw an appropriate exception. */
+            string chunkEtag = response.getHeader("etag");
+            if (chunkEtag != info.etag) {
+                throw ML::Exception("chunk etag %s not equal to file etag"
+                                    " %s: file <%s> has changed during"
+                                    " download",
+                                    chunkEtag.c_str(), info.etag.c_str(),
+                                    object.c_str());
+            }
+            ExcAssertEqual(response.body().size(), chunkSize);
+            Chunk & chunk = chunks[chunkNr];
+            chunk.assign(std::move(response.body_));
+        }
+        catch (const std::exception & exc) {
+            excPtrHandler.takeCurrentException();
+        }
+        activeRqs--;
+        ML::futex_wake(activeRqs);
+    }
+
+    size_t getChunkSize(unsigned int chunkNbr)
+        const
+    {
+        size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
+                                    maxChunkSize);
+        return chunkSize;
+    }
+
+    /* static variables, set during or right after construction */
+    shared_ptr<S3Api> owner;
+    std::string bucket;
+    std::string object;
+    S3Api::ObjectInfo info;
+    uint64_t offset; /* the lower position in the file from which the download
+                      * is started */
+    uint64_t downloadSize; /* total number of bytes to download */
+    size_t baseChunkSize;
+    size_t maxChunkSize;
+
+    bool closed; /* whether close() was invoked */
+    ExceptionPtrHandler excPtrHandler;
+
+    /* read thread */
+    uint64_t readOffset; /* number of bytes from the entire stream that
+                          * have been returned to the caller */
+    string readPart; /* data buffer for the part of the stream being
+                      * transferred to the caller */
+    ssize_t readPartOffset; /* number of bytes from "readPart" that have
+                             * been returned to the caller, or -1 when
+                             * awaiting a new part */
+    unsigned int currentChunk; /* chunk being read */
+
+    /* http requests */
+    unsigned int maxRqs; /* maximum number of concurrent http requests */
+    uint64_t requestedBytes; /* total number of bytes that have been
+                              * requested, including the non-received ones */
+    vector<Chunk> chunks; /* chunks */
+    unsigned int currentRq;  /* number of done requests */
+    atomic<unsigned int> activeRqs; /* number of pending http requests */
+};
+
+
+/****************************************************************************/
+/* S3 UPLOADER                                                              */
+/****************************************************************************/
+
+inline void touchByte(const char * c)
+{
+    __asm__(" # [in]":: [in] "r" (*c):);
+}
+
+inline void touch(const char * start, size_t size)
+{
+    const char * current = start - (intptr_t) start % 4096;
+    if (current < start) {
+        current += 4096;
+    }
+    const char * end = start + size;
+    for (; current < end; current += 4096) {
+        touchByte(current);
+    }
+}
+
+struct S3Uploader {
+    S3Uploader(const std::string & urlStr,
+               const ML::OnUriHandlerException & excCallback,
+               const S3Api::ObjectMetadata & objectMetadata)
+        : owner(getS3ApiForUri(urlStr)),
+          metadata(objectMetadata),
+          onException(excCallback),
+          closed(false),
+          chunkSize(8 * 1024 * 1024), // start with 8MB and ramp up
+          currentRq(0),
+          activeRqs(0)
+    {
+        std::tie(bucket, object) = S3Api::parseUri(urlStr);
+
+        /* Maximum chunk size is what we can do in 3 seconds, up to 1% of
+           system memory. */
+#if 0
+        maxChunkSize = (owner->bandwidthToServiceMbps
+                        * 3.0 * 1000000);
+        size_t sysMemory = getTotalSystemMemory();
+        maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
+#else
+        maxChunkSize = 64 * 1024 * 1024;
+#endif
+
+        try {
+            S3Api::MultiPartUpload upload = owner->obtainMultiPartUpload(bucket, "/" + object,
+                                                                         metadata,
+                                                                         S3Api::UR_EXCLUSIVE);
+            uploadId = upload.id;
+        }
+        catch (...) {
+            if (onException) {
+                onException();
+            }
+            throw;
+        }
+    }
+
+    ~S3Uploader()
+    {
+        /* We ensure at runtime that "close" is called because it is mandatory
+           for the proper cleanup of active requests. Because "close" can
+           throw, we cannot however call it from the destructor. */
+        if (!closed) {
+            cerr << "destroying S3Uploader without invoking close()\n";
+            abort();
+        }
+    }
+
+    std::streamsize write(const char * s, std::streamsize n)
+    {
+        std::streamsize done(0);
+
+        touch(s, n);
+
+        size_t remaining = chunkSize - current.size();
+        while (n > 0) {
+            if (excPtrHandler.hasException() && onException) {
+                onException();
+            }
+            excPtrHandler.rethrowIfSet();
+            size_t toDo = min(remaining, (size_t) n);
+            if (toDo < n) {
+                flush();
+                remaining = chunkSize - current.size();
+            }
+            current.append(s, toDo);
+            s += toDo;
+            n -= toDo;
+            done += toDo;
+            remaining -= toDo;
+        }
+
+        return done;
+    }
+
+    void flush(bool force = false)
+    {
+        if (!force) {
+            ExcAssert(current.size() > 0);
+        }
+        while (activeRqs == metadata.numRequests) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        if (excPtrHandler.hasException() && onException) {
+            onException();
+        }
+        excPtrHandler.rethrowIfSet();
+
+        unsigned int rqNbr(currentRq);
+        auto onResponse = [&, rqNbr] (S3Api::Response && response) {
+            this->handleResponse(rqNbr, std::move(response));
+        };
+
+        unsigned int partNumber = currentRq + 1;
+        if (etags.size() < partNumber) {
+            etags.resize(partNumber);
+        }
+
+        activeRqs++;
+        owner->putAsync(onResponse, bucket, "/" + object,
+                        ML::format("partNumber=%d&uploadId=%s",
+                                   partNumber, uploadId),
+                        {}, {}, current);
+
+        if (currentRq % 5 == 0 && chunkSize < maxChunkSize)
+            chunkSize *= 2;
+
+        current.clear();
+        currentRq = partNumber;
+    }
+
+    void handleResponse(unsigned int rqNbr, S3Api::Response && response)
+    {
+        try {
+            if (response.excPtr_) {
+                rethrow_exception(response.excPtr_);
+            }
+
+            if (response.code_ != 200) {
+                cerr << response.bodyXmlStr() << endl;
+                throw ML::Exception("put didn't work: %d", (int)response.code_);
+            }
+
+            string etag = response.getHeader("etag");
+            ExcAssert(etag.size() > 0);
+            etags[rqNbr] = etag;
+        }
+        catch (const std::exception & exc) {
+            excPtrHandler.takeCurrentException();
+        }
+        activeRqs--;
+        ML::futex_wake(activeRqs);
+    }
+
+    string close()
+    {
+        closed = true;
+        if (current.size() > 0) {
+            flush();
+        }
+        else if (currentRq == 0) {
+            /* for empty files, force the creation of a single empty part */
+            flush(true);
+        }
+        while (activeRqs > 0) {
+            ML::futex_wait(activeRqs, activeRqs);
+        }
+        if (excPtrHandler.hasException() && onException) {
+            onException();
+        }
+        excPtrHandler.rethrowIfSet();
+
+        string finalEtag;
+        try {
+            finalEtag = owner->finishMultiPartUpload(bucket, "/" + object,
+                                                     uploadId, etags);
+        }
+        catch (...) {
+            if (onException) {
+                onException();
+            }
+            throw;
+        }
+
+        return finalEtag;
+    }
+
+private:
+    shared_ptr<S3Api> owner;
+    std::string bucket;
+    std::string object;
+    S3Api::ObjectMetadata metadata;
+    ML::OnUriHandlerException onException;
+
+    size_t maxChunkSize;
+    std::string uploadId;
+
+    /* state variables, used between "start" and "stop" */
+    bool closed; /* whether close() was invoked */
+    ExceptionPtrHandler excPtrHandler;
+
+    string current; /* current chunk data */
+    size_t chunkSize; /* current chunk size */
+    std::vector<std::string> etags; /* etags of individual chunks */
+    unsigned int currentRq;  /* number of done requests */
+    atomic<unsigned int> activeRqs; /* number of pending http requests */
+};
+
+
 struct AtInit {
     AtInit() {
         registerUrlFsHandler("s3", new S3UrlFsHandler());
     }
 } atInit;
 
+HttpRequest::Content
+makeXmlContent(const tinyxml2::XMLDocument & xmlDocument)
+{
+    tinyxml2::XMLPrinter printer;
+    const_cast<tinyxml2::XMLDocument &>(xmlDocument).Print(&printer);
+
+    return HttpRequest::Content(string(printer.CStr()), "application/xml");
+}
+
+
+/****************************************************************************/
+/* S3 REQUEST STATE                                                         */
+/****************************************************************************/
+
+struct S3RequestState {
+    S3RequestState(const shared_ptr<S3Api::SignedRequest> & rq,
+                   const S3Api::OnResponse & onResponse)
+        : rq(rq), onResponse(onResponse),
+          range(rq->params.downloadRange), retries(0)
+    {
+    }
+
+    RestParams makeHeaders()
+        const
+    {
+        RestParams headers = rq->params.headers;
+        headers.push_back({"Date", rq->params.date});
+        headers.push_back({"Authorization", rq->auth});
+        if (rq->params.useRange()) {
+            headers.push_back({"Range", range.headerValue()});
+        }
+
+        return headers;
+    }
+
+    int makeTimeout()
+        const
+    {
+        double expectedTimeSeconds
+            = (range.size / 1000000.0) / rq->bandwidthToServiceMbps;
+        return 15 + std::max<int>(30, expectedTimeSeconds * 6);
+    }
+
+    shared_ptr<S3Api::SignedRequest> rq;
+
+    S3Api::OnResponse onResponse;
+
+    string body;
+    string requestBody;
+    S3Api::Range range;
+    int retries;
+};
+
+/****************************************************************************/
+/* S3 REQUEST CALLBACKS                                                     */
+/****************************************************************************/
+
+struct S3RequestCallbacks : public HttpClientCallbacks {
+    S3RequestCallbacks(const shared_ptr<S3RequestState> & state)
+        : state_(state)
+    {
+    }
+
+    virtual void onResponseStart(const HttpRequest & rq,
+                                 const std::string & httpVersion,
+                                 int code);
+    virtual void onHeader(const HttpRequest & rq,
+                          const char * data, size_t size);
+    virtual void onData(const HttpRequest & rq,
+                        const char * data, size_t size);
+    virtual void onDone(const HttpRequest & rq,
+                        HttpClientError errorCode);
+
+    void appendErrorContext(string & message) const;
+    void scheduleRestart() const;
+
+    shared_ptr<S3RequestState> state_;
+
+    S3Api::Response response_;
+    string header_;
+};
+
+void
+performStateRequest(const shared_ptr<S3RequestState> & state)
+{
+    auto & client = getS3Globals().getClient(state->rq->params.bucket);
+
+    const S3Api::RequestParams & params = state->rq->params;
+    auto callbacks = make_shared<S3RequestCallbacks>(state);
+    RestParams headers = state->makeHeaders();
+    int timeout = state->makeTimeout();
+
+    while (!client->enqueueRequest(params.verb, state->rq->resource,
+                                   callbacks,
+                                   state->rq->params.content,
+                                   /* query params already encoded in
+                                      resource */
+                                   {},
+                                   headers,
+                                   timeout)) {
+        /* TODO: should invoke onResponse with "too many requests" */
+        throw ML::Exception("the http client could not enqueue the request");
+    }
+}
+
+void
+S3RequestCallbacks::
+onResponseStart(const HttpRequest & rq, const std::string & httpVersion,
+                int code)
+{
+    response_.code_ = code;
+}
+
+void
+S3RequestCallbacks::
+onHeader(const HttpRequest & rq, const char * data, size_t size)
+{
+    header_.append(data, size);
+}
+
+void
+S3RequestCallbacks::
+onData(const HttpRequest & rq, const char * data, size_t size)
+{
+    state_->requestBody.append(data, size);
+}
+
+void
+S3RequestCallbacks::
+onDone(const HttpRequest & rq, HttpClientError errorCode)
+{
+    bool restart(false);
+    bool errorCondition(false);
+    string message;
+
+    if (errorCode == HttpClientError::None) {
+        if (response_.code_ >= 300 && response_.code_ != 404) {
+            errorCondition = true;
+            message = ("S3 operation failed with HTTP code "
+                       + to_string(response_.code_) + "\n");
+
+            /* retry on 50X range errors (recoverable) */
+            if (response_.code_ >= 500 and response_.code_ < 505) {
+                restart = true;
+                message += "Error is recoverable.\n";
+            }
+            else {
+                message += "Error is unrecoverable.\n";
+            }
+        }
+    }
+    else {
+        restart = true;
+        if (state_->rq->params.useRange()) {
+            state_->range.adjust(state_->requestBody.size());
+        }
+        state_->body.append(state_->requestBody);
+        state_->requestBody.clear();
+        message = ("S3 operation failed with internal error: "
+                   + errorMessage(errorCode) + "\n");
+    }
+
+    if (restart) {
+        if (state_->retries < getS3Globals().numRetries) {
+            message += "Will retry operation.\n";
+        }
+        else {
+            errorCondition = true;
+            message += "Too many retries.\n";
+            restart = false;
+        }
+    }
+
+    if (message.size() > 0) {
+        appendErrorContext(message);
+        ::fprintf(stderr, "%s\n", message.c_str());
+    }
+
+    if (restart) {
+        state_->retries++;
+        scheduleRestart();
+    }
+    else {
+        if (errorCondition) {
+            response_.excPtr_ = make_exception_ptr(ML::Exception(message));
+        }
+        else {
+            response_.header_.parse(header_, false);
+            state_->body.append(state_->requestBody);
+            response_.body_ = std::move(state_->body);
+        }
+        header_.clear();
+        state_->requestBody.clear();
+        state_->onResponse(std::move(response_));
+    }
+}
+
+void
+S3RequestCallbacks::
+appendErrorContext(string & message)
+    const
+{
+    const S3Api::RequestParams & params = state_->rq->params;
+
+    message += params.verb + " " + state_->rq->resource + "\n";
+    if (header_.size() > 0) {
+        message += "Response headers:\n" + header_;
+    }
+    if (response_.body_.size() > 0) {
+        message += (string("Response body (") + to_string(response_.body_.size())
+                    + " bytes):\n" + response_.body_ + "\n");
+
+        /* log so-called "REST error"
+           (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+        */
+        if (header_.find("Content-Type: application/xml")
+            != string::npos) {
+            unique_ptr<tinyxml2::XMLDocument> localXml(
+                new tinyxml2::XMLDocument()
+                );
+            localXml->Parse(response_.body_.c_str());
+            auto element = tinyxml2::XMLHandle(*localXml)
+                .FirstChildElement("Error")
+                .ToElement();
+            if (element) {
+                message += ("S3 REST error: ["
+                            + extract<string>(element, "Code")
+                            + "] message ["
+                            + extract<string>(element, "Message")
+                            +"]\n");
+            }
+        }
+    }
+}
+
+void
+S3RequestCallbacks::
+scheduleRestart()
+    const
+{
+    S3Globals & globals = getS3Globals();
+
+    // allow a maximum of 384 seconds for retry delays (1 << 7 * 3) 
+    int multiplier = (state_->retries < 8
+                      ? (1 << state_->retries)
+                      : state_->retries << 7);
+    double numSeconds = ::random() % (globals.baseRetryDelay
+                                      * multiplier);
+    if (numSeconds == 0) {
+        numSeconds = globals.baseRetryDelay * multiplier;
+    }
+
+    numSeconds = 0.05;
+
+    const S3Api::RequestParams & params = state_->rq->params;
+
+    ::fprintf(stderr,
+              "S3 operation retry in %f seconds: %s %s\n",
+              numSeconds, params.verb.c_str(), params.resource.c_str());
+
+    auto timer = make_shared<PeriodicEventSource>();
+
+    auto state = state_;
+    auto onTimeout = [&, timer, state] (uint64_t ticks) {
+        S3Globals & globals = getS3Globals();
+        performStateRequest(state);
+        globals.loop.removeSource(timer.get());
+    };
+    timer->init(numSeconds, std::move(onTimeout));
+    globals.loop.addSource("retry-timer-" + randomString(8), timer);
+}
+
 }
 
 
 namespace Datacratic {
+
+/****************************************************************************/
+/* S3 CONFIG DESCRIPTION                                                    */
+/****************************************************************************/
 
 S3ConfigDescription::
 S3ConfigDescription()
@@ -140,6 +1077,16 @@ S3ConfigDescription()
     addField("accessKeyId", &S3Config::accessKeyId, "");
     addField("accessKey", &S3Config::accessKey, "");
 }
+
+/****************************************************************************/
+/* S3 API                                                                   */
+/****************************************************************************/
+
+double
+S3Api::
+defaultBandwidthToServiceMbps = 20.0;
+
+S3Api::Range S3Api::Range::Full(0);
 
 std::string
 S3Api::
@@ -155,7 +1102,6 @@ s3EscapeResource(const std::string & str)
 
     std::string result;
     for (auto c: str) {
-
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
             result += c;
         else result += ML::format("%%%02X", c);
@@ -163,11 +1109,6 @@ s3EscapeResource(const std::string & str)
     
     return result;
 }
-
-
-double
-S3Api::
-defaultBandwidthToServiceMbps = 20.0;
 
 S3Api::
 S3Api()
@@ -205,7 +1146,8 @@ init(const std::string & accessKeyId,
 }
 
 void
-S3Api::init()
+S3Api::
+init()
 {
     string keyId, key;
     std::tie(keyId, key, std::ignore)
@@ -221,257 +1163,28 @@ S3Api::init()
     this->init(keyId, key);
 }
 
-S3Api::Content::
-Content(const tinyxml2::XMLDocument & xml)
+void
+S3Api::
+perform(const OnResponse & onResponse, const shared_ptr<SignedRequest> & rq)
+    const
 {
-    tinyxml2::XMLPrinter printer;
-    const_cast<tinyxml2::XMLDocument &>(xml).Print(&printer);
-    this->contentType = "application/xml";
-    this->str = printer.CStr();
-    this->hasContent = true;
-    this->data = str.c_str();
-    this->size = str.length();
+    size_t spacePos = rq->resource.find(" ");
+    if (spacePos != string::npos) {
+        throw ML::Exception("url '" + rq->resource + "' contains an unescaped"
+                            " space at position " + to_string(spacePos));
+    }
+
+    auto state = make_shared<S3RequestState>(rq, onResponse);
+    performStateRequest(state);
 }
 
 S3Api::Response
-S3Api::SignedRequest::
-performSync() const
+S3Api::
+performSync(const shared_ptr<SignedRequest> & rq) const
 {
-    static const int baseRetryDelay(3);
-    static int numRetries(-1);
-
-    if (numRetries == -1) {
-        char * numRetriesEnv = getenv("S3_RETRIES");
-        if (numRetriesEnv) {
-            numRetries = atoi(numRetriesEnv);
-        }
-        else {
-            numRetries = 45;
-        }
-    }
-
-    size_t spacePos = uri.find(" ");
-    if (spacePos != string::npos) {
-        throw ML::Exception("url '" + uri + "' contains an unescaped space"
-                            " at position " + to_string(spacePos));
-    }
-
-    Range currentRange = params.downloadRange;
-    bool useRange(false);
-    if (params.verb == "GET") {
-        useRange = true;
-    }
-
-    string body;
-    for (int i = 0; i < numRetries; ++i) {
-        if (i > 0) {
-            /* allow a maximum of 384 seconds for retry delays (1 << 7 * 3) */
-            int multiplier = i < 8 ? (1 << i) : i << 7;
-            double numSeconds = ::random() % (baseRetryDelay * multiplier);
-            if (numSeconds == 0) {
-                numSeconds = baseRetryDelay * multiplier;
-            }
-
-            numSeconds = 0.05;
-
-            ::fprintf(stderr,
-                      "S3 operation retry in %f seconds: %s %s\n",
-                      numSeconds, params.verb.c_str(), uri.c_str());
-            ML::sleep(numSeconds);
-        }
-
-        string responseHeaders;
-        string responseBody;
-        int responseCode(0);
-        size_t received(0);
-
-        auto connection = owner->proxy.getConnection();
-        curlpp::Easy & myRequest = *connection;
-        myRequest.reset();
-
-        using namespace curlpp;
-        using namespace curlpp::infos;
-
-        list<string> curlHeaders;
-        for (unsigned i = 0;  i < params.headers.size();  ++i) {
-            curlHeaders.emplace_back(params.headers[i].first + ": "
-                                     + params.headers[i].second);
-        }
-
-        curlHeaders.push_back("Date: " + params.date);
-        curlHeaders.push_back("Authorization: " + auth);
-
-        if (useRange) {
-            uint64_t end = currentRange.endPos();
-            string range = ML::format("range: bytes=%zd-%zd",
-                                      currentRange.offset, end);
-            // ::fprintf(stderr, "%p: requesting %s\n", this, range.c_str());
-            curlHeaders.emplace_back(move(range));
-        }
-
-        // cerr << "getting " << uri << " " << params.headers << endl;
-
-        double expectedTimeSeconds
-            = (currentRange.size / 1000000.0) / bandwidthToServiceMbps;
-        int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
-
-#if 0
-        cerr << "expectedTimeSeconds = " << expectedTimeSeconds << endl;
-        cerr << "timeout = " << timeout << endl;
-#endif
-
-        //cerr << "!!!Setting params verb " << params.verb << endl;
-        myRequest.setOpt<options::CustomRequest>(params.verb);
-
-        myRequest.setOpt<options::Url>(uri);
-        //myRequest.setOpt<Verbose>(true);
-        myRequest.setOpt<options::ErrorBuffer>((char *)0);
-        myRequest.setOpt<options::Timeout>(timeout);
-        myRequest.setOpt<options::NoSignal>(1);
-
-        bool noBody = (params.verb == "HEAD");
-        if (noBody) {
-            myRequest.setOpt<options::NoBody>(noBody);
-        }
-
-        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-        //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-        //     return 0;
-        // };
-
-        auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
-            size_t total = ofs1 * ofs2;
-            received += total;
-            responseBody.append(data, total);
-            return total;
-            //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
-        };
-
-        // auto onProgress = [&] (double p1, double p2,
-        //                        double p3, double p4) {
-        //     cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
-        //          << p4 << endl;
-        //     return 0;
-        // };
-
-        bool afterContinue = false;
-
-        auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
-            string headerLine(data, ofs1 * ofs2);
-            if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
-                afterContinue = true;
-            }
-            else if (afterContinue) {
-                if (headerLine == "\r\n")
-                    afterContinue = false;
-            }
-            else {
-                responseHeaders.append(headerLine);
-                //cerr << "got header data " << headerLine << endl;
-            }
-            return ofs1 * ofs2;
-        };
-
-        myRequest.setOpt<options::HeaderFunction>(onHeader);
-        myRequest.setOpt<options::WriteFunction>(onWriteData);
-        // myRequest.setOpt<BoostProgressFunction>(onProgress);
-        //myRequest.setOpt<Header>(true);
-        string s;
-        if (params.content.data) {
-            s.append(params.content.data, params.content.size);
-        }
-        myRequest.setOpt<options::PostFields>(s);
-        myRequest.setOpt<options::PostFieldSize>(params.content.size);
-        curlHeaders.push_back(ML::format("Content-Length: %lld",
-                                         params.content.size));
-        curlHeaders.push_back("Transfer-Encoding:");
-        curlHeaders.push_back("Content-Type:");
-        myRequest.setOpt<options::HttpHeader>(curlHeaders);
-
-        try {
-            JML_TRACE_EXCEPTIONS(false);
-            myRequest.perform();
-        }
-        catch (const LibcurlRuntimeError & exc) {
-            string message("S3 operation failed with a libCurl error: "
-                           + string(curl_easy_strerror(exc.whatCode()))
-                           + " (" + to_string(exc.whatCode()) + ")\n"
-                           + params.verb + " " + uri + "\n");
-            if (responseHeaders.size() > 0) {
-                message += "headers:\n" + responseHeaders;
-            }
-            ::fprintf(stderr, "%s\n", message.c_str());
-
-            if (useRange && received > 0) {
-                body.append(responseBody);
-                currentRange.adjust(received);
-            }
-            continue;
-        }
-
-        curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
-                                responseCode);
-
-        if (responseCode >= 300 && responseCode != 404) {
-            string message("S3 operation failed with HTTP code "
-                           + to_string(responseCode) + "\n"
-                           + params.verb + " " + uri + "\n");
-            if (responseHeaders.size() > 0) {
-                message += "headers:\n" + responseHeaders;
-            }
-            if (responseBody.size() > 0) {
-                message += (string("body (") + to_string(responseBody.size())
-                            + " bytes):\n" + responseBody + "\n");
-            }
-
-            /* log so-called "REST error"
-               (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
-            */
-            if (responseHeaders.find("Content-Type: application/xml")
-                != string::npos) {
-                unique_ptr<tinyxml2::XMLDocument> localXml(
-                    new tinyxml2::XMLDocument()
-                );
-                localXml->Parse(responseBody.c_str());
-                auto element
-                    = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
-                    .ToElement();
-                if (element) {
-                    message += ("S3 REST error: ["
-                                + extract<string>(element, "Code")
-                                + "] message ["
-                                + extract<string>(element, "Message")
-                                +"]\n");
-                }
-            }
-            ::fprintf(stderr, "%s\n", message.c_str());
-
-            /* retry on 50X range errors (recoverable) */
-            if (responseCode >= 500 and responseCode < 505) {
-                continue;
-            }
-            else {
-                throw ML::Exception("S3 error is unrecoverable");
-            }
-        }
-
-        // double bytesUploaded;
-
-        // curlpp::InfoGetter::get(myRequest, CURLINFO_SIZE_UPLOAD,
-        //                         bytesUploaded);
-
-        //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
-
-        Response response;
-        response.code_ = responseCode;
-        response.header_.parse(responseHeaders, !noBody);
-        body.append(responseBody);
-        response.body_ = body;
-
-        return response;
-    }
-
-    throw ML::Exception("too many retries");
+    SyncResponse syncResponse;
+    perform(syncResponse, rq);
+    return syncResponse.response();
 }
 
 std::string
@@ -482,7 +1195,7 @@ signature(const RequestParams & request) const
         = S3Api::getStringToSignV2Multi(request.verb,
                                         request.bucket,
                                         request.resource, request.subResource,
-                                        request.contentType, request.contentMd5,
+                                        request.content.contentType, request.contentMd5,
                                         request.date, request.headers);
     
     //cerr << "digest = " << digest << endl;
@@ -490,7 +1203,7 @@ signature(const RequestParams & request) const
     return signV2(digest, accessKey);
 }
 
-S3Api::SignedRequest
+shared_ptr<S3Api::SignedRequest>
 S3Api::
 prepare(const RequestParams & request) const
 {
@@ -501,41 +1214,36 @@ prepare(const RequestParams & request) const
             "the empty constructor.)");
     }
 
-    SignedRequest result;
+    auto sharedResult = make_shared<SignedRequest>();
+    SignedRequest & result = *sharedResult;
     result.params = request;
     result.bandwidthToServiceMbps = bandwidthToServiceMbps;
-    result.owner = const_cast<S3Api *>(this);
 
     if (request.resource.find("//") != string::npos)
         throw ML::Exception("attempt to perform s3 request with double slash: "
                             + request.resource);
 
-    if (request.bucket.empty()) {
-        result.uri = protocol + "://" + serviceUri
-            + request.resource
-            + (request.subResource != "" ? "?" + request.subResource : "");
-    }
-    else {
-        result.uri = protocol + "://" + request.bucket + "." + serviceUri
-            + request.resource
-            + (request.subResource != "" ? "?" + request.subResource : "");
+    result.resource += request.resource;
+    if (request.subResource.size() > 0) {
+        result.resource += "?" + request.subResource;
     }
 
     for (unsigned i = 0;  i < request.queryParams.size();  ++i) {
         if (i == 0 && request.subResource == "")
-            result.uri += "?";
-        else result.uri += "&";
-        result.uri += uriEncode(request.queryParams[i].first)
-            + "=" + uriEncode(request.queryParams[i].second);
+            result.resource += "?";
+        else
+            result.resource += "&";
+        result.resource += (uriEncode(request.queryParams[i].first)
+                            + "=" + uriEncode(request.queryParams[i].second));
     }
 
     string sig = signature(request);
     result.auth = "AWS " + accessKeyId + ":" + sig;
 
-    //cerr << "result.uri = " << result.uri << endl;
+    //cerr << "result.resource = " << result.resource << endl;
     //cerr << "result.auth = " << result.auth << endl;
 
-    return result;
+    return sharedResult;
 }
 
 S3Api::Response
@@ -543,8 +1251,8 @@ S3Api::
 headEscaped(const std::string & bucket,
             const std::string & resource,
             const std::string & subResource,
-            const StrPairVector & headers,
-            const StrPairVector & queryParams) const
+            const RestParams & headers,
+            const RestParams & queryParams) const
 {
     RequestParams request;
     request.verb = "HEAD";
@@ -555,7 +1263,7 @@ headEscaped(const std::string & bucket,
     request.queryParams = queryParams;
     request.date = Date::now().printRfc2616();
 
-    return prepare(request).performSync();
+    return performSync(prepare(request));
 }
 
 S3Api::Response
@@ -564,8 +1272,24 @@ getEscaped(const std::string & bucket,
            const std::string & resource,
            const Range & downloadRange,
            const std::string & subResource,
-           const StrPairVector & headers,
-           const StrPairVector & queryParams) const
+           const RestParams & headers,
+           const RestParams & queryParams) const
+{
+    SyncResponse syncResponse;
+    getEscapedAsync(syncResponse, bucket, resource, downloadRange,
+                    subResource, headers, queryParams);
+    return syncResponse.response();
+}
+
+void
+S3Api::
+getEscapedAsync(const S3Api::OnResponse & onResponse,
+                const std::string & bucket,
+                const std::string & resource,
+                const Range & downloadRange,
+                const std::string & subResource,
+                const RestParams & headers,
+                const RestParams & queryParams) const
 {
     RequestParams request;
     request.verb = "GET";
@@ -577,7 +1301,7 @@ getEscaped(const std::string & bucket,
     request.date = Date::now().printRfc2616();
     request.downloadRange = downloadRange;
 
-    return prepare(request).performSync();
+    perform(onResponse, prepare(request));
 }
 
 /** Perform a POST request from end to end. */
@@ -586,9 +1310,9 @@ S3Api::
 postEscaped(const std::string & bucket,
             const std::string & resource,
             const std::string & subResource,
-            const StrPairVector & headers,
-            const StrPairVector & queryParams,
-            const Content & content) const
+            const RestParams & headers,
+            const RestParams & queryParams,
+            const HttpRequest::Content & content) const
 {
     RequestParams request;
     request.verb = "POST";
@@ -600,7 +1324,7 @@ postEscaped(const std::string & bucket,
     request.date = Date::now().printRfc2616();
     request.content = content;
 
-    return prepare(request).performSync();
+    return performSync(prepare(request));
 }
 
 S3Api::Response
@@ -608,9 +1332,26 @@ S3Api::
 putEscaped(const std::string & bucket,
            const std::string & resource,
            const std::string & subResource,
-           const StrPairVector & headers,
-           const StrPairVector & queryParams,
-           const Content & content) const
+           const RestParams & headers,
+           const RestParams & queryParams,
+           const HttpRequest::Content & content) const
+{
+    SyncResponse syncResponse;
+    putEscapedAsync(syncResponse, bucket, resource, subResource, headers,
+                    queryParams, content);
+    return syncResponse.response();
+}
+
+void
+S3Api::
+putEscapedAsync(const OnResponse & onResponse,
+                const std::string & bucket,
+                const std::string & resource,
+                const std::string & subResource,
+                const RestParams & headers,
+                const RestParams & queryParams,
+                const HttpRequest::Content & content)
+    const
 {
     RequestParams request;
     request.verb = "PUT";
@@ -622,7 +1363,7 @@ putEscaped(const std::string & bucket,
     request.date = Date::now().printRfc2616();
     request.content = content;
 
-    return prepare(request).performSync();
+    perform(onResponse, prepare(request));
 }
 
 S3Api::Response
@@ -630,9 +1371,8 @@ S3Api::
 eraseEscaped(const std::string & bucket,
              const std::string & resource,
              const std::string & subResource,
-             const StrPairVector & headers,
-             const StrPairVector & queryParams,
-             const Content & content) const
+             const RestParams & headers,
+             const RestParams & queryParams) const
 {
     RequestParams request;
     request.verb = "DELETE";
@@ -642,16 +1382,15 @@ eraseEscaped(const std::string & bucket,
     request.headers = headers;
     request.queryParams = queryParams;
     request.date = Date::now().printRfc2616();
-    request.content = content;
 
-    return prepare(request).performSync();
+    return performSync(prepare(request));
 }
 
-std::vector<std::pair<std::string, std::string> >
+RestParams
 S3Api::ObjectMetadata::
 getRequestHeaders() const
 {
-    std::vector<std::pair<std::string, std::string> > result;
+    RestParams result;
     Redundancy redundancy = this->redundancy;
 
     if (redundancy == REDUNDANCY_DEFAULT)
@@ -684,7 +1423,7 @@ S3Api::isMultiPartUploadInProgress(
     string outputPrefix(resource, 1);
 
     // Check if there is already a multipart upload in progress
-    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+    auto inProgressReq = get(bucket, "/", Range::Full, "uploads", {},
                              { { "prefix", outputPrefix } });
 
     //cerr << inProgressReq.bodyXmlStr() << endl;
@@ -739,7 +1478,7 @@ obtainMultiPartUpload(const std::string & bucket,
     if (requirements != UR_FRESH) {
 
         // Check if there is already a multipart upload in progress
-        auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+        auto inProgressReq = get(bucket, "/", Range::Full, "uploads", {},
                                  { { "prefix", outputPrefix } });
 
         //cerr << "in progress requests:" << endl;
@@ -781,7 +1520,7 @@ obtainMultiPartUpload(const std::string & bucket,
             continue;
 
             // TODO: check metadata, etc
-            auto inProgressInfo = getEscaped(bucket, escapedResource, 8192,
+            auto inProgressInfo = getEscaped(bucket, escapedResource, Range::Full,
                                              "uploadId=" + uploadId)
                 .bodyXml();
 
@@ -824,7 +1563,7 @@ obtainMultiPartUpload(const std::string & bucket,
     if (uploadId.empty()) {
         //cerr << "getting new ID" << endl;
 
-        vector<pair<string, string> > headers = metadata.getRequestHeaders();
+        RestParams headers = metadata.getRequestHeaders();
         auto result = postEscaped(bucket, escapedResource,
                                   "uploads", headers).bodyXml();
         //result->Print();
@@ -852,7 +1591,7 @@ finishMultiPartUpload(const std::string & bucket,
 {
     using namespace tinyxml2;
     // Finally, send back a response to join the parts together
-    ExcAssert(etags.size());
+    ExcAssert(etags.size() > 0);
 
     XMLDocument joinRequest;
     auto r = joinRequest.InsertFirstChild(joinRequest.NewElement("CompleteMultipartUpload"));
@@ -870,7 +1609,7 @@ finishMultiPartUpload(const std::string & bucket,
 
     auto joinResponse
         = postEscaped(bucket, escapedResource, "uploadId=" + uploadId,
-                      {}, {}, joinRequest);
+                      {}, {}, makeXmlContent(joinRequest));
 
     //cerr << joinResponse.bodyXmlStr() << endl;
 
@@ -904,237 +1643,57 @@ std::string
 S3Api::
 upload(const char * data,
        size_t dataSize,
-       const std::string & bucket,
-       const std::string & resource,
+       const std::string & uri,
        CheckMethod check,
-       const ObjectMetadata & metadata,
+       ObjectMetadata metadata,
        int numInParallel)
 {
-    string escapedResource = s3EscapeResource(resource);
-
-    // Contains the resource without the leading slash
-    string outputPrefix(resource, 1);
-
     //cerr << "need to upload " << dataSize << " bytes" << endl;
 
     // Check if it's already there
 
     if (check == CM_SIZE || check == CM_MD5_ETAG) {
-        auto existingResource
-            = get(bucket, "/", 8192, "", {},
-                  { { "prefix", outputPrefix } })
-            .bodyXml();
+        string bucket, resource;
+        std::tie(bucket, resource) = parseUri(uri);
 
-        //cerr << "existing" << endl;
-        //existingResource->Print();
-
-        auto foundContent
-            = tinyxml2::XMLHandle(*existingResource)
-            .FirstChildElement("ListBucketResult")
-            .FirstChildElement("Contents")
-            .ToElement();
-
-        if (foundContent) {
-            uint64_t size = extract<uint64_t>(foundContent, "Size");
-            std::string etag = extract<string>(foundContent, "ETag");
-            std::string lastModified = extract<string>(foundContent, "LastModified");
-
-            if (size == dataSize) {
-                //cerr << "already uploaded" << endl;
-                return etag;
-            }
+        auto info = tryGetObjectInfo(bucket, resource);
+        if (info.size == dataSize) {
+            //cerr << "already uploaded" << endl;
+            return info.etag;
         }
     }
 
-    auto upload = obtainMultiPartUpload(bucket, resource, metadata, UR_EXCLUSIVE);
+    if (numInParallel != -1) {
+        metadata.numRequests = numInParallel;
+    }
+    S3Uploader uploader(uri, nullptr, metadata);
 
-    uint64_t partSize = 0;
-    uint64_t currentOffset = 0;
-
-    for (auto & part: upload.parts) {
-        partSize = std::max(partSize, part.size);
-        currentOffset = std::max(currentOffset, part.startOffset + part.size);
+    /* The size of the slices we pass as argument to S3Uploader::write.
+       Internally, S3Uploader will uses its own chunk size when performing the
+       actual upload requests. */
+    size_t partSize = 5 * 1024 * 1024;
+    for (size_t i = 0; i < dataSize;) {
+        size_t remaining = dataSize - i;
+        size_t currentSize = std::min(partSize, remaining);
+        uploader.write(data + i, currentSize);
+        i += currentSize;
     }
 
-    if (partSize == 0) {
-        if (dataSize < 5 * 1024 * 1024) {
-            partSize = dataSize;
-        }
-        else {
-            partSize = 8 * 1024 * 1024;
-            while (dataSize / partSize > 150) {
-                partSize *= 2;
-            }
-        }
-    }
-
-    string uploadId = upload.id;
-    vector<MultiPartUploadPart> & parts = upload.parts;
-
-    uint64_t offset = currentOffset;
-    for (int i = 0;  offset < dataSize;  offset += partSize, ++i) {
-        MultiPartUploadPart part;
-        part.partNumber = parts.size() + 1;
-        part.startOffset = offset;
-        part.size = min<uint64_t>(partSize, dataSize - offset);
-        parts.push_back(part);
-    }
-
-    // we are dealing with an empty file
-    if(parts.empty() || dataSize == 0)
-    {
-        MultiPartUploadPart part;
-        parts.clear();
-        part.partNumber = 1;
-        part.startOffset = offset;
-        part.size = 0;
-        parts.push_back(part);
-    }
-    //cerr << "total parts = " << parts.size() << endl;
-
-    //if (!foundId)
-
-    uint64_t bytesDone = 0;
-    Date start;
-
-    auto touchByte = [] (const char * c)
-        {
-
-            __asm__
-            (" # [in]"
-             :
-             : [in] "r" (*c)
-             :
-             );
-        };
-
-    auto touch = [&] (const char * start, size_t size)
-        {
-            for (size_t i = 0;  i < size;  i += 4096) {
-                touchByte(start + i);
-            }
-        };
-
-    int readyPart = 0;
-
-    auto doPart = [&] (int i)
-        {
-            MultiPartUploadPart & part = parts[i];
-            //cerr << "part " << i << " with " << part.size << " bytes" << endl;
-
-            // Wait until we're allowed to go
-            for (;;) {
-                int isReadyPart = readyPart;
-                if (isReadyPart >= i) {
-                    break;
-                }
-                futex_wait(readyPart, isReadyPart);
-            }
-
-            // First touch the input range
-            touch(data + part.startOffset,
-                  part.size);
-
-            //cerr << "done touching " << i << endl;
-
-            // Now let the next one go
-            ExcAssertEqual(readyPart, i);
-            ++readyPart;
-
-            futex_wake(readyPart);
-
-            string md5 = md5HashToHex(data + part.startOffset,
-                                      part.size);
-
-            if (part.done) {
-                //cerr << "etag is " << part.etag << endl;
-                if ('"' + md5 + '"' == part.etag) {
-                    //cerr << "part " << i << " verified done" << endl;
-                    return;
-                }
-            }
-
-            auto putResult = putEscaped(bucket, escapedResource,
-                                    ML::format("partNumber=%d&uploadId=%s",
-                                               part.partNumber, uploadId),
-                                    {}, {},
-                                    S3Api::Content(data
-                                                   + part.startOffset,
-                                                   part.size,
-                                                   md5));
-
-            //cerr << "result of part " << i << " is "
-            //<< putResult.bodyXmlStr() << endl;
-
-            if (putResult.code_ != 200) {
-                part.etag = "ERROR";
-                cerr << putResult.bodyXmlStr() << endl;
-                throw ML::Exception("put didn't work: %d", (int)putResult.code_);
-            }
-
-
-
-            ML::atomic_add(bytesDone, part.size);
-
-            // double seconds = Date::now().secondsSince(start);
-            // cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
-            // << seconds << " s at "
-            // << bytesDone / 1024.0 / 1024 / seconds
-            // << " MB/second" << endl;
-
-            //cerr << putResult.header_ << endl;
-
-            string etag = putResult.getHeader("etag");
-
-            //cerr << "etag = " << etag << endl;
-
-            part.etag = etag;
-        };
-
-    int currentPart = 0;
-
-    start = Date::now();
-
-    auto doPartThread = [&] ()
-        {
-            for (;;) {
-                if (currentPart >= parts.size()) break;
-                int partToDo = __sync_fetch_and_add(&currentPart, 1);
-                if (partToDo >= parts.size()) break;
-                doPart(partToDo);
-            }
-        };
-
-    if (numInParallel == -1)
-        numInParallel = 16;
-
-    boost::thread_group tg;
-    for (unsigned i = 0;  i < numInParallel;  ++i)
-        tg.create_thread(doPartThread);
-
-    tg.join_all();
-
-    vector<string> etags;
-    for (unsigned i = 0;  i < parts.size();  ++i) {
-        etags.push_back(parts[i].etag);
-    }
-    string finalEtag = finishMultiPartUpload(bucket, resource,
-                                             uploadId, etags);
-    return finalEtag;
+    return uploader.close();
 }
 
 std::string
 S3Api::
 upload(const char * data,
-       size_t bytes,
-       const std::string & uri,
+       size_t dataSize,
+       const std::string & bucket,
+       const std::string & resource,
        CheckMethod check,
-       const ObjectMetadata & metadata,
+       ObjectMetadata metadata,
        int numInParallel)
 {
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-    return upload(data, bytes, bucket, "/" + object, check, metadata,
+    string urlStr("s3://" + bucket + resource);
+    return upload(data, dataSize, urlStr, check, move(metadata),
                   numInParallel);
 }
 
@@ -1178,14 +1737,12 @@ forEachObject(const std::string & bucket,
 {
     using namespace tinyxml2;
 
-    // cerr << "forEachObject under " << prefix << endl;
-
     string marker = startAt;
     // bool firstIter = true;
     do {
         //cerr << "Starting at " << marker << endl;
         
-        StrPairVector queryParams;
+        RestParams queryParams;
         if (prefix != "")
             queryParams.push_back({"prefix", prefix});
         if (delimiter != "")
@@ -1193,7 +1750,7 @@ forEachObject(const std::string & bucket,
         if (marker != "")
             queryParams.push_back({"marker", marker});
 
-        auto listingResult = get(bucket, "/", 8192, "",
+        auto listingResult = get(bucket, "/", Range::Full, "",
                                  {}, queryParams);
         auto listingResultXml = listingResult.bodyXml();
 
@@ -1309,10 +1866,10 @@ S3Api::
 getObjectInfoFull(const std::string & bucket, const std::string & object)
     const
 {
-    StrPairVector queryParams;
+    RestParams queryParams;
     queryParams.push_back({"prefix", object});
 
-    auto listingResult = getEscaped(bucket, "/", 8192, "", {}, queryParams);
+    auto listingResult = getEscaped(bucket, "/", Range::Full, "", {}, queryParams);
 
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
@@ -1373,10 +1930,10 @@ S3Api::
 tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
     const
 {
-    StrPairVector queryParams;
+    RestParams queryParams;
     queryParams.push_back({"prefix", object});
 
-    auto listingResult = get(bucket, "/", 8192, "", {}, queryParams);
+    auto listingResult = get(bucket, "/", Range::Full, "", {}, queryParams);
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
         throw ML::Exception("error getting object request: %d",
@@ -1510,99 +2067,29 @@ download(const std::string & uri,
          ssize_t startOffset,
          ssize_t endOffset) const
 {
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-    return download(bucket, object, onChunk, startOffset, endOffset);
+    S3Downloader downloader(uri, startOffset, endOffset);
+    uint64_t downloadSize = downloader.getDownloadSize();
+    uint64_t downloaded(0);
+    int chunkIndex(0);
+    while (!downloader.endOfDownload()) {
+        char buffer[128 * 1024 * 1024];
+        streamsize chunkSize = downloader.read(buffer, sizeof(buffer));
+        onChunk(buffer, chunkSize, chunkIndex, downloaded, downloadSize);
+        downloaded += chunkSize;
+        chunkIndex++;
+    }
+    downloader.close();
 }
 
 void
 S3Api::
-download(const std::string & bucket,
-         const std::string & object,
+download(const std::string & bucket, const std::string & object,
          const OnChunk & onChunk,
          ssize_t startOffset,
          ssize_t endOffset) const
 {
-
-    ObjectInfo info = getObjectInfo(bucket, object);
-    size_t chunkSize = 128 * 1024 * 1024;  // 128MB probably good
-
-    struct Part {
-        uint64_t offset;
-        uint64_t size;
-    };
-
-    if (endOffset == -1)
-        endOffset = info.size;
-
-    //cerr << "getting " << endOffset << " bytes" << endl;
-
-    vector<S3Api::Range> parts;
-
-    for (uint64_t offset = 0;  offset < endOffset;  offset += chunkSize) {
-        parts.emplace_back(offset, std::min<ssize_t>(endOffset - offset, chunkSize));
-    }
-
-    //cerr << "getting in " << parts.size() << " parts" << endl;
-
-    // uint64_t bytesDone = 0;
-    Date start;
-    bool failed = false;
-
-    auto doPart = [&] (int i)
-        {
-            if (failed) return;
-
-            S3Api::Range & part = parts[i];
-            // cerr << "part " << i << " with " << part.size << " bytes"
-            //      << " and offset : " << part.offset << endl;
-
-            auto partResult = get(bucket, "/" + object, part);
-            if (partResult.code_ != 206) {
-                cerr << "error getting part " << i << ": "
-                     << partResult.bodyXmlStr() << endl;
-                failed = true;
-                return;
-            }
-
-            ExcAssertEqual(partResult.body_.size(), part.size);
-
-            onChunk(partResult.body_.c_str(),
-                    part.size,
-                    i,
-                    part.offset,
-                    info.size);
-
-            // ML::atomic_add(bytesDone, part.size);
-            // double seconds = Date::now().secondsSince(start);
-            // cerr << "downloaded " << bytesDone / 1024 / 1024 << " MB in "
-            // << seconds << " s at "
-            // << bytesDone / 1024.0 / 1024 / seconds
-            // << " MB/second" << endl;
-        };
-
-    int currentPart = 0;
-
-    start = Date::now();
-
-    auto doPartThread = [&] ()
-        {
-            for (;;) {
-                if (currentPart >= parts.size()) break;
-                int partToDo = __sync_fetch_and_add(&currentPart, 1);
-                if (partToDo >= parts.size()) break;
-                doPart(partToDo);
-            }
-        };
-
-    boost::thread_group tg;
-    for (unsigned i = 0;  i < 16;  ++i)
-        tg.create_thread(doPartThread);
-
-    tg.join_all();
-
-    if (failed)
-        throw ML::Exception("Failed to get part");
+    string urlStr("s3://" + bucket + "/" + object);
+    download(urlStr, onChunk, startOffset, endOffset);
 }
 
 /**
@@ -1612,61 +2099,72 @@ download(const std::string & bucket,
 void
 S3Api::
 downloadToFile(const std::string & uri, const std::string & outfile,
-        ssize_t endOffset) const
+               ssize_t endOffset)
+    const
 {
-
-    auto info = getObjectInfo(uri);
-    if (!info){
-        throw ML::Exception("unknown s3 object");
-    }
-    if(endOffset == -1 || endOffset > info.size){
-        endOffset = info.size;
-    }
-
     ofstream myFile;
     myFile.open(outfile.c_str());
 
-    uint64_t done = 0;
-
-    auto onChunk = [&] (const char * data,
-                            size_t size,
-                            int chunkIndex,
-                            uint64_t offset,
-                            uint64_t totalSize){
-        ExcAssertEqual(info.size, totalSize);
+    auto onChunk = [&] (const char * data, size_t size,
+                        int chunkIndex,
+                        uint64_t offset, uint64_t totalSize) {
         ExcAssertLessEqual(offset + size, totalSize);
         myFile.seekp(offset);
         myFile.write(data, size);
-        ML::atomic_add(done, size);
     };
     download(uri, onChunk, 0, endOffset);
+    myFile.close();
 }
 
-size_t getTotalSystemMemory()
+
+/****************************************************************************/
+/* EXCEPTIONPTR HANDLER                                                     */
+/****************************************************************************/
+
+bool
+ExceptionPtrHandler::
+hasException()
 {
-    long pages = sysconf(_SC_PHYS_PAGES);
-    long page_size = sysconf(_SC_PAGE_SIZE);
-    return pages * page_size;
+    std::unique_lock<mutex> guard(excLock);
+    return bool(excPtr);
 }
+
+void
+ExceptionPtrHandler::
+takeException(std::exception_ptr newPtr)
+{
+    std::unique_lock<mutex> guard(excLock);
+    excPtr = newPtr;
+}
+
+void
+ExceptionPtrHandler::
+takeCurrentException()
+{
+    takeException(std::current_exception());
+}
+
+void
+ExceptionPtrHandler::
+rethrowIfSet()
+{
+    std::unique_lock<mutex> guard(excLock);
+    if (excPtr) {
+        std::exception_ptr ptr = excPtr;
+        excPtr = nullptr;
+        std::rethrow_exception(ptr);
+    }
+}
+
+
+/****************************************************************************/
+/* STREAMING DOWNLOAD SOURCE                                                */
+/****************************************************************************/
 
 struct StreamingDownloadSource {
     StreamingDownloadSource(const std::string & urlStr)
     {
-        impl.reset(new Impl());
-        impl->owner = getS3ApiForUri(urlStr);
-        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
-        impl->info = impl->owner->getObjectInfo(urlStr);
-        impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
-
-        int numThreads = 1;
-        if (impl->info.size > 1024 * 1024)
-            numThreads = 2;
-        if (impl->info.size > 16 * 1024 * 1024)
-            numThreads = 3;
-        if (impl->info.size > 256 * 1024 * 1024)
-            numThreads = 5;
-        
-        impl->start(numThreads);
+        downloader.reset(new S3Downloader(urlStr));
     }
 
     typedef char char_type;
@@ -1677,249 +2175,24 @@ struct StreamingDownloadSource {
         boost::iostreams::closable_tag
     { };
 
-    struct Impl {
-        Impl()
-            : baseChunkSize(0)
-        {
-            reset();
-        }
-
-        ~Impl()
-        {
-            stop();
-        }
-
-        /* static variables, set during or right after construction */
-        shared_ptr<S3Api> owner;
-        std::string bucket;
-        std::string object;
-        S3Api::ObjectInfo info;
-        size_t baseChunkSize;
-
-        /* variables set during or after "start" has been called */
-        size_t maxChunkSize;
-
-        atomic<bool> shutdown;
-        exception_ptr lastExc;
-
-        /* read thread */
-        uint64_t readOffset; /* number of bytes from the entire stream that
-                              * have been returned to the caller */
-
-        string readPart; /* data buffer for the part of the stream being
-                          * transferred to the caller */
-        ssize_t readPartOffset; /* number of bytes from "readPart" that have
-                                 * been returned to the caller, or -1 when
-                                 * awaiting a new part */
-        int readPartDone; /* the number of the chunk representing "readPart" */
-
-        /* http threads */
-        typedef RingBufferSRMW<string> ThreadData;
-
-        int numThreads; /* number of http threads */
-        vector<thread> threads; /* thread pool */
-        vector<ThreadData> threadQueues; /* per-thread queue of chunk data */
-
-        /* cleanup all the variables that are used during reading, the
-           "static" ones are left untouched */
-        void reset()
-        {
-            shutdown = false;
-
-            readOffset = 0;
-
-            readPart = "";
-            readPartOffset = -1;
-            readPartDone = 0;
-
-            threadQueues.clear();
-            threads.clear();
-            numThreads = 0;
-        }
-
-        void start(int nThreads)
-        {
-            // Maximum chunk size is what we can do in 3 seconds
-            maxChunkSize = (owner->bandwidthToServiceMbps
-                            * 3.0 * 1000000);
-            size_t sysMemory = getTotalSystemMemory();
-
-            //cerr << "sysMemory = " << sysMemory << endl;
-            // Limit each chunk to 1% of system memory
-            maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
-            //cerr << "maxChunkSize = " << maxChunkSize << endl;
-            numThreads = nThreads;
-
-            for (int i = 0; i < numThreads; i++) {
-                threadQueues.emplace_back(2);
-            }
-            
-            /* ensure that the queues are ready before the threads are
-               launched */
-            ML::memory_barrier();
-
-            for (int i = 0; i < numThreads; i++) {
-                auto threadFn = [&] (int threadNum) {
-                    this->runThread(threadNum);
-                };
-                threads.emplace_back(threadFn, i);
-            }
-        }
-
-        void stop()
-        {
-            shutdown = true;
-            for (thread & th: threads) {
-                th.join();
-            }
-
-            reset();
-        }
-
-        /* reader thread */
-        std::streamsize read(char_type* s, std::streamsize n)
-        {
-            if (lastExc) {
-                rethrow_exception(lastExc);
-            }
-
-            if (readOffset == info.size)
-                return -1;
-
-            if (readPartOffset == -1) {
-                waitNextPart();
-            }
-
-            if (lastExc) {
-                rethrow_exception(lastExc);
-            }
-
-            size_t toDo = min<size_t>(readPart.size() - readPartOffset,
-                                      n);
-            const char_type * start = readPart.c_str() + readPartOffset;
-            std::copy(start, start + toDo, s);
-
-            readPartOffset += toDo;
-            if (readPartOffset == readPart.size()) {
-                readPartOffset = -1;
-            }
-
-            readOffset += toDo;
-
-            return toDo;
-        }
-
-        void waitNextPart()
-        {
-            int partThread = readPartDone % numThreads;
-            ThreadData & threadQueue = threadQueues[partThread];
-
-            /* We set a timeout to avoid dead locking when http threads have
-             * exited after an exception. */
-            while (!lastExc) {
-                if (threadQueue.tryPop(readPart, 1.0)) {
-                    break;
-                }
-            }
-
-            readPartOffset = 0;
-            readPartDone++;
-        }
-
-        /* download threads */
-        void runThread(int threadNum)
-        {
-            ThreadData & threadQueue = threadQueues[threadNum];
-
-            uint64_t start = 0;
-            unsigned int prevChunkNbr = 0;
-
-            try {
-                for (int loop = 0;; loop++) {
-                    /* number of the chunk that we need to process */
-                    unsigned int chunkNbr = loop * numThreads + threadNum;
-
-                    /* we adjust the offset by adding the chunk sizes of all
-                       the chunks downloaded between our previous loop until
-                       now */
-                    for (unsigned int i = prevChunkNbr; i < chunkNbr; i++) {
-                        start += getChunkSize(i);
-                    }
-
-                    if (start >= info.size) {
-                        /* we are done */
-                        return;
-                    }
-                    prevChunkNbr = chunkNbr;
-
-                    size_t chunkSize = getChunkSize(chunkNbr);
-                    uint64_t end = start + chunkSize;
-                    if (end > info.size) {
-                        end = info.size;
-                        chunkSize = end - start;
-                    }
-
-                    auto partResult
-                        = owner->get(bucket, "/" + object,
-                                     S3Api::Range(start, chunkSize));
-                    
-                    if (partResult.code_ != 206) {
-                        throw ML::Exception("http error "
-                                            + to_string(partResult.code_)
-                                            + " while getting part "
-                                            + partResult.bodyXmlStr());
-                    }
-                    // it can sometimes happen that a file changes during download
-                    // i.e it is being overwritten. Make sure we check for this condition
-                    // and throw an appropriate exception
-                    string chunkEtag = partResult.getHeader("etag") ;
-                    if(chunkEtag != info.etag)
-                        throw ML::Exception("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!", chunkEtag.c_str(), info.etag.c_str(), object.c_str());
-                    ExcAssert(partResult.body().size() == chunkSize);
-
-                    while (true) {
-                        if (shutdown || lastExc) {
-                            return;
-                        }
-                        if (threadQueue.tryPush(partResult.body())) {
-                            break;
-                        }
-                        else {
-                            ML::sleep(0.1);
-                        }
-                    }
-                }
-            }
-            catch (...) {
-                lastExc = current_exception();
-            }
-        }
-
-        size_t getChunkSize(unsigned int chunkNbr)
-            const
-        {
-            size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
-                                        maxChunkSize);
-            return chunkSize;
-        }
-    };
-
-    std::shared_ptr<Impl> impl;
-
-    std::streamsize read(char_type* s, std::streamsize n)
+    std::streamsize read(char_type * s, std::streamsize n)
     {
-        return impl->read(s, n);
+        return downloader->read(s, n);
     }
 
     bool is_open() const
     {
-        return !!impl;
+        return !!downloader;
     }
 
     void close()
     {
-        impl.reset();
+        downloader->close();
+        downloader.reset();
     }
+
+private:
+    std::shared_ptr<S3Downloader> downloader;
 };
 
 std::unique_ptr<std::streambuf>
@@ -1939,20 +2212,18 @@ makeStreamingDownload(const std::string & bucket,
     return makeStreamingDownload("s3://" + bucket + "/" + object);
 }
 
+
+/****************************************************************************/
+/* STREAMING UPLOAD SOURCE                                                  */
+/****************************************************************************/
+
 struct StreamingUploadSource {
 
     StreamingUploadSource(const std::string & urlStr,
                           const ML::OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
     {
-        impl.reset(new Impl());
-        impl->owner = getS3ApiForUri(urlStr);
-        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
-        impl->metadata = metadata;
-        impl->onException = excCallback;
-        impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up
-
-        impl->start();
+        uploader.reset(new S3Uploader(urlStr, excCallback, metadata));
     }
 
     typedef char char_type;
@@ -1963,278 +2234,24 @@ struct StreamingUploadSource {
     {
     };
 
-    struct Impl {
-        Impl()
-            : offset(0), chunkIndex(0), shutdown(false),
-              chunks(16)
-        {
-        }
-
-        ~Impl()
-        {
-            //cerr << "destroying streaming upload at " << object << endl;
-            stop();
-        }
-
-        shared_ptr<S3Api> owner;
-        std::string bucket;
-        std::string object;
-        S3Api::ObjectMetadata metadata;
-        std::string uploadId;
-        size_t offset;
-        size_t chunkSize;
-        size_t chunkIndex;
-        bool shutdown;
-        boost::thread_group tg;
-
-        Date startDate;
-
-        struct Chunk {
-            Chunk() : data(nullptr)
-            {
-            }
-
-            Chunk(Chunk && other)
-                noexcept
-            {
-                this->offset = other.offset;
-                this->size = other.size;
-                this->capacity = other.capacity;
-                this->index = other.index;
-                this->data = other.data;
-
-                other.data = nullptr;
-            }
-
-            Chunk & operator = (Chunk && other)
-                noexcept
-            {
-                this->offset = other.offset;
-                this->size = other.size;
-                this->capacity = other.capacity;
-                this->index = other.index;
-                this->data = other.data;
-                other.data = nullptr;
-
-                return *this;
-            }
-
-            ~Chunk()
-                noexcept
-            {
-                if (this->data) {
-                    delete[] this->data;
-                }
-            }
-
-            void init(uint64_t offset, size_t capacity, int index)
-            {
-                this->offset = offset;
-                this->size = 0;
-                this->capacity = capacity;
-                this->index = index;
-                this->data = new char[capacity];
-            }
-
-            size_t append(const char * input, size_t n)
-            {
-                size_t todo = std::min(n, capacity - size);
-                std::copy(input, input + todo, data + size);
-                size += todo;
-                return todo;
-            }
-
-            char * data;
-            size_t size;
-            size_t capacity;
-            int index;
-            uint64_t offset;
-
-        private:
-            Chunk(const Chunk & other) {}
-            Chunk & operator = (const Chunk & other) { return *this; }
-        };
-
-        Chunk current;
-        
-        RingBufferSWMR<Chunk> chunks;
-
-        std::mutex etagsLock;
-        std::vector<std::string> etags;
-        std::exception_ptr exc;
-        ML::OnUriHandlerException onException;
-
-        void start()
-        {
-            S3Api::MultiPartUpload upload;
-            try {
-                upload = owner->obtainMultiPartUpload(bucket, "/" + object,
-                                                      metadata,
-                                                      S3Api::UR_EXCLUSIVE);
-            }
-            catch (...) {
-                onException();
-                throw;
-            }
-
-            uploadId = upload.id;
-            //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads 
-            //<< "threads!!! " << endl;
-
-            startDate = Date::now();
-            for (unsigned i = 0;  i < metadata.numThreads;  ++i)
-                tg.create_thread(boost::bind<void>(&Impl::runThread, this));
-            current.init(0, chunkSize, 0);
-        }
-
-        void stop()
-        {
-            shutdown = true;
-            tg.join_all();
-        }
-
-        std::streamsize write(const char_type* s, std::streamsize n)
-        {
-            if (exc)
-                std::rethrow_exception(exc);
-
-            size_t done = current.append(s, n);
-            offset += done;
-            if (done < n) {
-                flush();
-                done += current.append(s + done, n - done);
-            }
-
-            //cerr << "writing " << n << " characters returned "
-            //     << done << endl;
-
-            if (exc)
-                std::rethrow_exception(exc);
-
-            return done;
-        }
-
-        void flush()
-        {
-            if (current.size == 0) return;
-            chunks.push(std::move(current));
-            ++chunkIndex;
-
-            // Get bigger for bigger files
-            if (chunkIndex % 5 == 0 && chunkSize < 64 * 1024 * 1024)
-                chunkSize *= 2;
-
-            current.init(offset, chunkSize, chunkIndex);
-        }
-
-        void finish()
-        {
-            if (exc)
-                std::rethrow_exception(exc);
-            // cerr << "pushing last chunk " << chunkIndex << endl;
-            flush();
-
-            if (!chunkIndex) {
-                chunks.push(std::move(current));
-                ++chunkIndex;
-            }
-
-            //cerr << "waiting for everything to stop" << endl;
-            chunks.waitUntilEmpty();
-            //cerr << "empty" << endl;
-            stop();
-            //cerr << "stopped" << endl;
-
-            // Make sure that an exception in uploading the last chunk doesn't
-            // lead to a corrupt (truncated) file
-            if (exc)
-                std::rethrow_exception(exc);
-
-            string etag;
-            try {
-                etag = owner->finishMultiPartUpload(bucket, "/" + object,
-                                                    uploadId,
-                                                    etags);
-            }
-            catch (...) {
-                onException();
-                throw;
-            }
-            //cerr << "final etag is " << etag << endl;
-
-            if (exc)
-                std::rethrow_exception(exc);
-
-            // double elapsed = Date::now().secondsSince(startDate);
-
-            // cerr << "uploaded " << offset / 1024.0 / 1024.0
-            //      << "MB in " << elapsed << "s at "
-            //      << offset / 1024.0 / 1024.0 / elapsed
-            //      << "MB/s" << " to " << etag << endl;
-        }
-
-        void runThread()
-        {
-            while (!shutdown) {
-                Chunk chunk;
-                if (chunks.tryPop(chunk, 0.01)) {
-                    if (exc)
-                        return;
-                    try {
-                        //cerr << "got chunk " << chunk.index
-                        //     << " with " << chunk.size << " bytes at index "
-                        //     << chunk.index << endl;
-
-                        // Upload the data
-                        string md5 = md5HashToHex(chunk.data, chunk.size);
-
-                        auto putResult = owner->put(bucket, "/" + object,
-                                                    ML::format("partNumber=%d&uploadId=%s",
-                                                               chunk.index + 1, uploadId),
-                                                    {}, {},
-                                                    S3Api::Content(chunk.data,
-                                                                   chunk.size,
-                                                                   md5));
-                        if (putResult.code_ != 200) {
-                            cerr << putResult.bodyXmlStr() << endl;
-
-                            throw ML::Exception("put didn't work: %d", (int)putResult.code_);
-                        }
-                        string etag = putResult.getHeader("etag");
-                        // cerr << "successfully uploaded part " << chunk.index
-                        //     << " with etag " << etag << endl;
-
-                        std::unique_lock<std::mutex> guard(etagsLock);
-                        while (etags.size() <= chunk.index)
-                            etags.push_back("");
-                        etags[chunk.index] = etag;
-                    } catch (...) {
-                        // Capture exception to be thrown later
-                        exc = std::current_exception();
-                        onException();
-                    }
-                }
-            }
-        }
-    };
-
-    std::shared_ptr<Impl> impl;
-
     std::streamsize write(const char_type* s, std::streamsize n)
     {
-        return impl->write(s, n);
+        return uploader->write(s, n);
     }
 
     bool is_open() const
     {
-        return !!impl;
+        return !!uploader;
     }
 
     void close()
     {
-        impl->finish();
-        impl.reset();
+        uploader->close();
+        uploader.reset();
     }
+
+private:
+    std::shared_ptr<S3Uploader> uploader;
 };
 
 std::unique_ptr<std::streambuf>
@@ -2275,81 +2292,6 @@ parseUri(const std::string & uri)
     return make_pair(bucket, object);
 }
 
-void
-S3Handle::
-initS3(const std::string & accessKeyId,
-       const std::string & accessKey,
-       const std::string & uriPrefix)
-{
-    s3.init(accessKeyId, accessKey);
-    this->s3UriPrefix = uriPrefix;
-}
-
-size_t
-S3Handle::
-getS3Buffer(const std::string & filename, char** outBuffer){
-
-    if (this->s3UriPrefix == "") {
-        // not initialized; use defaults
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        size_t size = api->getObjectInfo(filename).size;
-
-        // cerr << "size = " << size << endl;
-
-        // TODO: outBuffer exception safety
-        *outBuffer = new char[size];
-
-        uint64_t done = 0;
-
-        auto onChunk = [&] (const char * data,
-                            size_t chunkSize,
-                            int chunkIndex,
-                            uint64_t offset,
-                            uint64_t totalSize)
-            {
-                ExcAssertEqual(size, totalSize);
-                ExcAssertLessEqual(offset + chunkSize, totalSize);
-                std::copy(data, data + chunkSize, *outBuffer + offset);
-                ML::atomic_add(done, chunkSize);
-            };
-
-        api->download(filename, onChunk);
-
-        return size;
-    }
-
-    auto stats = s3.getObjectInfo(filename);
-    if (!stats)
-        throw ML::Exception("unknown s3 object");
-
-    *outBuffer = new char[stats.size];
-
-    uint64_t done = 0;
-
-    auto onChunk = [&] (const char * data,
-                        size_t size,
-                        int chunkIndex,
-                        uint64_t offset,
-                        uint64_t totalSize)
-        {
-            ExcAssertEqual(stats.size, totalSize);
-            ExcAssertLessEqual(offset + size, totalSize);
-            std::copy(data, data + size, *outBuffer + offset);
-            ML::atomic_add(done, size);
-        };
-
-    s3.download(filename, onChunk);
-
-    ExcAssertEqual(done, stats.size);
-
-    // cerr << "done downloading " << stats.size << " bytes from "
-    //      << filename << endl;
-
-    return stats.size;
-
-}
-
 bool
 S3Api::
 forEachBucket(const OnBucket & onBucket) const
@@ -2358,7 +2300,7 @@ forEachBucket(const OnBucket & onBucket) const
 
     //cerr << "forEachObject under " << prefix << endl;
 
-    auto listingResult = get("", "/", 8192, "");
+    auto listingResult = get("", "/", Range::Full, "");
     auto listingResultXml = listingResult.bodyXml();
 
     //listingResultXml->Print();
@@ -2408,8 +2350,6 @@ uploadRecursive(string dirSrc, string bucketDest, bool includeDir){
 void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
     S3Api::defaultBandwidthToServiceMbps = mbps;
 }
-
-HttpRestProxy S3Api::proxy;
 
 S3Api::Redundancy S3Api::defaultRedundancy = S3Api::REDUNDANCY_STANDARD;
 
@@ -2476,7 +2416,8 @@ void registerS3Bucket(const std::string & bucketName,
     info.api = std::make_shared<S3Api>(accessKeyId, accessKey,
                                        bandwidthToServiceMbps,
                                        protocol, serviceUri);
-    info.api->getEscaped("", "/" + bucketName + "/", 8192);//throws if !accessible
+    info.api->getEscaped("", "/" + bucketName + "/",
+                         S3Api::Range::Full); //throws if !accessible
     s3Buckets[bucketName] = info;
 
     if (accessKeyId.size() > 0 && accessKey.size() > 0) {
@@ -2539,7 +2480,13 @@ struct RegisterS3Handler {
                 }
                 else if(name == "num-threads")
                 {
-                    md.numThreads = std::stoi(value);
+                    cerr << ("warning: use of obsolete 'num-threads' option"
+                             " key\n");
+                    md.numRequests = std::stoi(value);
+                }
+                else if(name == "num-requests")
+                {
+                    md.numRequests = std::stoi(value);
                 }
                 else {
                     cerr << "warning: skipping unknown S3 option "
@@ -2790,7 +2737,8 @@ std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
     }
 
     auto api = make_shared<S3Api>(accessKeyId, accessKey);
-    api->getEscaped("", "/" + bucketName + "/", 8192);//throws if !accessible
+    api->getEscaped("", "/" + bucketName + "/",
+                    S3Api::Range::Full); //throws if !accessible
 
     return api;
 }

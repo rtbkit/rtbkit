@@ -87,89 +87,106 @@ void MultiBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & a
     }
 }
 
-void MultiBidderInterface::sendLossMessage(std::string const & agent,
-                                          std::string const & id) {
-    dispatchBidderInterface(agent,
+void MultiBidderInterface::sendLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & id) {
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendLossMessage,
-                            agent, id);
+                            agentConfig, agent, id);
 }
 
-void MultiBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
+void MultiBidderInterface::sendWinLossMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        MatchedWinLoss const & event) {
 
-    dispatchBidderInterface(event.response.agent,
-                            event.response.agentConfig,
+    dispatchBidderInterface(event.response.agent, agentConfig,
                             &BidderInterface::sendWinLossMessage,
-                            event);
+                            agentConfig, event);
 }
 
 
-void MultiBidderInterface::sendBidLostMessage(std::string const & agent,
-                                             std::shared_ptr<Auction> const & auction) {
-    dispatchBidderInterface(agent,
+void MultiBidderInterface::sendBidLostMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendBidLostMessage,
-                            agent, auction);
+                            agentConfig, agent, auction);
 }
 
-void MultiBidderInterface::sendCampaignEventMessage(std::string const & agent,
-                                                   MatchedCampaignEvent const & event) {
+void MultiBidderInterface::sendCampaignEventMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, MatchedCampaignEvent const & event) {
 
-    dispatchBidderInterface(agent,
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendCampaignEventMessage,
-                            agent, event);
+                            agentConfig, agent, event);
 }
 
-void MultiBidderInterface::sendBidDroppedMessage(std::string const & agent,
-                                                std::shared_ptr<Auction> const & auction) {
+void MultiBidderInterface::sendBidDroppedMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 
-    dispatchBidderInterface(agent,
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendBidDroppedMessage,
-                            agent, auction);
+                            agentConfig, agent, auction);
 }
 
-void MultiBidderInterface::sendBidInvalidMessage(std::string const & agent,
-                                                std::string const & reason,
-                                                std::shared_ptr<Auction> const & auction) {
+void MultiBidderInterface::sendBidInvalidMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & reason,
+        std::shared_ptr<Auction> const & auction) {
 
-    dispatchBidderInterface(agent,
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendBidInvalidMessage,
-                            agent, reason, auction);
+                            agentConfig, agent, reason, auction);
 }
 
-void MultiBidderInterface::sendNoBudgetMessage(std::string const & agent,
-                                              std::shared_ptr<Auction> const & auction) {
+void MultiBidderInterface::sendNoBudgetMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 
-    dispatchBidderInterface(agent,
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendNoBudgetMessage,
-                            agent, auction);
+                            agentConfig, agent, auction);
 }
 
-void MultiBidderInterface::sendTooLateMessage(std::string const & agent,
-                                             std::shared_ptr<Auction> const & auction) {
+void MultiBidderInterface::sendTooLateMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::shared_ptr<Auction> const & auction) {
 
-    dispatchBidderInterface(agent,
+    dispatchBidderInterface(agent, agentConfig,
                             &BidderInterface::sendTooLateMessage,
-                            agent, auction);
+                            agentConfig, agent, auction);
 }
 
-void MultiBidderInterface::sendMessage(std::string const & agent,
-                                      std::string const & message) {
+void MultiBidderInterface::sendMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & message) {
     if (message == "NEEDCONFIG") {
-        dispatchAllInterfaces(&BidderInterface::sendMessage, agent, message);
+        dispatchAllInterfaces(&BidderInterface::sendMessage, agentConfig, agent, message);
     }
     else {
-        dispatchBidderInterface(agent, &BidderInterface::sendMessage, agent, message);
+        dispatchBidderInterface(agent, agentConfig,
+                                &BidderInterface::sendMessage,
+                                agentConfig, agent, message);
     }
 }
 
-void MultiBidderInterface::sendErrorMessage(std::string const & agent,
-                                           std::string const & error,
-                                           std::vector<std::string> const & payload) {
-    dispatchBidderInterface(agent, &BidderInterface::sendErrorMessage, agent, error, payload);
+void MultiBidderInterface::sendErrorMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, std::string const & error,
+        std::vector<std::string> const & payload) {
+    dispatchBidderInterface(agent, agentConfig,
+                            &BidderInterface::sendErrorMessage,
+                            agentConfig, agent, error, payload);
 }
 
-void MultiBidderInterface::sendPingMessage(std::string const & agent,
-                                          int ping) {
-    dispatchBidderInterface(agent, &BidderInterface::sendPingMessage, agent, ping);
+void MultiBidderInterface::sendPingMessage(
+        const std::shared_ptr<const AgentConfig>& agentConfig,
+        std::string const & agent, int ping) {
+    dispatchBidderInterface(agent, agentConfig,
+                            &BidderInterface::sendPingMessage,
+                            agentConfig, agent, ping);
 }
 
 void MultiBidderInterface::registerLoopMonitor(LoopMonitor *monitor) const {

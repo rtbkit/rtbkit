@@ -6,6 +6,8 @@
 #ifndef __jml__arch__spinlock_h__
 #define __jml__arch__spinlock_h__
 
+#include <sched.h>
+
 namespace ML {
 
 struct Spinlock {

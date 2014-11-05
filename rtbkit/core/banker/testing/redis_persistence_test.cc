@@ -9,12 +9,14 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+#include <boost/test/execution_monitor.hpp>
 #include <jml/arch/futex.h>
 #include "soa/service/redis.h"
 #include "soa/service/testing/redis_temporary_server.h"
 
 #include "rtbkit/core/banker/account.h"
 #include "rtbkit/core/banker/master_banker.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -174,7 +176,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* the new accounts should have been registered in the "banker:accounts"
        set */
@@ -194,7 +195,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     const Reply & parentReply = result.reply();
     BOOST_CHECK_EQUAL(parentReply.type(), STRING);
     Json::Value accountJson(accounts.getAccount(parentKey).toJson());
-    accountJson["spent-tracking"] = Json::Value(Json::objectValue);
     Json::Value storageJson = Json::parse(parentReply.asString());
     BOOST_CHECK_EQUAL(accountJson, storageJson);
 
@@ -217,7 +217,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     /* the same accounts should be registered in the "banker:accounts" set */
     result = connection->exec(SMEMBERS("banker:accounts"), 5);
@@ -253,7 +252,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     }
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
     /* make sure "parent:child" has been properly updated with the value from
      * accounts2 */
     result = connection->exec(GET("banker-parent:child"), 5);
@@ -289,7 +287,6 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     }
     /* this operation should succeed */
     BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
-    BOOST_CHECK(lastInfo.length() == 0);
 
     result = connection->exec(GET("banker-parent:child"), 5);
     BOOST_CHECK(result.ok());
@@ -299,5 +296,185 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
 
     /* the last expense of 12 mUSD must not be present in the stored account */
     BOOST_CHECK_EQUAL(expectedStorageJson, storageJson);
+
+}
+
+BOOST_AUTO_TEST_CASE( test_redis_persistence_archive_accounts )
+{
+    RedisTemporaryServer redis;
+    std::shared_ptr<AsyncConnection> connection
+        = std::make_shared<AsyncConnection>(redis);
+    RedisBankerPersistence storage(connection);
+    int done(false);
+
+    /* generic callback for all subsequent saveAll invocations */
+    BankerPersistence::PersistenceCallbackStatus lastStatus;
+    string lastInfo;
+    auto OnSavedCallback
+        = [&] (const BankerPersistence::Result& result,
+               const string & info) {
+        lastStatus = result.status;
+        lastInfo = info;
+        done = true;
+        ML::futex_wake(done);
+    };
+
+    /* basic account setup */
+    Accounts accounts;
+    AccountKey parentKey("parent"), childKey("parent:child");
+    accounts.createAccount(parentKey, AT_BUDGET);
+    accounts.createAccount(childKey, AT_SPEND);
+    accounts.setBudget(parentKey, MicroUSD(123456));
+    accounts.setBalance(childKey, MicroUSD(1234), AT_NONE);
+
+    /* 1. we save an account that does not exist yet in the storage */
+    storage.saveAll(accounts, OnSavedCallback);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
+    /* this operation should succeed */
+    BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
+
+    /* the new accounts should have been registered in the "banker:accounts"
+       set */
+    Redis::Result result = connection->exec(SMEMBERS("banker:accounts"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReply = result.reply();
+    BOOST_CHECK_EQUAL(keysReply.type(), ARRAY);
+    BOOST_CHECK_EQUAL(keysReply.length(), 2);
+    BOOST_CHECK((keysReply[0].asString() == "parent"
+                 && keysReply[1].asString() == "parent:child")
+                || (keysReply[0].asString() == "parent:child"
+                    && keysReply[1].asString() == "parent"));
+
+    /* make sure that the correct data has been stored for "parent" */
+    result = connection->exec(GET("banker-parent"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & parentReply = result.reply();
+    BOOST_CHECK_EQUAL(parentReply.type(), STRING);
+    Json::Value accountJson(accounts.getAccount(parentKey).toJson());
+    Json::Value storageJson = Json::parse(parentReply.asString());
+    BOOST_CHECK_EQUAL(accountJson, storageJson);
+
+    /* make sure that the correct data has been stored for "parent:child" */
+    result = connection->exec(GET("banker-parent:child"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & childReply = result.reply();
+    BOOST_CHECK_EQUAL(childReply.type(), STRING);
+    accountJson = accounts.getAccount(childKey).toJson();
+    storageJson = Json::parse(childReply.asString());
+    BOOST_CHECK_EQUAL(accountJson, storageJson);
+
+    /* 2. we close an existing account and reperform the same tests */
+    accounts.closeAccount(childKey);
+
+    /* save */
+    done = false;
+    storage.saveAll(accounts, OnSavedCallback);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
+    /* this operation should succeed */
+    BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
+
+    /* check if parent is in banker:accounts */
+    result = connection->exec(SMEMBERS("banker:accounts"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReplyAccounts = result.reply();
+    BOOST_CHECK_EQUAL(keysReplyAccounts.type(), ARRAY);
+    BOOST_CHECK_EQUAL(keysReplyAccounts.length(), 1);
+    BOOST_CHECK(keysReplyAccounts[0].asString() == "parent");
+
+    /* check if child is in banker:archive */
+    result = connection->exec(SMEMBERS("banker:archive"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReplyArchive = result.reply();
+    BOOST_CHECK_EQUAL(keysReplyArchive.type(), ARRAY);
+    BOOST_CHECK_EQUAL(keysReplyArchive.length(), 1);
+    BOOST_CHECK(keysReplyArchive[0].asString() == "parent:child");
+
+    /* reload accounts from banker:accouts */
+    done = false;
+    auto OnLoaded_BadBankerAccounts1
+        = [&] (std::shared_ptr<Accounts> newAccounts,
+               const BankerPersistence::Result& result,
+               const string & info) {
+        accounts = *newAccounts;
+        done = true;
+        ML::futex_wake(done);
+    };
+    storage.loadAll("", OnLoaded_BadBankerAccounts1);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+   
+    auto aKeys = accounts.getAccountKeys();
+    BOOST_CHECK(find(aKeys.begin(), aKeys.end(), parentKey) != aKeys.end());
+    BOOST_CHECK(find(aKeys.begin(), aKeys.end(),  childKey) == aKeys.end());
+
+
+    /* reopen an account by calling */
+    done = false;
+    auto onRestored = [&] (shared_ptr<Accounts> ra,
+                           const BankerPersistence::Result & result,
+                           const string & info) {
+            if (result.status == BankerPersistence::SUCCESS) {
+                accounts.restoreAccount(childKey, ra->getAccount(childKey).toJson());
+            }
+            BOOST_CHECK(result.status == BankerPersistence::SUCCESS);
+            done = true;
+            ML::futex_wake(done);
+    };
+    storage.restoreFromArchive(childKey, onRestored);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
+    // save 
+    done = false;
+    storage.saveAll(accounts, OnSavedCallback);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
+    /* this operation should succeed */
+    BOOST_CHECK_EQUAL(lastStatus, BankerPersistence::SUCCESS);
+
+    /* check if both parent and child are in banker:accounts */
+    result = connection->exec(SMEMBERS("banker:accounts"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReplyAccounts2 = result.reply();
+    BOOST_CHECK_EQUAL(keysReplyAccounts2.type(), ARRAY);
+    BOOST_CHECK_EQUAL(keysReplyAccounts2.length(), 2);
+    BOOST_CHECK((keysReplyAccounts2[0].asString() == "parent"
+                 && keysReplyAccounts2[1].asString() == "parent:child")
+                || (keysReplyAccounts2[0].asString() == "parent:child"
+                    && keysReplyAccounts2[1].asString() == "parent"));
+
+
+
+    /* check that child got moved out of banker:archive */
+    result = connection->exec(SMEMBERS("banker:archive"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReplyArchive2 = result.reply();
+    BOOST_CHECK_EQUAL(keysReplyArchive2.type(), ARRAY);
+    BOOST_CHECK_EQUAL(keysReplyArchive2.length(), 0);
+    
+    /* test restore account not present */
+    auto onRestored2 = [&] (shared_ptr<Accounts> ra,
+                           const BankerPersistence::Result & result,
+                           const string & info) {
+            BOOST_CHECK(result.status == BankerPersistence::SUCCESS);
+            done = true;
+            ML::futex_wake(done);
+    };
+    done = false;
+    storage.restoreFromArchive(AccountKey("parent:absent"), onRestored2);
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
 
 }

@@ -64,7 +64,7 @@ setBudget(const CurrencyPool & newBudget)
     auto preview = balance + extraBudget;
 
     if(!preview.isNonNegative()) {
-        extraBudget = balance;
+        extraBudget = CurrencyPool() - balance;
     }
 
     ExcAssert((balance + extraBudget).isNonNegative());
