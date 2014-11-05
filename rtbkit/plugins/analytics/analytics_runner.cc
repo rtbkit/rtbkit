@@ -43,7 +43,7 @@ int main(int argc, char ** argv) {
         exit(1);
     }
 
-    auto proxies = serviceArgs.makeServiceProxies();
+    auto proxies = serviceArgs.makeServiceProxies(CS_INTERNAL);
     auto serviceName = serviceArgs.serviceName("analytics");
 
     AnalyticsRestEndpoint analytics(proxies, serviceName);

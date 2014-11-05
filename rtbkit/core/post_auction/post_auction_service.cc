@@ -206,11 +206,15 @@ initConnections(size_t shard)
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 0.1,
             std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
-    
+}
+
+void
+PostAuctionService::
+initAnalytics()
+{
     LOG(print) << "analyticsURI: " << getServices()->analyticsUri << endl;
     if (getServices()->analyticsUri != "")
         analytics.init();
-//     loop.addSource("PostAuctionService::analytics", analytics);
 }
 
 void
