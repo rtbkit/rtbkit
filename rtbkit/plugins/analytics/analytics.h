@@ -23,7 +23,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 
     std::string baseUrl;
     std::shared_ptr<Datacratic::HttpClient> client;
-    bool initialized;
+    bool live;
 
     AnalyticsClient(const std::string & baseUrl);
     AnalyticsClient(int port = 40000, const std::string & address = "http://127.0.0.1");
@@ -35,6 +35,8 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     void shutdown();
 
     void sendEvent(const std::string type, const std::string event);
+
+    void checkHeartbeat();
 
     template<typename Head>
     void make_message(std::stringstream & ss, Head && head)
@@ -52,7 +54,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     template<typename... Args>
     void publish(const std::string & channel, Args && ... args)
     {
-        if (!initialized) return;
+        if (!live) return;
         std::stringstream ss;
         make_message(ss, std::forward<Args>(args)...);
         sendEvent(channel, ss.str());

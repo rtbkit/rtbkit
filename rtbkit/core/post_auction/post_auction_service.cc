@@ -107,9 +107,7 @@ init(size_t externalShard, size_t internalShards)
     initMatcher(internalShards);
     initConnections(externalShard);
     monitorProviderClient.init(getServices()->config);
-    if (getServices()->analyticsUri != "")
-        analytics.init();
-}
+   }
 
 void
 PostAuctionService::
@@ -208,7 +206,11 @@ initConnections(size_t shard)
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 0.1,
             std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
-
+    
+    LOG(print) << "analyticsURI: " << getServices()->analyticsUri << endl;
+    if (getServices()->analyticsUri != "")
+        analytics.init();
+//     loop.addSource("PostAuctionService::analytics", analytics);
 }
 
 void
