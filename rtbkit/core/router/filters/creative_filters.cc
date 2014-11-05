@@ -13,6 +13,54 @@ using namespace ML;
 
 namespace RTBKIT {
 
+void
+CreativeSegmentsFilter::filter(FilterState& state) const
+{
+    unordered_set<string> toCheck = excludeIfNotPresent;
+
+    for (const auto& segment : state.request.segments) {
+        toCheck.erase(segment.first);
+
+        auto it = data.find(segment.first);
+        if (it == data.end()) continue;
+
+        CreativeMatrix result = it->second.ie.filter(*segment.second);
+        state.narrowAllCreatives(result);
+
+        if (state.configs().empty()) return;
+    }
+
+    for (const auto& segment : toCheck) {
+        auto it = data.find(segment);
+        if (it == data.end()) continue;
+
+        CreativeMatrix result = it->second.excludeIfNotPresent.negate();
+        state.narrowAllCreatives(result);
+        if (state.configs().empty()) return;
+    }
+}
+
+void CreativeSegmentsFilter::setCreative(unsigned configIndex,
+        unsigned crIndex, const Creative& creative, bool value)
+{
+    for (const auto& entry : creative.segments) {
+        auto& segment = data[entry.first];
+
+        segment.ie.addInclude(configIndex, crIndex, entry.second.include);
+        segment.ie.addExclude(configIndex, crIndex, entry.second.exclude);
+
+        if (entry.second.excludeIfNotPresent) {
+            if (value && segment.excludeIfNotPresent.empty())
+                excludeIfNotPresent.insert(entry.first);
+
+            segment.excludeIfNotPresent.set(crIndex, configIndex, value);
+
+            if (!value && segment.excludeIfNotPresent.empty())
+                excludeIfNotPresent.erase(entry.first);
+        }
+    }
+}
+
 /******************************************************************************/
 /* INIT FILTERS                                                               */
 /******************************************************************************/
@@ -29,6 +77,7 @@ struct InitFilters
 
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeNameFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeFilter>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeSegmentsFilter>();
     }
 
 } initFilters;

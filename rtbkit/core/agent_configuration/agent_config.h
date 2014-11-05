@@ -81,6 +81,24 @@ struct Creative {
     IncludeExclude<CachedRegex<boost::u32regex, Datacratic::UnicodeString> > locationFilter;
     IncludeExclude<std::string> exchangeFilter;
 
+    struct SegmentInfo {
+
+        SegmentInfo() : excludeIfNotPresent(false){}
+
+        bool excludeIfNotPresent;
+        SegmentList include;
+        SegmentList exclude;
+
+        void fromJson(const Json::Value & val);
+
+        Json::Value toJson() const;
+
+        IncludeExcludeResult process(const SegmentList & segments) const;
+
+    };
+
+    std::map<std::string, SegmentInfo> segments;
+
     /** Is the given ad spot compatible with the given creative format? */
     bool compatible(const AdSpot & spot) const;
 
