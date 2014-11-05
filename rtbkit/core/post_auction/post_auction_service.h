@@ -47,6 +47,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
     void initBidderInterface(Json::Value const & json);
     void init(size_t externalShard = 0, size_t internalShards = 1);
+    void initAnalytics();
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
 

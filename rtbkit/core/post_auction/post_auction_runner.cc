@@ -42,7 +42,8 @@ PostAuctionRunner() :
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
-    useHttpBanker(false)
+    useHttpBanker(false),
+    analyticsOn(false)
 {
 }
 
@@ -70,7 +71,9 @@ doOptions(int argc, char ** argv,
         ("winlossPipe-seconds", value<int>(&winLossPipeTimeout),
          "Timeout before sending error on WinLoss pipe")
         ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
-         "Timeout before sending error on CampaignEvent pipe");
+         "Timeout before sending error on CampaignEvent pipe")
+        ("analytics,a", bool_switch(&analyticsOn),
+         "Send data to analytics logger.");
 
     options_description all_opt = opts;
     all_opt
@@ -136,6 +139,9 @@ init()
         LOG(print) << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
+
+    if (analyticsOn)
+        postAuctionLoop->initAnalytics();
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
