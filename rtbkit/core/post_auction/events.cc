@@ -318,7 +318,7 @@ publish(ZmqNamedPublisher& logger) const
 {
     logger.publish(
             // Use event type not label since label is only defined for campaign events.
-            "UNMATCHED" + event.type,                            // 0
+            "UNMATCHED" + string(print(event.type)),             // 0
             publishTimestamp(),                                  // 1
 
             reason,                                              // 2
@@ -336,7 +336,7 @@ publish(AnalyticsClient & logger) const
 {
     logger.publish(
             // Use event type not label since label is only defined for campaign events.
-            "UNMATCHED" + event.type,                            // 0
+            "UNMATCHED" + string(print(event.type)),             // 0
             publishTimestamp(),                                  // 1
 
             reason,                                              // 2
