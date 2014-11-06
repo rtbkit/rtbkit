@@ -1,7 +1,7 @@
 CXX ?= g++
 CC ?= gcc
 FC := gfortran
-NODEJS_ENABLED:=1
+NODEJS_ENABLED:=0
 PYTHON_ENABLED:=0
 
 LOCAL_DIR?=$(HOME)/local
@@ -50,12 +50,12 @@ CFLAGS += -fno-strict-overflow -msse4.2
 
 PKGINCLUDE_PACKAGES = sigc++-2.0 cairomm-1.0
 
-PKGCONFIG_INCLUDE:=$(shell pkg-config --cflags-only-I $(PKGINCLUDE_PACKAGES))
+PKGCONFIG_INCLUDE:=$(shell pkg-config)
 
 
-CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I$(GEN) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
+CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Ileveldb/include -Wno-unused-but-set-variable -Wno-unused-local-typedefs -I$(LOCAL_INCLUDE_DIR) -I$(GEN) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
 CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
-CFLAGS +=  -Wno-unused-but-set-variable
+CFLAGS +=  -Wno-unused-but-set-variable -Wno-unused-local-typedefs
 
 VALGRINDFLAGS := --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
 

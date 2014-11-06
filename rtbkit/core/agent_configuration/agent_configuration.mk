@@ -9,7 +9,7 @@ LIBAGENT_CONFIGURATION_SOURCES := \
 	latlonrad.cc \
 
 LIBAGENT_CONFIGURATION_LINK := \
-	rtb zeromq boost_thread opstats gc services utils monitor
+	rtb zeromq boost_thread boost_regex opstats gc services utils monitor
 
 $(eval $(call library,agent_configuration,$(LIBAGENT_CONFIGURATION_SOURCES),$(LIBAGENT_CONFIGURATION_LINK)))
 
