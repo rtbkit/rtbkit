@@ -18,9 +18,18 @@ int main(int argc, char ** argv) {
     ServiceProxyArguments serviceArgs;
     
     bool debug = false;
+    bool logWins = false;
+    bool logUnmatchedWins = false;
+    bool logBids = false;
 
     options_description configuration_options("Configuration options");
     configuration_options.add_options()
+        ("log-wins,W", bool_switch(&logWins),
+         "Whether or not to log wins.")
+        ("log-unmatched-wins,U", bool_switch(&logUnmatchedWins),
+         "Whether or not to log unmatched wins.")
+        ("log-bids,A", bool_switch(&logBids),
+         "Wether or not to log bids, bid logging must also be enabled in the router")
         ("debug", bool_switch(&debug),
          "Debug mode enabled");
 

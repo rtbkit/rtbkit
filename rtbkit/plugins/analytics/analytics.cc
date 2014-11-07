@@ -17,6 +17,10 @@
 using namespace std;
 using namespace Datacratic;
 
+/********************************************************************************/
+/* ANALYTICS CLIENT                                                             */
+/********************************************************************************/
+
 void
 AnalyticsClient::
 init(const string & baseUrl)
@@ -48,7 +52,7 @@ shutdown()
 
 void
 AnalyticsClient::
-sendEvent(const string type, const string event)
+sendEvent(const string channel, const string event)
 {
     auto onResponse = [] (const HttpRequest & rq,
             HttpClientError error,
@@ -63,8 +67,8 @@ sendEvent(const string type, const string event)
     };
     string ressource("/v1/event");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    client->post(ressource, cbs, {}, { { "type",  type },
-                                       { "event", event } });
+    client->post(ressource, cbs, {}, { { "channel", channel },
+                                       { "event"  , event } });
 }
 
 void
@@ -88,6 +92,10 @@ checkHeartbeat()
 }
 
 
+
+/********************************************************************************/
+/* ANALYTICS REST ENDPOINT                                                      */
+/********************************************************************************/
 
 AnalyticsRestEndpoint::
 AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
@@ -127,7 +135,7 @@ init(bool test)
         addRouteSyncReturn(versionNode,
                        "/event",
                        {"POST","PUT"},
-                       "Add a win to the logs.",
+                       "Add an event to the logs.",
                        "Returns a success notice.",
                        [] (const string & r) {
                             Json::Value response(Json::stringValue);
@@ -136,14 +144,14 @@ init(bool test)
                        },
                        &AnalyticsRestEndpoint::testEvent,
                        this,
-                       RestParamDefault<string>("type", "event type to add to list"),
+                       RestParamDefault<string>("channel", "event type to add to list"),
                        RestParamDefault<string>("event", "win event to add to list", "")
                 );
     } else {
         addRouteSyncReturn(versionNode,
                        "/event",
                        {"POST","PUT"},
-                       "Add a win to the logs.",
+                       "Add an event to the logs.",
                        "Returns a success notice.",
                        [] (const string & r) {
                             Json::Value response(Json::stringValue);
@@ -152,28 +160,85 @@ init(bool test)
                        },
                        &AnalyticsRestEndpoint::addEvent,
                        this,
-                       RestParamDefault<string>("type", "event type to add to list"),
+                       RestParamDefault<string>("channel", "event type to add to list"),
                        RestParamDefault<string>("event", "win event to add to list", "")
                 );
     }
+
+    addRouteSyncReturn(versionNode,
+                    "/enable",
+                    {"POST", "PUT"},
+                    "Start logging a certain channel of event.",
+                    "Returns a success notice.",
+                    [] (const string & r) {
+                        Json::Value response (Json::stringValue);
+                        response = r;
+                        return response;
+                    },
+                    &AnalyticsRestEndpoint::enableChannel,
+                    this,
+                    RestParamDefault<string>("channel", "event channel to enable", "")
+            );
+ 
+    addRouteSyncReturn(versionNode,
+                    "/disable",
+                    {"POST", "PUT"},
+                    "Stop logging a certain channel of event.",
+                    "Returns a success notice.",
+                    [] (const string & r) {
+                        Json::Value response (Json::stringValue);
+                        response = r;
+                        return response;
+                    },
+                    &AnalyticsRestEndpoint::disableChannel,
+                    this,
+                    RestParamDefault<string>("channel", "event channel to disable", "")
+            ); 
 }
 
 string
 AnalyticsRestEndpoint::
-addEvent(const string & type, const string & event)
+addEvent(const string & channel, const string & event)
 {
-    cout << type << " " << event << endl;
+    if (channelFilter[channel]) {
+        cout << channel << " " << event << endl;
+    }
     return "success";
 }
 
 string
 AnalyticsRestEndpoint::
-testEvent(const string & type, const string & event)
+testEvent(const string & channel, const string & event)
 {
-    if (type != "" && event != "")
-        return "success";
+    if (channelFilter[channel]) {
+        if (channel != "" && event != "")
+            return "success";
+    }
+    return "error";
+}
+
+string
+AnalyticsRestEndpoint::
+enableChannel(const string & channel)
+{
+    if (!channelFilter[channel])
+        channelFilter[channel] = true;
+    if (channelFilter[channel])
+        return channel + string(" enabled");
     else
-        return "error";
+       return channel + string(" disabled");
+}
+
+string
+AnalyticsRestEndpoint::
+disableChannel(const string & channel)
+{
+    if (channelFilter[channel])
+        channelFilter[channel] = false;
+    if (channelFilter[channel])
+        return channel + string(" enabled");
+    else
+        return channel + string(" disabled");
 }
 
 pair<string, string>

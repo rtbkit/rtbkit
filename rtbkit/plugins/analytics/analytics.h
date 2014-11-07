@@ -19,6 +19,11 @@
 #include "soa/jsoncpp/value.h"
 #include "soa/service/rest_request_router.h"
 
+
+/********************************************************************************/
+/* ANALYTICS CLIENT                                                             */
+/********************************************************************************/
+
 struct AnalyticsClient : public Datacratic::MessageLoop {
 
     std::shared_ptr<Datacratic::HttpClient> client;
@@ -30,7 +35,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 
     void shutdown();
 
-    void sendEvent(const std::string type, const std::string event);
+    void sendEvent(const std::string channel, const std::string event);
 
     void checkHeartbeat();
 
@@ -59,6 +64,16 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 };
 
 
+struct AnalyticsSubscriber {
+    void subscribe(const std::string & channel);
+    void unsubscribe(const std::string & channel);
+};
+
+
+/********************************************************************************/
+/* ANALYTICS REST ENDPOINT                                                      */
+/********************************************************************************/
+
 struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
                                public Datacratic::RestServiceEndpoint {
 
@@ -67,11 +82,14 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
     std::pair<std::string, std::string> bindTcp(int port = 0);
 
-    std::string addEvent(const std::string & type,
+    std::string addEvent(const std::string & channel,
                          const std::string & event);
 
-    std::string testEvent(const std::string & type,
+    std::string testEvent(const std::string & channel,
                           const std::string & event);
+
+    std::string enableChannel(const std::string & channel);
+    std::string disableChannel(const std::string & channel);
 
     void init(bool test = false);
 
@@ -80,5 +98,8 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
     void shutdown();
 
     Datacratic::RestRequestRouter router;
+
+    typedef std::unordered_map< std::string, bool > ChannelFilter;
+    ChannelFilter channelFilter;
 };
 
