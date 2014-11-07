@@ -141,8 +141,8 @@ init()
     banker->setApplicationLayer(layer);
 
     if (analyticsOn)
-        if (proxies->config->isMember("analytics-uri"))
-            postAuctionLoop->initAnalytics(proxies->config->["analytics-uri"]);
+        if (proxies->analyticsUri != "")
+            postAuctionLoop->initAnalytics(proxies->analyticsUri);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);

@@ -5,8 +5,8 @@
 using namespace std;
 int main() {
 
-    auto an = std::make_shared<AnalyticsClient>(40000);
-    an->init();
+    auto an = std::make_shared<AnalyticsClient>();
+    an->init("http://127.0.0.1:40000");
     an->start();
     const std::string type("win");
     const std::string event("a Win");

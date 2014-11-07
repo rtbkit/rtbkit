@@ -21,14 +21,10 @@
 
 struct AnalyticsClient : public Datacratic::MessageLoop {
 
-    std::string baseUrl;
     std::shared_ptr<Datacratic::HttpClient> client;
     bool live;
 
-    AnalyticsClient(const std::string & baseUrl);
-    AnalyticsClient(int port = 40000, const std::string & address = "http://127.0.0.1");
-
-    void init();
+    void init(const std::string & baseUrl);
 
     void start();
 
