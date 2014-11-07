@@ -13,6 +13,7 @@
 #include "rtbkit/common/auction_events.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
+#include "rtbkit/plugins/analytics/analytics.h"
 
 
 /******************************************************************************/
@@ -77,6 +78,7 @@ struct MatchedWinLoss
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 
 private:
     void initFinishedInfo(const FinishedInfo& info);
@@ -116,6 +118,7 @@ struct MatchedCampaignEvent
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 
@@ -132,6 +135,7 @@ struct UnmatchedEvent
 
     std::string channel() const;
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 
@@ -147,6 +151,7 @@ struct PostAuctionErrorEvent
 
     PostAuctionErrorEvent(std::string key, std::string message);
     void publish(ZmqNamedPublisher& logger) const;
+    void publish(AnalyticsClient & logger) const;
 };
 
 
