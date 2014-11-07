@@ -295,7 +295,7 @@ onBanner(OpenRTB::Banner & banner) {
     for(auto & i : banner.api)
         apis.push_back(i.val);
 
-    ctx.br->segments.addInts("api", apis);
+    ctx.br->segments.addInts("api-banner", apis);
 
     ctx.spot->position = banner.pos;
 }
@@ -335,7 +335,7 @@ onVideo(OpenRTB::Video & video) {
     for(auto & i : video.api)
         apis.push_back(i.val);
 
-    ctx.br->segments.addInts("api", apis);
+    ctx.br->segments.addInts("api-video", apis);
 
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 }
@@ -613,6 +613,7 @@ onBanner(OpenRTB::Banner & banner) {
     // Business logic around w/h min/max
     
     // Call V1
+    OpenRTBBidRequestParser::onBanner(banner);
 }
 
 void
@@ -648,7 +649,7 @@ onVideo(OpenRTB::Video & video) {
     for(auto & i : video.api)
         apis.push_back(i.val);
 
-    ctx.br->segments.addInts("api", apis);
+    ctx.br->segments.addInts("api-video", apis);
 
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 
