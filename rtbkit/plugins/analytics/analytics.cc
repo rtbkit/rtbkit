@@ -17,19 +17,9 @@
 using namespace std;
 using namespace Datacratic;
 
-AnalyticsClient::
-AnalyticsClient(const string & baseUrl) : baseUrl(baseUrl)
-{
-}
-
-AnalyticsClient::
-AnalyticsClient(int port, const string & address) : baseUrl(address + ":" + to_string(port))
-{
-}
-
 void
 AnalyticsClient::
-init()
+init(const string & baseUrl)
 {
     client = make_shared<HttpClient>(baseUrl, 1);
     client->sendExpect100Continue(false);
