@@ -20,7 +20,7 @@ using namespace ML;
 
 namespace ML {
 
-extern __thread BacktraceInfo * current_backtrace;
+__thread BacktraceInfo * current_backtrace = nullptr;
 
 } // namespace ML
 
