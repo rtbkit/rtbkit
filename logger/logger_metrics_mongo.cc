@@ -37,7 +37,6 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     if(!conn->auth(db, config["user"].asString(),
                   config["pwd"].asString(), err))
     {
-        cerr << __FILE__ << ":" << __LINE__ << endl;
         throw ML::Exception(
             "MongoDB connection failed with msg [%s]", err.c_str());
     }
