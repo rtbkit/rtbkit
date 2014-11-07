@@ -24,8 +24,6 @@ using namespace std;
 
 namespace ML {
 
-void (*exception_tracer) (void *, const std::type_info *) JML_WEAK_FN = 0;
-
 Env_Option<bool> TRACE_EXCEPTIONS("JML_TRACE_EXCEPTIONS", true);
 
 __thread bool trace_exceptions = false;
@@ -101,7 +99,7 @@ to_std_exception(void* object, const std::type_info * tinfo)
 
 /** We install this handler for when an exception is thrown. */
 
-void trace_exception(void * object, const std::type_info * tinfo)
+void default_exception_tracer(void * object, const std::type_info * tinfo)
 {
     //cerr << "trace_exception: trace_exceptions = " << get_trace_exceptions()
     //     << " at " << &trace_exceptions << endl;
@@ -205,21 +203,5 @@ end:
         }
     }
 }
-
-namespace {
-struct Install_Handler {
-    Install_Handler()
-    {
-        //cerr << "installing exception tracer" << endl;
-        exception_tracer = trace_exception;
-    }
-    ~Install_Handler()
-    {
-        if (exception_tracer == trace_exception)
-            exception_tracer = 0;
-    }
-} install_handler;
-
-} // file scope
 
 } // namespace ML

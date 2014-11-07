@@ -1,35 +1,40 @@
-
-#include "exception_hook.h"
-#include "demangle.h"
 #include <cxxabi.h>
-#include "backtrace.h"
-#include "jml/compiler/compiler.h"
 #include <execinfo.h>
 #include <pthread.h>
 
-using namespace std;
+#include <exception>
+
+#include "jml/arch/backtrace.h"
+#include "jml/arch/exception_hook.h"
 
 
 namespace ML {
 
-void (*exception_tracer) (void *, const std::type_info *) JML_WEAK_FN = 0;
+__thread BacktraceInfo * current_backtrace = nullptr;
 
-__thread BacktraceInfo * current_backtrace = 0;
+
+namespace {
 
 void cleanup_current_backtrace(void * arg)
 {
     BacktraceInfo * p = (BacktraceInfo *)arg;
     delete p;
+    p = nullptr;
 }
 
-void trace_exception_node(void * object, const std::type_info * tinfo)
+void ensure_current_backtrace()
 {
     if (!current_backtrace) {
         current_backtrace = new BacktraceInfo();
         //pthread_cleanup_push(&cleanup_current_backtrace, current_backtrace);
     }
+}
 
-    size_t size = ::backtrace (current_backtrace->frames, 50);
+bool trace_exception_node(void * object, const std::type_info * tinfo)
+{
+    ensure_current_backtrace();
+
+    size_t size = ::backtrace(current_backtrace->frames, 50);
     current_backtrace->size = size;
     current_backtrace->type = tinfo;
 
@@ -61,16 +66,20 @@ void trace_exception_node(void * object, const std::type_info * tinfo)
             */
             const std::exception * exc = (const std::exception *)obj_ptr;
             current_backtrace->message = exc->what();
+
+            return true;
         }
     }
+
+    return false;
 }
 
-namespace {
 struct Install_Handler {
     Install_Handler()
     {
         exception_tracer = trace_exception_node;
     }
+
     ~Install_Handler()
     {
         if (exception_tracer == trace_exception_node)

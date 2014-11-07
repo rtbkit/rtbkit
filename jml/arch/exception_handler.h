@@ -35,6 +35,7 @@ struct Set_Trace_Exceptions {
     bool old_trace_exceptions;
 };
 
+void default_exception_tracer(void * object, const std::type_info * tinfo);
 
 } // namespace ML
 

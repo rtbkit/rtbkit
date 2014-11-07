@@ -20,7 +20,6 @@
    Object file to install the exception tracer.
 */
 
-#include "exception_hook.h"
 #include <iostream>
 #include <dlfcn.h>
 #include <sys/time.h>
@@ -28,6 +27,8 @@
 #include <errno.h>
 #include <stdlib.h>
 
+#include "exception_handler.h"
+#include "exception_hook.h"
 
 using namespace std;
 
@@ -39,7 +40,7 @@ namespace ML {
 
     Starts off at null which means that no hook is installed.
 */
-void (*exception_tracer) (void *, const std::type_info *) = 0;
+bool (*exception_tracer) (void *, const std::type_info *) = 0;
 
 namespace {
 
@@ -108,11 +109,8 @@ __cxa_throw (void *thrown_object, std::type_info *tinfo,
     //cerr << "exception_tracer = " << exception_tracer << endl;
     
     /** If we have installed an exception tracing hook, we follow it here. */
-    if (exception_tracer) {
-        //cerr << "calling exception tracer at " << &exception_tracer
-        //     << endl;
-        exception_tracer(thrown_object, tinfo);
-        //cerr << "finished calling exception handler" << endl;
+    if (!exception_tracer || !exception_tracer(thrown_object, tinfo)) {
+        default_exception_tracer(thrown_object, tinfo);
     }
 
     if (!done_init) {
