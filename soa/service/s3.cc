@@ -1652,8 +1652,6 @@ size_t getTotalSystemMemory()
 struct StreamingDownloadSource {
     StreamingDownloadSource(const std::string & urlStr)
     {
-        Url url(urlStr);
-
         impl.reset(new Impl());
         impl->owner = getS3ApiForUri(urlStr);
         std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
@@ -1947,9 +1945,6 @@ struct StreamingUploadSource {
                           const ML::OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
     {
-        auto s3Api = getS3ApiForUri(urlStr);
-        Url url(urlStr);
-
         impl.reset(new Impl());
         impl->owner = getS3ApiForUri(urlStr);
         std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
