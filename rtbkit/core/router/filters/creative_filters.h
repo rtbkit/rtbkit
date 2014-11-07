@@ -12,6 +12,8 @@
 #include "priority.h"
 #include "rtbkit/common/exchange_connector.h"
 
+#include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 
 namespace RTBKIT {
@@ -228,5 +230,45 @@ private:
     }
 };
 
+
+/******************************************************************************/
+/* CREATIVE SEGEMENTS FILTER                                                   */
+/******************************************************************************/
+
+struct CreativeSegmentsFilter : public CreativeFilter<CreativeSegmentsFilter>
+{
+    static constexpr const char* name = "CreativeSegments";
+
+    unsigned priority() const { return Priority::CreativeSegments; }
+
+    void addCreative(unsigned cfgIndex, unsigned crIndex,
+                       const Creative& creative)
+    {
+        setCreative(cfgIndex, crIndex, creative, true);
+    }
+
+    void removeCreative(unsigned cfgIndex, unsigned crIndex,
+                           const Creative& creative)
+    {
+        setCreative(cfgIndex, crIndex, creative, false);
+    }
+
+    virtual void setCreative(unsigned configIndex, unsigned crIndex,
+                     const Creative& creative, bool value);
+
+    void filter(FilterState& state) const ;
+
+private:
+
+    struct SegmentData
+    {
+        CreativeIncludeExcludeFilter<CreativeSegmentListFilter> ie;
+        CreativeMatrix excludeIfNotPresent;
+    };
+
+    std::unordered_map<std::string, SegmentData> data;
+    std::unordered_set<std::string> excludeIfNotPresent;
+
+};
 
 } // namespace RTBKIT
