@@ -218,6 +218,8 @@ struct HttpClient : public AsyncEventSource {
     HttpClient & operator = (HttpClient && other) noexcept;
 
 private:
+    void cleanupFds() noexcept;
+
     /* AsyncEventSource */
     virtual int selectFd() const;
     virtual bool processOne();

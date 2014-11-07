@@ -19,6 +19,9 @@ using namespace ML;
 
 namespace Datacratic {
 
+// Maximum number of events that we can handle
+static constexpr int MaxEvents = 1024;
+
 
 /*****************************************************************************/
 /* EPOLLER                                                                   */
@@ -105,8 +108,9 @@ handleEvents(int usToWait, int nEvents,
 
     if (nEvents <= 0)
         throw ML::Exception("can't wait for no events");
-    if (nEvents > 1024)
-        throw ML::Exception("waiting for too many events will overflow the stack");
+
+    if (nEvents > MaxEvents)
+        nEvents = MaxEvents;
 
     for (;;) {
         epoll_event events[nEvents];
