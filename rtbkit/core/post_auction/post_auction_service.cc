@@ -48,8 +48,7 @@ PostAuctionService(
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext()),
-      analytics(getServices()->analyticsUri)
+      router(!!getZmqContext())
 {
     monitorProviderClient.addProvider(this);
 }
@@ -71,8 +70,7 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext()),
-      analytics(getServices()->analyticsUri)
+      router(!!getZmqContext())
 {
     monitorProviderClient.addProvider(this);
 }
@@ -210,11 +208,10 @@ initConnections(size_t shard)
 
 void
 PostAuctionService::
-initAnalytics()
+initAnalytics(const string & baseUrl)
 {
-    LOG(print) << "analyticsURI: " << getServices()->analyticsUri << endl;
-    if (getServices()->analyticsUri != "")
-        analytics.init();
+    LOG(print) << "analyticsURI: " << baseUrl << endl;
+    analytics.init(baseUrl);
 }
 
 void

@@ -118,7 +118,8 @@ init()
     banker = bankerArgs.makeBankerWithArgs(proxies,
                                            postAuctionLoop->serviceName() + ".slaveBanker");
     if (analyticsOn)
-        postAuctionLoop->initAnalytics();
+        if (proxies->config->isMember("analytics-uri"))
+            postAuctionLoop->initAnalytics(proxies->config->["analytics-uri"]);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
