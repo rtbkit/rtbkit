@@ -25,6 +25,29 @@ namespace {
 /* OPENRTB BID REQUEST PARSER                                                */
 /*****************************************************************************/
 
+void parseSDKs(const AdSpot & spot, BidRequest & result){
+    std::vector<std::string> sdks;
+    for ( OpenRTB::ApiFramework sdk : spot.banner->api){
+        switch (sdk.value()) {
+            case OpenRTB::ApiFramework::MRAID:
+                sdks.push_back("MRAID");
+                break;
+            case OpenRTB::ApiFramework::ORMMA:
+                sdks.push_back("ORMMA");
+                break;
+            case OpenRTB::ApiFramework::VPAID_1:
+                sdks.push_back("VPAID 1.0");
+                break;
+            case OpenRTB::ApiFramework::VPAID_2:
+                sdks.push_back("VPAID 2.0");
+                break;
+            default:
+                break;
+        }
+    }
+    if (!sdks.empty()) result.segments.addStrings("supportedSDKs", sdks);
+}
+
 BidRequest *
 fromOpenRtb(OpenRTB::BidRequest && req,
             const std::string & provider,
@@ -53,6 +76,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     spot.formats.push_back(Format(spot.banner->w[i],
                                                  spot.banner->h[i]));
                 }
+		parseSDKs(spot, *result.get());
                 spot.position = spot.banner->pos;
             
             } else if (spot.video) {
