@@ -78,6 +78,7 @@ setFd(int newFd)
     registerFdCallback(newFd, handleFdEventCb);
     addFd(newFd, readBufferSize_ > 0, true);
     fd_ = newFd;
+    closing_ = false;
     enableQueue();
 }
 
@@ -133,6 +134,19 @@ handleReadReady()
         if (s > 0) {
             bytesReceived_ += s;
             onReceivedData(buffer, s);
+        }
+        else if (s == 0) {
+            /* according to read(2), a value of 0 indicates eof. */
+            if (closing_) {
+                /* When closing_ is set, indicating a manual closing request,
+                   we simply ignore that situation and break the loop, as the
+                   closing request will likely occur during this round or the
+                   next one. */
+                break;
+            }
+            else {
+                handleClosing(true);
+            }
         }
         else {
             if (errno == EWOULDBLOCK) {
@@ -371,6 +385,7 @@ handleClosing(bool fromPeer)
     if (fd_ != -1) {
         disableQueue();
         removeFd(queue_.selectFd());
+        unregisterFdCallback(fd_);
         removeFd(fd_);
         ::close(fd_);
         fd_ = -1;
