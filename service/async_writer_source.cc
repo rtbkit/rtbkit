@@ -65,7 +65,9 @@ void
 AsyncWriterSource::
 setFd(int newFd)
 {
-    ExcCheck(fd_ == -1, "fd already set");
+    if (fd_ != -1) {
+        throw ML::Exception("fd already set: %d", fd_);
+    }
     if (!ML::is_file_flag_set(newFd, O_NONBLOCK)) {
         throw ML::Exception("file decriptor is blocking");
     }
@@ -89,7 +91,7 @@ closeFd()
     ExcCheck(queue_.size() == 0, "message queue not empty");
     ExcCheck(fd_ != -1, "already closed (fd)");
 
-    handleClosing(false);
+    handleClosing(false, false);
 }
 
 void
@@ -145,7 +147,7 @@ handleReadReady()
                 break;
             }
             else {
-                handleClosing(true);
+                handleClosing(true, true);
             }
         }
         else {
@@ -259,8 +261,12 @@ processOne()
                 auto * fn = static_cast<EpollCallback *>(events[i].data.ptr);
                 (*fn)(events[i]);
             }
+
+            for (int fd: delayedUnregistrations_) {
+                unregisterFdCallback(fd, false);
+            }
         }
-        catch (...) {
+        catch (const std::exception & exc) {
             handleException();
         }
     }
@@ -307,7 +313,7 @@ flush()
         }
         if (currentWrite_.message.empty()) {
             ExcAssert(closing_);
-            closeFd();
+            handleClosing(false, true);
             return;
         }
     }
@@ -331,7 +337,7 @@ flush()
                 }
                 if (currentWrite_.message.empty()) {
                     ExcAssert(closing_);
-                    closeFd();
+                    handleClosing(false, true);
                     break;
                 }
                 remaining = currentWrite_.message.size();
@@ -344,7 +350,7 @@ flush()
             }
             handleWriteResult(errno, move(currentWrite_));
             if (errno == EPIPE || errno == EBADF) {
-                handleClosing(true);
+                handleClosing(true, true);
                 break;
             }
             else {
@@ -363,14 +369,21 @@ void
 AsyncWriterSource::
 handleFdEvent(const ::epoll_event & event)
 {
+    /* fd_ may be -1 here if closed from the queue handler in the same epoll
+       loop. We thus need to return to ensure that no operations occur on a
+       closed fd. */
+    if (fd_ == -1) {
+        return;
+    }
+
     if ((event.events & EPOLLOUT) != 0) {
         handleWriteReady();
     }
-    if ((event.events & EPOLLIN) != 0) {
+    if (fd_ != -1 && (event.events & EPOLLIN) != 0) {
         handleReadReady();
     }
-    if ((event.events & EPOLLHUP) != 0) {
-        handleClosing(true);
+    if (fd_ != -1 && (event.events & EPOLLHUP) != 0) {
+        handleClosing(true, true);
     }
 
     if (fd_ != -1) {
@@ -380,12 +393,12 @@ handleFdEvent(const ::epoll_event & event)
 
 void
 AsyncWriterSource::
-handleClosing(bool fromPeer)
+handleClosing(bool fromPeer, bool delayedUnregistration)
 {
     if (fd_ != -1) {
         disableQueue();
         removeFd(queue_.selectFd());
-        unregisterFdCallback(fd_);
+        unregisterFdCallback(fd_, delayedUnregistration);
         removeFd(fd_);
         ::close(fd_);
         fd_ = -1;
@@ -402,21 +415,32 @@ void
 AsyncWriterSource::
 registerFdCallback(int fd, const EpollCallback & cb)
 {
-    if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
-        throw ML::Exception("callback already registered for fd");
+    if (delayedUnregistrations_.count(fd) == 0) {
+        if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
+            throw ML::Exception("callback already registered for fd");
+        }
     }
-
-    fdCallbacks_.insert({fd, cb});
+    else {
+        delayedUnregistrations_.erase(fd);
+    }
+    fdCallbacks_[fd] = cb;
 }
 
 void
 AsyncWriterSource::
-unregisterFdCallback(int fd)
+unregisterFdCallback(int fd, bool delayed)
 {
     if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
         throw ML::Exception("callback not registered for fd");
     }
-    fdCallbacks_.erase(fd);
+    if (delayed) {
+        ExcAssert(delayedUnregistrations_.count(fd) == 0);
+        delayedUnregistrations_.insert(fd);
+    }
+    else {
+        fdCallbacks_.erase(fd);
+        delayedUnregistrations_.erase(fd);
+    }
 }
 
 void
