@@ -215,7 +215,7 @@ handleConnectionEvent(int socketFd, OnConnectionResult onConnectionResult)
     }
 
     removeFd(socketFd);
-    unregisterFdCallback(socketFd);
+    unregisterFdCallback(socketFd, true);
     if (connCode == Success) {
         errno = 0;
         setFd(socketFd);
