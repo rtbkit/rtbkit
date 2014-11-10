@@ -269,7 +269,7 @@ bool LatLongDevFilter::checkLatLongPresent(
     if ( ! req.device) return false;
     if ( ! req.device->geo) return false;
     if ( req.device->geo->lat.val == std::numeric_limits<float>::quiet_NaN() ||
-         req.device->geo->lat.val == std::numeric_limits<float>::quiet_NaN() )
+         req.device->geo->lon.val == std::numeric_limits<float>::quiet_NaN() )
         return false;
     return true;
 }
