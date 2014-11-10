@@ -13,6 +13,7 @@
 #include "application_layer.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
+#include "soa/service/logs.h"
 #include "jml/arch/spinlock.h"
 #include <thread>
 #include <atomic>
@@ -235,6 +236,11 @@ struct SlaveBanker : public Banker, public MessageLoop {
 
     /* Monitor */
     virtual MonitorIndicator getProviderIndicators() const;
+
+    /* Logs */
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
 
 private:    
     ShadowAccounts accounts;

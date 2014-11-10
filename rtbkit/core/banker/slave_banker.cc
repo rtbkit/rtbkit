@@ -9,9 +9,26 @@
 #include "jml/utils/vector_utils.h"
 
 using namespace std;
+using namespace Datacratic;
 
-static constexpr int MaximumFailSyncSeconds = 3;
+namespace Default {
+    static constexpr int MaximumFailSyncSeconds = 3;
 
+    static constexpr int ExpectedMasterHttpCode = 200;
+}
+
+namespace  {
+    // @Todo: Might want to shove it in soa
+    void logException(std::exception_ptr ptr, std::string message,
+                      Logging::Category& category) {
+        try {
+            std::rethrow_exception(ptr);
+        } catch (const ML::Exception& e) {
+            LOG(category) << message << std::endl << e.what() << std::endl;
+        }
+    }
+
+} // namespace
 namespace RTBKIT {
 
 
@@ -96,6 +113,10 @@ getAccount(const AccountKey & accountKey,
 /*****************************************************************************/
 
 const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+
+Logging::Category SlaveBanker::print("SlaveBanker");
+Logging::Category SlaveBanker::error("SlaveBanker Error", SlaveBanker::print);
+Logging::Category SlaveBanker::trace("SlaveBanker Trace", SlaveBanker::print);
 
 SlaveBanker::SlaveBanker()
     : createdAccounts(128), reauthorizing(false), numReauthorized(0)
@@ -422,7 +443,7 @@ reportSpend(uint64_t numTimeoutsExpired)
             //cerr << "finished report spend" << endl;
             reportSpendSent = Date();
             if (exc)
-                cerr << "reportSpend got exception" << endl;
+                logException(exc, "Exception when reporting spend", error);
         };
     
     syncAll(onDone);
@@ -482,13 +503,22 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
                            const std::string & payload)
 {
     if (exc) {
-        cerr << "reauthorize budget got exception" << payload << endl;
-        cerr << "accountKey = " << accountKey << endl;
+        logException(exc,
+              ML::format("Exception when reauthorizing budget for account '%s'",
+                          accountKey.toString().c_str()),
+              error);
     }
-    else if (responseCode == 200) {
+    else if (responseCode == Default::ExpectedMasterHttpCode) {
         Account masterAccount = Account::fromJson(Json::parse(payload));
         accounts.syncFromMaster(accountKey, masterAccount);
     }
+    else {
+        LOG(error) << "Error when reauthorizing budget for account '%s'"
+                   << accountKey << std::endl
+                   << "Expected HTTP " << Default::ExpectedMasterHttpCode << ", got "
+                   << responseCode << std::endl;
+    }
+
 
     accountsLeft--;
     if (accountsLeft == 0) {
@@ -519,8 +549,8 @@ getProviderIndicators() const
 
     // See syncAll for the reason of this lock
     std::lock_guard<Lock> guard(syncLock);
-    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds) &&
-                  now < lastReauthorize.plusSeconds(MaximumFailSyncSeconds);
+    bool syncOk = now < lastSync.plusSeconds(Default::MaximumFailSyncSeconds) &&
+                  now < lastReauthorize.plusSeconds(Default::MaximumFailSyncSeconds);
 
     MonitorIndicator ind;
     ind.serviceName = accountSuffix;
@@ -546,8 +576,8 @@ Logging::Category SlaveBankerArguments::error(
         "SlaveBankerArguments Error", SlaveBankerArguments::print);
 Logging::Category SlaveBankerArguments::trace(
         "SlaveBankerArguments Trace", SlaveBankerArguments::print);
-boost::program_options::options_description
 
+boost::program_options::options_description
 SlaveBankerArguments::makeProgramOptions(std::string title)
 {
     namespace po = boost::program_options;
