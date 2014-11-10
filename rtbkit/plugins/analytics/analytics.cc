@@ -67,7 +67,6 @@ sendEvent(const string channel, const string event)
     };
     string ressource("/v1/event");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    cout << "sending: " << channel << " " << event << endl;
     client->post(ressource, cbs, {}, { { "channel", channel },
                                        { "event"  , event } });
 }
@@ -212,7 +211,7 @@ string
 AnalyticsRestEndpoint::
 testEvent(const string & channel, const string & event)
 {
-    if (channelFilter[channel]) {
+    if (enableAll || channelFilter[channel]) {
         if (channel != "" && event != "")
             return "success";
     }
