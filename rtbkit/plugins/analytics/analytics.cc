@@ -67,6 +67,7 @@ sendEvent(const string channel, const string event)
     };
     string ressource("/v1/event");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    cout << "sending: " << channel << " " << event << endl;
     client->post(ressource, cbs, {}, { { "channel", channel },
                                        { "event"  , event } });
 }
@@ -101,7 +102,8 @@ AnalyticsRestEndpoint::
 AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
                       const std::string & serviceName)
     : ServiceBase(serviceName, proxies),
-      RestServiceEndpoint(proxies->zmqContext)
+      RestServiceEndpoint(proxies->zmqContext),
+      enableAll(false)
 {
     httpEndpoint.allowAllOrigins();
 }
@@ -200,7 +202,7 @@ string
 AnalyticsRestEndpoint::
 addEvent(const string & channel, const string & event)
 {
-    if (channelFilter[channel]) {
+    if (enableAll || channelFilter[channel]) {
         cout << channel << " " << event << endl;
     }
     return "success";
@@ -227,6 +229,20 @@ enableChannel(const string & channel)
         return channel + string(" enabled");
     else
        return channel + string(" disabled");
+}
+
+void
+AnalyticsRestEndpoint::
+enableAllChannels()
+{
+    enableAll = true;
+}
+
+void
+AnalyticsRestEndpoint::
+disableAllChannels()
+{
+    enableAll = false;
 }
 
 string

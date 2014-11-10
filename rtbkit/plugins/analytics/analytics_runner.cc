@@ -20,6 +20,7 @@ int main(int argc, char ** argv) {
     bool debug = false;
     bool logWins = false;
     bool logUnmatchedWins = false;
+    bool logUnmatchedLoss = false;
     bool logBids = false;
 
     options_description configuration_options("Configuration options");
@@ -28,6 +29,8 @@ int main(int argc, char ** argv) {
          "Whether or not to log wins.")
         ("log-unmatched-wins,U", bool_switch(&logUnmatchedWins),
          "Whether or not to log unmatched wins.")
+        ("log-unmatched-loss,L", bool_switch(&logUnmatchedLoss),
+         "Wether or not to log unmatched losses.")
         ("log-bids,A", bool_switch(&logBids),
          "Wether or not to log bids, bid logging must also be enabled in the router")
         ("debug", bool_switch(&debug),
@@ -57,6 +60,18 @@ int main(int argc, char ** argv) {
 
     AnalyticsRestEndpoint analytics(proxies, serviceName);
     analytics.init();
+    
+    if (!logBids && !logWins && !logUnmatchedWins && !logUnmatchedLoss)
+        analytics.enableAllChannels();
+    if (logBids)
+        analytics.enableChannel("BID");
+    if (logWins)
+        analytics.enableChannel("WINS");
+    if (logUnmatchedWins)
+        analytics.enableChannel("UNMATCHEDWIN");
+    if (logUnmatchedLoss)
+        analytics.enableChannel("UNMATCHEDLOSS");
+
 
     auto addr = analytics.bindTcp();
     cerr << "analytics is listening on " << addr.first << ","

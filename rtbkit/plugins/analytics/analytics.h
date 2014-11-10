@@ -89,6 +89,8 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
                           const std::string & event);
 
     std::string enableChannel(const std::string & channel);
+    void enableAllChannels();
+    void disableAllChannels();
     std::string disableChannel(const std::string & channel);
 
     void init(bool test = false);
@@ -101,5 +103,6 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
     typedef std::unordered_map< std::string, bool > ChannelFilter;
     ChannelFilter channelFilter;
+    bool enableAll;
 };
 

@@ -4,6 +4,7 @@
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 */
 
+#include <string>
 #include "post_auction_runner.h"
 #include "post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
@@ -117,9 +118,14 @@ init()
 
     banker = bankerArgs.makeBankerWithArgs(proxies,
                                            postAuctionLoop->serviceName() + ".slaveBanker");
-    if (analyticsOn)
-        if (proxies->analyticsUri != "")
-            postAuctionLoop->initAnalytics(proxies->analyticsUri);
+
+    if (analyticsOn) {
+        string analyticsUri = proxies->config->getJson("analytics-uri").toString();
+        if (analyticsUri != "")
+            postAuctionLoop->initAnalytics(analyticsUri);
+        else
+            LOG(print) << "analytics-uri is not in the config" << endl;
+    }
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
