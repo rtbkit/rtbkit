@@ -120,9 +120,10 @@ init()
                                            postAuctionLoop->serviceName() + ".slaveBanker");
 
     if (analyticsOn) {
-        string analyticsUri = proxies->config->getJson("analytics-uri").toString();
-        if (analyticsUri != "")
+        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
+        if (!analyticsUri.empty()) {
             postAuctionLoop->initAnalytics(analyticsUri);
+        }
         else
             LOG(print) << "analytics-uri is not in the config" << endl;
     }
