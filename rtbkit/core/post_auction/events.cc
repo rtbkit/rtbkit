@@ -281,23 +281,23 @@ MatchedCampaignEvent::
 publish(AnalyticsClient & logger) const
 {
     logger.publish(
-            "MATCHED" + label,    // 0
-            publishTimestamp(),   // 1
+            "MATCHED" + label,                  // 0
+            publishTimestamp(),                 // 1
 
-            auctionId.toString(), // 2
-            impId.toString(),     // 3
-            requestStr,           // 4
+            auctionId.toString(),               // 2
+            impId.toString(),                   // 3
+            requestStr,                         // 4
 
-            bid,                  // 5
-            win,                  // 6
-            campaignEvents,       // 7
-            visits,               // 8
+            bid.toStringNoNewLine(),            // 5
+            win.toStringNoNewLine(),            // 6
+            campaignEvents.toStringNoNewLine(), // 7
+            visits.toStringNoNewLine(),         // 8
 
-            account.at(0, ""),    // 9
-            account.at(1, ""),    // 10
-            account.toString(),   // 11
+            account.at(0, ""),                  // 9
+            account.at(1, ""),                  // 10
+            account.toString(),                 // 11
 
-            requestStrFormat      // 12
+            requestStrFormat                    // 12
     );
 }
 
