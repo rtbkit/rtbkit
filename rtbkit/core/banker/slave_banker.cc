@@ -9,9 +9,26 @@
 #include "jml/utils/vector_utils.h"
 
 using namespace std;
+using namespace Datacratic;
 
-static constexpr int MaximumFailSyncSeconds = 3;
+namespace Default {
+    static constexpr int MaximumFailSyncSeconds = 3;
 
+    static constexpr int ExpectedMasterHttpCode = 200;
+}
+
+namespace  {
+    // @Todo: Might want to shove it in soa
+    void logException(std::exception_ptr ptr, std::string message,
+                      Logging::Category& category) {
+        try {
+            std::rethrow_exception(ptr);
+        } catch (const ML::Exception& e) {
+            LOG(category) << message << std::endl << e.what() << std::endl;
+        }
+    }
+
+} // namespace
 namespace RTBKIT {
 
 
@@ -94,6 +111,17 @@ getAccount(const AccountKey & accountKey,
 /*****************************************************************************/
 /* SLAVE BANKER                                                              */
 /*****************************************************************************/
+
+const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+
+Logging::Category SlaveBanker::print("SlaveBanker");
+Logging::Category SlaveBanker::error("SlaveBanker Error", SlaveBanker::print);
+Logging::Category SlaveBanker::trace("SlaveBanker Trace", SlaveBanker::print);
+
+SlaveBanker::SlaveBanker()
+    : createdAccounts(128), reauthorizing(false), numReauthorized(0)
+{
+}
 
 SlaveBanker::
 SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate)
@@ -280,7 +308,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     vector<AccountKey> filteredKeys;
     for (auto k: allKeys)
-    	if (accounts.isInitialized(k) && accounts.getAccount(k).status == Account::ACTIVE)
+    	if (accounts.isInitialized(k))
     		filteredKeys.push_back(k);
         else {
             if (accounts.isStalled(k)) {
@@ -415,7 +443,7 @@ reportSpend(uint64_t numTimeoutsExpired)
             //cerr << "finished report spend" << endl;
             reportSpendSent = Date();
             if (exc)
-                cerr << "reportSpend got exception" << endl;
+                logException(exc, "Exception when reporting spend", error);
         };
     
     syncAll(onDone);
@@ -459,7 +487,7 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
                             payload.toString(),
                             onDone);
         };
-    accounts.forEachInitializedAccount(onAccount);
+    accounts.forEachInitializedAndActiveAccount(onAccount);
     
     if (accountsLeft > 0) {
         reauthorizing = true;
@@ -475,13 +503,22 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
                            const std::string & payload)
 {
     if (exc) {
-        cerr << "reauthorize budget got exception" << payload << endl;
-        cerr << "accountKey = " << accountKey << endl;
+        logException(exc,
+              ML::format("Exception when reauthorizing budget for account '%s'",
+                          accountKey.toString().c_str()),
+              error);
     }
-    else if (responseCode == 200) {
+    else if (responseCode == Default::ExpectedMasterHttpCode) {
         Account masterAccount = Account::fromJson(Json::parse(payload));
         accounts.syncFromMaster(accountKey, masterAccount);
     }
+    else {
+        LOG(error) << "Error when reauthorizing budget for account '%s'"
+                   << accountKey << std::endl
+                   << "Expected HTTP " << Default::ExpectedMasterHttpCode << ", got "
+                   << responseCode << std::endl;
+    }
+
 
     accountsLeft--;
     if (accountsLeft == 0) {
@@ -512,8 +549,8 @@ getProviderIndicators() const
 
     // See syncAll for the reason of this lock
     std::lock_guard<Lock> guard(syncLock);
-    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds) &&
-                  now < lastReauthorize.plusSeconds(MaximumFailSyncSeconds);
+    bool syncOk = now < lastSync.plusSeconds(Default::MaximumFailSyncSeconds) &&
+                  now < lastReauthorize.plusSeconds(Default::MaximumFailSyncSeconds);
 
     MonitorIndicator ind;
     ind.serviceName = accountSuffix;
@@ -523,6 +560,76 @@ getProviderIndicators() const
     return ind;
 }
 
-const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+/*****************************************************************************/
+/* SLAVE BANKER ARGUMENTS                                                    */
+/*****************************************************************************/
+
+SlaveBankerArguments::SlaveBankerArguments()
+    : useHttp(Defaults::UseHttp)
+    , httpConnections(0)
+    , tcpNoDelay(Defaults::TcpNoDelay)
+{
+}
+
+Logging::Category SlaveBankerArguments::print("SlaveBankerArguments");
+Logging::Category SlaveBankerArguments::error(
+        "SlaveBankerArguments Error", SlaveBankerArguments::print);
+Logging::Category SlaveBankerArguments::trace(
+        "SlaveBankerArguments Trace", SlaveBankerArguments::print);
+
+boost::program_options::options_description
+SlaveBankerArguments::makeProgramOptions(std::string title)
+{
+    namespace po = boost::program_options;
+
+    po::options_description options(std::move(title));
+    options.add_options()
+        ("use-http-banker", po::bool_switch(&useHttp),
+         "Communicate with the MasterBanker over http")
+        ("http-connections", po::value<int>(&httpConnections)
+                             ->default_value(Defaults::HttpConnections),
+         "Number of active http connections to use when http is enabled")
+        ("tcp-nodelay", po::bool_switch(&tcpNoDelay),
+          "Enable the TCP_NODELAY option for the http banker interface (use with caution)");
+
+    return options;
+}
+
+void
+SlaveBankerArguments::
+validate() const {
+    throw ML::Exception("Unimplemented");
+}
+
+std::shared_ptr<SlaveBanker>
+SlaveBankerArguments::makeBankerDefault(std::shared_ptr<ServiceProxies> proxies) const {
+    return makeBankerWithArgs(std::move(proxies));
+}
+
+std::shared_ptr<ApplicationLayer>
+SlaveBankerArguments::makeApplicationLayer(std::shared_ptr<ServiceProxies> proxies) const
+{
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttp) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        ExcCheck(httpConnections > 0,
+                "The number of active http connections must be > 0");
+        std::stringstream ss;
+        ss << "using http interface for the MasterBanker" << std::endl;
+        ss << "url                = " << bankerUri << std::endl;
+        ss << "active connections = " << httpConnections << std::endl;
+        ss << "tcp no delay       = " << tcpNoDelay;
+        LOG(print) << ss.str() << std::endl;
+        layer = make_application_layer<HttpLayer>(bankerUri, httpConnections, tcpNoDelay);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies);
+        LOG(print) << "using zmq interface for the MasterBanker" << std::endl;
+    }
+
+    return layer;
+}
 
 } // namespace RTBKIT

@@ -389,4 +389,71 @@ private:
     Filter excludes;
 };
 
+
+/******************************************************************************/
+/* Creative SEGMENT LIST FILTER                                               */
+/******************************************************************************/
+
+/** Segments have quirks and are best handled seperatly from the list filter.
+
+ */
+struct CreativeSegmentListFilter
+{
+
+    void addConfig(unsigned cfgIndex, unsigned creativeId,
+                    const SegmentList& segments)
+    {
+        setConfig(cfgIndex, creativeId, segments, true);
+    }
+
+    void removeConfig(unsigned cfgIndex, unsigned creativeId,
+                        const SegmentList& segments)
+    {
+        setConfig(cfgIndex, creativeId, segments, false);
+    }
+
+    bool isEmpty(const SegmentList& segments) const
+    {
+        return segments.empty();
+    }
+
+    CreativeMatrix filter(int i, const std::string& str) const
+    {
+        return i >= 0 ? get(intSet, i) : get(strSet, str);
+    }
+
+    CreativeMatrix filter(const SegmentList& segments) const
+    {
+        CreativeMatrix configs;
+
+        segments.forEach([&](int i, std::string str, float) {
+                    configs |= filter(i, str);
+                });
+
+        return configs;
+    }
+
+private:
+
+    void setConfig(unsigned cfgIndex, unsigned creativeId,
+                     const SegmentList& segments, bool value)
+    {
+        segments.forEach([&](int i, std::string str, float) {
+                    if (i >= 0) intSet[i].set(creativeId, cfgIndex, value);
+                    else strSet[str].set(creativeId, cfgIndex, value);
+                });
+    }
+
+    template<typename K>
+    CreativeMatrix get(const std::unordered_map<K,
+                       CreativeMatrix>& m, K k) const
+    {
+        auto it = m.find(k);
+        return it != m.end() ? it->second : CreativeMatrix();
+    }
+
+    std::unordered_map<int, CreativeMatrix> intSet;
+    std::unordered_map<std::string, CreativeMatrix> strSet;
+};
+
 } // namespace RTBKIT

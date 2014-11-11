@@ -54,7 +54,7 @@ topupTransfer(const AccountKey &account,
 
 void
 HttpLayer::
-init(std::string bankerUri, int activeConnections /* = 4 */)
+init(std::string bankerUri, int activeConnections /* = 4 */, bool tcpNoDelay /* = false */)
 {
     if (bankerUri.empty())
         throw ML::Exception("bankerUri can not be empty");
@@ -64,6 +64,7 @@ init(std::string bankerUri, int activeConnections /* = 4 */)
 
     httpClient.reset(new HttpClient(bankerUri, activeConnections));
     httpClient->sendExpect100Continue(false);
+    httpClient->toggleTcpNoDelay(tcpNoDelay);
     addSource("HttpLayer::httpClient", httpClient);
 }
 

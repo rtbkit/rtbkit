@@ -35,7 +35,6 @@
 #include <curlpp/Types.hpp>
 
 #include "jml/arch/wakeup_fd.h"
-
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
@@ -133,6 +132,9 @@ struct HttpClient : public AsyncEventSource {
 
     void sendExpect100Continue(bool value);
 
+    /** Toggle the TCP_NODELAY option, also known as the Nagle's algorithm */
+    void toggleTcpNoDelay(bool value);
+
     /** Use with servers that support HTTP pipelining */
     void enablePipelining();
 
@@ -203,16 +205,6 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
-    size_t queuedRequests() const;
-
-    HttpClient & operator = (HttpClient && other) noexcept;
-
-private:
-    /* AsyncEventSource */
-    virtual int selectFd() const;
-    virtual bool processOne();
-
-    /* Local */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
                         const std::shared_ptr<HttpClientCallbacks> & callbacks,
@@ -220,6 +212,19 @@ private:
                         const RestParams & queryParams,
                         const RestParams & headers,
                         int timeout = -1);
+
+    size_t queuedRequests() const;
+
+    HttpClient & operator = (HttpClient && other) noexcept;
+
+private:
+    void cleanupFds() noexcept;
+
+    /* AsyncEventSource */
+    virtual int selectFd() const;
+    virtual bool processOne();
+
+    /* Local */
     std::vector<HttpRequest> popRequests(size_t number);
 
     void handleEvents();
@@ -253,6 +258,7 @@ private:
             uploadOffset_ = 0;
         }
         void perform(bool noSSLChecks, bool withExpect100Continue = true,
+                     bool tcpNoDelay = false,
                      bool debug = false);
 
         /* header and body write callbacks */
@@ -283,6 +289,7 @@ private:
 
     std::string baseUrl_;
     bool expect100Continue;
+    bool tcpNoDelay;
 
     int fd_;
     ML::Wakeup_Fd wakeup_;
@@ -308,6 +315,8 @@ enum struct HttpClientError {
     Timeout,
     HostNotFound,
     CouldNotConnect,
+    SendError,
+    RecvError
 };
 
 std::ostream & operator << (std::ostream & stream, HttpClientError error);

@@ -25,6 +25,7 @@ struct PostAuctionRunner {
     PostAuctionRunner();     
 
     ServiceProxyArguments serviceArgs;
+    SlaveBankerArguments bankerArgs;
 
     size_t shard;
     float auctionTimeout;
@@ -33,8 +34,6 @@ struct PostAuctionRunner {
 
     int winLossPipeTimeout;
     int campaignEventPipeTimeout;
-    bool useHttpBanker;
-    int httpActiveConnections;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

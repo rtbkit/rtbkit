@@ -126,3 +126,92 @@ BOOST_AUTO_TEST_CASE( testLanguageFilter )
     check(filter, r1, creatives, 0, {          });
     check(filter, r2, creatives, 0, {          });
 }
+
+
+/******************************************************************************/
+/* Segment FILTER                                                             */
+/******************************************************************************/
+BOOST_AUTO_TEST_CASE( testSegmentsFilter )
+{
+    CreativeSegmentsFilter filter;
+    CreativeMatrix creatives;
+
+    typedef Creative::SegmentInfo SegInfo;
+
+    auto addCrfilter = [] (AgentConfig& cfg,
+                           const std::vector<std::string> & inc,
+                           const std::vector<std::string> & exc,
+                           bool excludeIfNotPresent = true) {
+        SegInfo si;
+        for ( auto & w : inc) si.include.add(w);
+        for ( auto & w : exc) si.exclude.add(w);
+        si.excludeIfNotPresent = excludeIfNotPresent;
+        cfg.creatives.emplace_back();
+        cfg.creatives.back().segments["words"] = si;
+    };
+
+    // Ad those filters to some creatives in some agentconfigs
+    AgentConfig c0;
+    addCrfilter(c0, {"hey"}, {});
+    addCrfilter(c0, {}, {"oh"});
+    addCrfilter(c0, {"oh"}, {});
+
+    AgentConfig c1;
+    addCrfilter(c1, {"go"}, {}, false);
+
+    AgentConfig c2;
+    addCrfilter(c2, {"oh"}, {});
+    addCrfilter(c2, {}, {"no"}, false);
+    addCrfilter(c2, {"go"}, {});
+
+    // Create some BR with some segments to be filtered
+    BidRequest br0;
+    addImp(br0, OpenRTB::AdPosition::ABOVE, { {100, 100} });
+    addImp(br0, OpenRTB::AdPosition::ABOVE, { {100, 200} });
+    br0.segments.addStrings("words", {"hey"});
+
+    BidRequest br1;
+    addImp(br1, OpenRTB::AdPosition::ABOVE, { {100, 100} });
+    br1.segments.addStrings("words", {"oh", "go"});
+
+    BidRequest br2;
+    addImp(br2, OpenRTB::AdPosition::ABOVE, { {100, 100} });
+    br2.segments.addStrings("words", {"lets"});
+
+    BidRequest br3;
+    addImp(br3, OpenRTB::AdPosition::ABOVE, { {100, 100} });
+
+    title("segemnts-filter-include-exclude-1");
+    addConfig(filter, 0, c0, creatives);
+
+    check(filter, br0, creatives, 0, { {0}, {0}        });
+    check(filter, br0, creatives, 1, { {0}, {0}        });
+    check(filter, br1, creatives, 0, { { }, { }, {0}   });
+    check(filter, br2, creatives, 0, { { }, {0},       });
+
+    title("segemnts-filter-no-segment-1");
+    check(filter, br3, creatives, 0, {                 });
+
+    title("segemnts-filter-include-exclude-2");
+    addConfig(filter, 1, c1, creatives);
+
+    check(filter, br0, creatives, 0, { {0}, {0}         });
+    check(filter, br0, creatives, 1, { {0}, {0}         });
+    check(filter, br1, creatives, 0, { {1}, { }, {0}    });
+    check(filter, br2, creatives, 0, { { }, {0},        });
+
+    title("segemnts-filter-no-segment-2");
+    check(filter, br3, creatives, 0, { {1}              });
+
+    title("segemnts-filter-include-exclude-3");
+    addConfig(filter, 2, c2, creatives);
+
+    check(filter, br0, creatives, 0, { {0}, {0,2},      });
+    check(filter, br0, creatives, 1, { {0}, {0,2},      });
+    check(filter, br1, creatives, 0, { {1,2}, {2}, {0,2}});
+    check(filter, br2, creatives, 0, { { }, {0,2},      });
+
+    title("segemnts-filter-no-segment-3");
+    check(filter, br3, creatives, 0, { {1}, {2}         });
+
+}

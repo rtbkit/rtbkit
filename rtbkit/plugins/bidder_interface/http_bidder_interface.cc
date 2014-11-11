@@ -28,6 +28,8 @@ namespace {
             CASE(HttpClientError::Timeout)
             CASE(HttpClientError::HostNotFound)
             CASE(HttpClientError::CouldNotConnect)
+            CASE(HttpClientError::SendError)
+            CASE(HttpClientError::RecvError)
             #undef CASE
         }
         ExcCheck(false, "Invalid code path");
