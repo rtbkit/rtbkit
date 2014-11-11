@@ -32,7 +32,7 @@ void Logging::ConsoleWriter::body(std::string const & content) {
     if(color) {
         stream << "\033[1;34m";
         stream.write(content.c_str(), content.size() - 1);
-        stream << "\033[0m";
+        stream << "\033[0m\n";
     }
     else {
         stream << content;
