@@ -290,12 +290,8 @@ onBanner(OpenRTB::Banner & banner) {
     }
 
     // Add api to the segments in order to filter on it
-    std::vector<int> apis;
-
     for(auto & i : banner.api)
-        apis.push_back(i.val);
-
-    ctx.br->segments.addInts("api-banner", apis);
+        ctx.br->segments.add("api-banner", i.val, 1.0);
 
     ctx.spot->position = banner.pos;
 }
@@ -330,12 +326,8 @@ onVideo(OpenRTB::Video & video) {
     ctx.spot->position = video.pos;
 
     // Add api to the segments in order to filter on it
-    std::vector<int> apis;
-
     for(auto & i : video.api)
-        apis.push_back(i.val);
-
-    ctx.br->segments.addInts("api-video", apis);
+        ctx.br->segments.add("api-video", i.val, 1.0);
 
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 }
@@ -644,12 +636,8 @@ onVideo(OpenRTB::Video & video) {
     ctx.spot->position = video.pos;
 
     // Add api to the segments in order to filter on it
-    std::vector<int> apis;
-
     for(auto & i : video.api)
-        apis.push_back(i.val);
-
-    ctx.br->segments.addInts("api-video", apis);
+        ctx.br->segments.add("api-video", i.val, 1.0);
 
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 
