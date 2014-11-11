@@ -12,6 +12,8 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/http_client.h"
 #include "soa/service/rest_request_binding.h"
+#include "soa/jsoncpp/value.h"
+#include "soa/jsoncpp/json.h"
 #include "jml/arch/timers.h"
 
 using namespace std;
@@ -67,8 +69,10 @@ sendEvent(const string channel, const string event)
     };
     string ressource("/v1/event");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    client->post(ressource, cbs, {}, { { "channel", channel },
-                                       { "event"  , event } });
+    Json::Value payload(Json::objectValue);
+    payload["channel"] = channel;
+    payload["event"] = event;
+    client->post(ressource, cbs, payload);
 }
 
 void
@@ -109,9 +113,10 @@ AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
 
 void
 AnalyticsRestEndpoint::
-init(bool test)
+init()
 {
-    RestServiceEndpoint::init(getServices()->config, serviceName());
+    // last param in init is threads increase it accordingly to needs.
+    RestServiceEndpoint::init(getServices()->config, serviceName(), 0.005, 1);
     onHandleRequest = router.requestHandler();
     registerServiceProvider(serviceName(), { "analytics" });
     router.description = "Analytics REST API";
@@ -132,39 +137,33 @@ init(bool test)
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API");
 
-    if (test) {
-        addRouteSyncReturn(versionNode,
-                       "/event",
-                       {"POST","PUT"},
-                       "Add an event to the logs.",
-                       "Returns a success notice.",
-                       [] (const string & r) {
-                            Json::Value response(Json::stringValue);
-                            response = r;
-                            return response;
-                       },
-                       &AnalyticsRestEndpoint::testEvent,
-                       this,
-                       RestParamDefault<string>("channel", "event type to add to list"),
-                       RestParamDefault<string>("event", "win event to add to list", "")
-                );
-    } else {
-        addRouteSyncReturn(versionNode,
-                       "/event",
-                       {"POST","PUT"},
-                       "Add an event to the logs.",
-                       "Returns a success notice.",
-                       [] (const string & r) {
-                            Json::Value response(Json::stringValue);
-                            response = r;
-                            return response;
-                       },
-                       &AnalyticsRestEndpoint::addEvent,
-                       this,
-                       RestParamDefault<string>("channel", "event type to add to list"),
-                       RestParamDefault<string>("event", "win event to add to list", "")
-                );
-    }
+    addRouteSyncReturn(versionNode,
+                    "/event",
+                    {"POST","PUT"},
+                    "Add an event to the logs.",
+                    "Returns a success notice.",
+                    [] (const string & r) {
+                        Json::Value response(Json::stringValue);
+                        response = r;
+                        return response;
+                    },
+                    &AnalyticsRestEndpoint::addEvent,
+                    this,
+                    JsonParam<string>("channel", "channel to use for event"),
+                    JsonParam<string>("event", "event to publish")
+            );
+
+    addRouteSyncReturn(versionNode,
+                    "/channels",
+                    {"GET"},
+                    "Gets the list of available channels",
+                    "Returns a list of channels and their status",
+                    [] (const Json::Value & lst) {
+                        return lst;
+                    },
+                    &AnalyticsRestEndpoint::listChannels,
+                    this
+            );
 
     addRouteSyncReturn(versionNode,
                     "/enable",
@@ -199,35 +198,48 @@ init(bool test)
 
 string
 AnalyticsRestEndpoint::
-addEvent(const string & channel, const string & event)
+print(const string & channel, const string & event)
 {
-    if (enableAll || channelFilter[channel]) {
-        cout << channel << " " << event << endl;
-    }
+    cout << channel << " " << event << endl;
     return "success";
 }
 
 string
 AnalyticsRestEndpoint::
-testEvent(const string & channel, const string & event)
+addEvent(const string & channel, const string & event)
 {
-    if (enableAll || channelFilter[channel]) {
-        if (channel != "" && event != "")
-            return "success";
+    if (enableAll)
+        return print(channel, event);
+
+    if (channelFilter.find(channel) != channelFilter.end()
+            && channelFilter[channel]) {
+        return print(channel, event);
+    } else {
+        return "channel not found or not enabled";
     }
-    return "error";
+}
+
+Json::Value
+AnalyticsRestEndpoint::
+listChannels()
+{
+    Json::Value response(Json::objectValue);
+    for (const auto & channel : channelFilter)
+        response[channel.first] = channel.second;
+    return response;
 }
 
 string
 AnalyticsRestEndpoint::
 enableChannel(const string & channel)
 {
+    if (channel == "all"){
+        enableAllChannels();
+        return "all channels are enabled";
+    }
     if (!channelFilter[channel])
         channelFilter[channel] = true;
-    if (channelFilter[channel])
-        return channel + string(" enabled");
-    else
-       return channel + string(" disabled");
+    return "channel is enabled";
 }
 
 void
@@ -235,6 +247,8 @@ AnalyticsRestEndpoint::
 enableAllChannels()
 {
     enableAll = true;
+    for (auto & channel : channelFilter)
+        channel.second = true;
 }
 
 void
@@ -242,6 +256,8 @@ AnalyticsRestEndpoint::
 disableAllChannels()
 {
     enableAll = false;
+    for (auto & channel : channelFilter)
+        channel.second = false;
 }
 
 string
@@ -250,10 +266,7 @@ disableChannel(const string & channel)
 {
     if (channelFilter[channel])
         channelFilter[channel] = false;
-    if (channelFilter[channel])
-        return channel + string(" enabled");
-    else
-        return channel + string(" disabled");
+    return "channel is disabled";
 }
 
 pair<string, string>

@@ -26,32 +26,34 @@
 
 struct AnalyticsClient : public Datacratic::MessageLoop {
 
-    std::shared_ptr<Datacratic::HttpClient> client;
-    bool live;
-
     void init(const std::string & baseUrl);
 
     void start();
 
     void shutdown();
 
+private:
+    std::shared_ptr<Datacratic::HttpClient> client;
+    bool live;
+
     void sendEvent(const std::string channel, const std::string event);
 
     void checkHeartbeat();
 
     template<typename Head>
-    void make_message(std::stringstream & ss, Head && head)
+    void make_message(std::stringstream & ss, const Head & head)
     {
         ss << head;
     }
 
     template<typename Head, typename... Tail>
-    void make_message(std::stringstream & ss, Head && head, Tail && ... tail)
+    void make_message(std::stringstream & ss, const Head & head, Tail && ... tail)
     {
         ss << head << " ";
         make_message(ss, std::forward<Tail>(tail)...);
     }
 
+public:
     template<typename... Args>
     void publish(const std::string & channel, Args && ... args)
     {
@@ -80,24 +82,27 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
     AnalyticsRestEndpoint(std::shared_ptr<Datacratic::ServiceProxies> proxies,
                           const std::string & serviceName);
 
+    void init();
+
     std::pair<std::string, std::string> bindTcp(int port = 0);
 
-    std::string addEvent(const std::string & channel,
-                         const std::string & event);
+    void start();
 
-    std::string testEvent(const std::string & channel,
-                          const std::string & event);
+    void shutdown();
+
+    Json::Value listChannels();
 
     std::string enableChannel(const std::string & channel);
     void enableAllChannels();
     void disableAllChannels();
     std::string disableChannel(const std::string & channel);
 
-    void init(bool test = false);
+private:
+    std::string addEvent(const std::string & channel,
+                         const std::string & event);
 
-    void start();
-
-    void shutdown();
+    std::string print(const std::string & channel,
+                      const std::string & event);
 
     Datacratic::RestRequestRouter router;
 
