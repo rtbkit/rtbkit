@@ -275,11 +275,11 @@ JsonRestProxy(const string & url)
 
 HttpRestProxy::Response
 JsonRestProxy::
-putOrPost(const string & resource, const string & body, bool isPost)
+performWithBackoff(const string & method, const string & resource,
+                   const string & body)
     const
 {
     HttpRestProxy::Response response;
-    const char * verb = isPost ? "POST" : "PUT";
 
     JML_TRACE_EXCEPTIONS(false);
 
@@ -291,7 +291,6 @@ putOrPost(const string & resource, const string & body, bool isPost)
         headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
     }
 
-    string method = isPost ? "POST" : "PUT";
     pid_t tid = gettid();
     for (int retries = 0;
          (maxRetries == -1) || (retries < maxRetries);
@@ -311,7 +310,7 @@ putOrPost(const string & resource, const string & body, bool isPost)
                       " (attempt %d):\n"
                       "request body (%lu) = '%s'\n"
                       "response body (%lu): '%s'\n",
-                      tid, verb, resource.c_str(), code, retries,
+                      tid, method.c_str(), resource.c_str(), code, retries,
                       body.size(), body.c_str(),
                       respBody.size(), respBody.c_str());
         }
@@ -323,7 +322,7 @@ putOrPost(const string & resource, const string & body, bool isPost)
         if (maxRetries == -1 || retries < maxRetries) {
             sleepAfterRetry(retries, maxBackoffTime);
             ::fprintf(stderr, "[%d] retrying %s %s after error (%d/%d)\n",
-                      tid, verb, resource.c_str(), retries + 1, maxRetries);
+                      tid, method.c_str(), resource.c_str(), retries + 1, maxRetries);
         }
         else {
             throw ML::Exception("[%d] too many retries\n", tid);
@@ -331,20 +330,6 @@ putOrPost(const string & resource, const string & body, bool isPost)
     }
 
     return response;
-}
-
-HttpRestProxy::Response
-JsonRestProxy::
-get(const string & resource)
-    const
-{
-    RestParams headers;
-
-    if (authToken.size() > 0) {
-        headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
-    }
-
-    return HttpRestProxy::get(resource, RestParams(), headers);
 }
 
 bool
