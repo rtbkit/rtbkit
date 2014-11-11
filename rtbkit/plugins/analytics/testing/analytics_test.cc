@@ -53,6 +53,10 @@ BOOST_AUTO_TEST_CASE( analytics_simple_message_test )
 
     ML::sleep(0.5);
 
+    analyticsClient->syncChannelFilters();
+
+    ML::sleep(0.5);
+
     analyticsClient->publish("Test", "message", "channel is enabled");
 
     ML::sleep(0.5);
@@ -61,7 +65,13 @@ BOOST_AUTO_TEST_CASE( analytics_simple_message_test )
 
     ML::sleep(0.5);
 
-    analyticsClient->publish("Test2", "all", "channels enabled");
+    analyticsClient->syncChannelFilters();
+
+    ML::sleep(0.5);
+
+    // will not be sent because the Test2 is not yet in channel filter,
+    // so it will be ignored.
+    analyticsClient->publish("Test2", "all", "channels disbled");
 
     ML::sleep(0.5);
 
@@ -69,10 +79,32 @@ BOOST_AUTO_TEST_CASE( analytics_simple_message_test )
 
     ML::sleep(0.5);
 
-    analyticsClient->publish("Test2", "all", "channels now disabled");
+    analyticsClient->syncChannelFilters();
 
     ML::sleep(0.5);
 
     analyticsClient->shutdown();
     analyticsEndpoint->shutdown();
+}
+
+BOOST_AUTO_TEST_CASE( analytics_filter_sync_test )
+{
+    shared_ptr<AnalyticsRestEndpoint> analyticsEndpoint;
+    setUpEndpoint(analyticsEndpoint);
+
+    shared_ptr<AnalyticsClient> analyticsClient;
+    setUpClient(analyticsClient);
+
+    analyticsEndpoint->enableChannel("Test");
+    analyticsEndpoint->enableChannel("Test2");
+
+    ML::sleep(1.0);
+
+    analyticsClient->syncChannelFilters();
+
+    ML::sleep(1.0);
+
+    analyticsClient->shutdown();
+    analyticsEndpoint->shutdown();
+
 }

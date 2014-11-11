@@ -238,6 +238,9 @@ init()
     augmentationLoop.init();
 
     logger.init(getServices()->config, serviceName() + "/logger");
+    string analyticsUri = getServices()->params["analytics-uri"].asString();
+    if (!analyticsUri.empty())
+        analytics.init(analyticsUri);
 
     bridge.agents.init(getServices()->config, serviceName() + "/agents");
     bridge.agents.clientMessageHandler
@@ -274,6 +277,7 @@ init()
     loopMonitor.addMessageLoop("configListener", &configListener);
     loopMonitor.addMessageLoop("monitorClient", &monitorClient);
     loopMonitor.addMessageLoop("monitorProviderClient", &monitorProviderClient);
+    loopMonitor.addMessageLoop("analytics", &analytics);
 
     loopMonitor.onLoadChange = [=] (double)
         {
@@ -380,6 +384,7 @@ start(boost::function<void ()> onStop)
 
     bidder->start();
     logger.start();
+    analytics.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
 

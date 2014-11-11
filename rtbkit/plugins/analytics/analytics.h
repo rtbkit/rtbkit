@@ -20,6 +20,8 @@
 #include "soa/service/rest_request_router.h"
 
 
+typedef std::unordered_map< std::string, bool > ChannelFilter;
+
 /********************************************************************************/
 /* ANALYTICS CLIENT                                                             */
 /********************************************************************************/
@@ -32,11 +34,14 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
 
     void shutdown();
 
+    void syncChannelFilters();
+
 private:
     std::shared_ptr<Datacratic::HttpClient> client;
     bool live;
+    ChannelFilter channelFilter;
 
-    void sendEvent(const std::string channel, const std::string event);
+    void sendEvent(const std::string & channel, const std::string & event);
 
     void checkHeartbeat();
 
@@ -58,6 +63,8 @@ public:
     void publish(const std::string & channel, Args && ... args)
     {
         if (!live) return;
+        if (!channelFilter[channel]) return;
+
         std::stringstream ss;
         make_message(ss, std::forward<Args>(args)...);
         sendEvent(channel, ss.str());
@@ -106,7 +113,6 @@ private:
 
     Datacratic::RestRequestRouter router;
 
-    typedef std::unordered_map< std::string, bool > ChannelFilter;
     ChannelFilter channelFilter;
     bool enableAll;
 };

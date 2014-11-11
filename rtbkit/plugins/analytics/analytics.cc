@@ -12,8 +12,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/http_client.h"
 #include "soa/service/rest_request_binding.h"
-#include "soa/jsoncpp/value.h"
-#include "soa/jsoncpp/json.h"
+#include "soa/jsoncpp/reader.h"
 #include "jml/arch/timers.h"
 
 using namespace std;
@@ -31,11 +30,16 @@ init(const string & baseUrl)
     client->sendExpect100Continue(false);
     addSource("analytics::client", client);
     cout << "analytics client is initialized" << endl;
-
+    
     auto heartbeat = [&] (uint64_t wakeups) {
         checkHeartbeat();
     };
     addPeriodic("analytics::heartbeat", 1.0, heartbeat);
+    
+    auto syncFilters = [&] (uint64_t wakeups) {
+        syncChannelFilters();
+    };
+    addPeriodic("analytics::syncFilters", 10.0, syncFilters);
 }
 
 void
@@ -54,7 +58,7 @@ shutdown()
 
 void
 AnalyticsClient::
-sendEvent(const string channel, const string event)
+sendEvent(const string & channel, const string & event)
 {
     auto onResponse = [] (const HttpRequest & rq,
             HttpClientError error,
@@ -85,16 +89,43 @@ checkHeartbeat()
                           string && headers,
                           string && body)
     {
-        if (status == 200)
-           live = true;
-        else
-           live = false;
+        if (status == 200) {
+            if (!live) {
+                live = true;
+                syncChannelFilters();
+            }
+        }
+        else live = false;
     };
     string ressource("/heartbeat");
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     client->get(ressource, cbs);
 }
 
+void
+AnalyticsClient::
+syncChannelFilters()
+{
+    auto onResponse = [&] (const HttpRequest & rq,
+                           HttpClientError error,
+                           int status,
+                           string && headers,
+                           string && body)
+    {
+        if (status != 200) return;
+        
+        Json::Value filters = Json::parse(body);
+        if (filters.isObject()) {
+            for ( auto it = filters.begin(); it != filters.end(); ++it) {
+                channelFilter[it.memberName()] = (*it).asBool();
+            }
+        }
+    };
+    if (!live) return;
+    string ressource("/v1/channels");
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    client->get(ressource, cbs);
+}
 
 
 /********************************************************************************/
