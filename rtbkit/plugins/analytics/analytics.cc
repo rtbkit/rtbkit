@@ -302,8 +302,7 @@ AnalyticsRestEndpoint::
 enableAllChannels()
 {
     {
-        boost::upgrade_lock<boost::shared_mutex> lock(access);
-        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        boost::lock_guard<boost::shared_mutex> guard(access); 
         for (auto & channel : channelFilter)
             channel.second = true;
     }
@@ -315,8 +314,7 @@ AnalyticsRestEndpoint::
 disableAllChannels()
 {
     {
-        boost::upgrade_lock<boost::shared_mutex> lock(access);
-        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        boost::lock_guard<boost::shared_mutex> guard(access); 
         for (auto & channel : channelFilter)
             channel.second = false;
     }
@@ -328,8 +326,7 @@ AnalyticsRestEndpoint::
 disableChannel(const string & channel)
 {
     {
-        boost::upgrade_lock<boost::shared_mutex> lock(access);
-        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        boost::lock_guard<boost::shared_mutex> guard(access); 
         if (!channel.empty() && channelFilter[channel])
             channelFilter[channel] = false;
     }
