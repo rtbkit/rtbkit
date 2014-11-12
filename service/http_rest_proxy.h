@@ -316,7 +316,7 @@ struct JsonRestProxy : HttpRestProxy {
     HttpRestProxy::Response get(const std::string & resource)
         const
     {
-        return performWithBackoff("POST", resource, "");
+        return performWithBackoff("GET", resource, "");
     }
 
     HttpRestProxy::Response post(const std::string & resource,
