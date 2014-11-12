@@ -8,7 +8,6 @@
 #include <cmath>
 #include <limits>
 #include "jml/arch/format.h"
-#include "soa/js/js_value.h"
 #include "soa/jsoncpp/json.h"
 #include <cmath>
 #include "ace/Time_Value.h"
