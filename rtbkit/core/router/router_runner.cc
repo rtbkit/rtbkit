@@ -53,7 +53,8 @@ RouterRunner() :
     maxBidPrice(40),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     slowModeTolerance(MonitorClient::DefaultTolerance),
-    slowModeMoneyLimit("")
+    slowModeMoneyLimit(""),
+    analyticsOn(false)
 {
 }
 
@@ -89,7 +90,10 @@ doOptions(int argc, char ** argv,
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
          "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
         ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100000USD/1M"),
-         "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).");
+         "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).")
+        ("analytics,a", bool_switch(&analyticsOn),
+         "Send data to analytics logger.");
+
 
     options_description all_opt = opts;
     all_opt
@@ -157,6 +161,16 @@ init()
     banker = bankerArgs.makeBankerWithArgs(proxies,
                                            router->serviceName() + ".slaveBanker",
                                            CurrencyPool(amount));
+
+    if (analyticsOn) {
+        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
+        if (!analyticsUri.empty()) {
+            router->initAnalytics(analyticsUri);
+        }
+        else
+            LOG(print) << "analytics-uri is not in the config" << endl;
+    }
+
     router->setBanker(banker);
     router->bindTcp();
 }

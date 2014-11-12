@@ -140,6 +140,9 @@ struct Router : public ServiceBase,
     /** Initialize the bidder interface. */
     void initBidderInterface(Json::Value const & json);
 
+    /** Initialize analytics if it is used. */
+    void initAnalytics(const std::string & baseUrl);
+
     /** Initialize all of the internal data structures and configuration. */
     void init();
 

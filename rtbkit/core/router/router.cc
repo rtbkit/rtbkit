@@ -218,6 +218,13 @@ initBidderInterface(Json::Value const & json)
 
 void
 Router::
+initAnalytics(const string & baseUrl)
+{
+    analytics.init(baseUrl);
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -238,9 +245,6 @@ init()
     augmentationLoop.init();
 
     logger.init(getServices()->config, serviceName() + "/logger");
-    string analyticsUri = getServices()->params["analytics-uri"].asString();
-    if (!analyticsUri.empty())
-        analytics.init(analyticsUri);
 
     bridge.agents.init(getServices()->config, serviceName() + "/agents");
     bridge.agents.clientMessageHandler
