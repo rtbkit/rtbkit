@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_parse_openrtb_sample_requests )
         parseBidRequest(req);
 }
 
-void testBidRequest(const std::string & filename, const std::string & version = "2.1")
+void testBidRequest(const std::string & filename, const std::string & version = "2.2")
 {
     cerr << endl << "loading " << filename << endl;
     ML::Parse_Context context(filename);
