@@ -55,8 +55,14 @@ void Logging::FileWriter::body(std::string const & content) {
     stream.str("");
 }
 
-void Logging::FileWriter::open(char const * filename) {
-    file.open(filename);
+void Logging::FileWriter::open(char const * filename, char const mode) {
+    if(mode == 'a')
+        file.open(filename, std::ofstream::app);
+    else if (mode == 'w')
+        file.open(filename);
+    else
+        throw ML::Exception("File mode not recognized");
+
     if(!file) {
         std::cerr << "unable to open log file '" << filename << "'" << std::endl;
     }
