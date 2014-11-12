@@ -17,24 +17,60 @@ int main(int argc, char ** argv) {
     
     ServiceProxyArguments serviceArgs;
     
-    bool debug = false;
-    bool logWins = false;
-    bool logUnmatchedWins = false;
-    bool logUnmatchedLoss = false;
-    bool logBids = false;
+    bool enableAllChannels = false;
+
+    ChannelFilter channels(
+                { {"AUCTION",       false},
+                  {"CLICK",         false},
+                  {"CONFIG",        false},
+                  {"MARK",          false},
+                  {"MATCHEDCLICK",  false},
+                  {"MATCHEDLOSS",   false},
+                  {"MATCHEDWIN",    false},
+                  {"NOBUDGET",      false},
+                  {"PAERROR",       false},
+                  {"TOOLATE",       false},
+                  {"UNMATCHEDWIN",  false},
+                  {"UNMATCHEDLOSS", false},
+                  {"UNMATCHEDCLICK",false},
+                  {"USAGE",         false},
+                  {"WIN",           false}
+                } );
 
     options_description configuration_options("Configuration options");
     configuration_options.add_options()
-        ("log-wins,W", bool_switch(&logWins),
-         "Whether or not to log wins.")
-        ("log-unmatched-wins,U", bool_switch(&logUnmatchedWins),
-         "Whether or not to log unmatched wins.")
-        ("log-unmatched-loss,L", bool_switch(&logUnmatchedLoss),
-         "Wether or not to log unmatched losses.")
-        ("log-bids,A", bool_switch(&logBids),
-         "Wether or not to log bids, bid logging must also be enabled in the router")
-        ("debug", bool_switch(&debug),
-         "Debug mode enabled");
+        ("ALL", bool_switch(&enableAllChannels),
+         "enable all channels.")
+        ("WIN", bool_switch(&channels["WIN"]),
+         "log wins channel.")
+        ("UNMATCHEDWIN", bool_switch(&channels["UNMATCHEDWIN"]),
+         "log unmatched wins.")
+        ("UNMATCHEDLOSS", bool_switch(&channels["UNMATCHEDLOSS"]),
+         "log unmatched losses.")
+        ("UNMATCHEDCLICK", bool_switch(&channels["UNMATCHEDCLICK"]),
+         "log unmatched losses.")
+        ("CLICK", bool_switch(&channels["CLICK"]),
+         "log clicks.")
+        ("CONFIG", bool_switch(&channels["CONFIG"]),
+         "log config.")
+        ("MARK", bool_switch(&channels["MARK"]),
+         "log marks.")
+        ("MATCHEDCLICK", bool_switch(&channels["MATCHEDCLICK"]),
+         "log matched clicks.")
+        ("MATCHEDLOSS", bool_switch(&channels["MATCHEDLOSS"]),
+         "log matched loss.")
+        ("MATCHEDWIN", bool_switch(&channels["MATCHEDWIN"]),
+         "log matched win.")
+        ("NOBUDGET", bool_switch(&channels["NOBUDGET"]),
+         "log no budget.")
+        ("PAERROR", bool_switch(&channels["PAERROR"]),
+         "log post auction error.")
+        ("TOOLATE", bool_switch(&channels["TOOLATE"]),
+         "log too late.")
+        ("USAGE", bool_switch(&channels["USAGE"]),
+         "log usage.")
+        ("AUCTIONS", bool_switch(&channels["AUCTIONS"]),
+         "log actions.");
 
     options_description all_opt;
     all_opt
@@ -60,19 +96,12 @@ int main(int argc, char ** argv) {
 
     AnalyticsRestEndpoint analytics(proxies, serviceName);
     analytics.init();
-    
-    if (!logBids && !logWins && !logUnmatchedWins && !logUnmatchedLoss)
+
+    analytics.initChannels(channels);
+
+    if (enableAllChannels)
         analytics.enableAllChannels();
-    if (logBids)
-        analytics.enableChannel("BID");
-    if (logWins)
-        analytics.enableChannel("WINS");
-    if (logUnmatchedWins)
-        analytics.enableChannel("UNMATCHEDWIN");
-    if (logUnmatchedLoss)
-        analytics.enableChannel("UNMATCHEDLOSS");
-
-
+    
     auto addr = analytics.bindTcp();
     cerr << "analytics is listening on " << addr.first << ","
         << addr.second << endl;

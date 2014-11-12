@@ -144,6 +144,13 @@ AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
 
 void
 AnalyticsRestEndpoint::
+initChannels(unordered_map<string, bool> & channels)
+{
+    channelFilter = channels;
+}
+
+void
+AnalyticsRestEndpoint::
 init()
 {
     // last param in init is threads increase it accordingly to needs.
@@ -201,10 +208,8 @@ init()
                     {"POST", "PUT"},
                     "Start logging a certain channel of event.",
                     "Returns a success notice.",
-                    [] (const string & r) {
-                        Json::Value response (Json::stringValue);
-                        response = r;
-                        return response;
+                    [] (const Json::Value & lst) {
+                        return lst;
                     },
                     &AnalyticsRestEndpoint::enableChannel,
                     this,
@@ -216,10 +221,8 @@ init()
                     {"POST", "PUT"},
                     "Stop logging a certain channel of event.",
                     "Returns a success notice.",
-                    [] (const string & r) {
-                        Json::Value response (Json::stringValue);
-                        response = r;
-                        return response;
+                    [] (const Json::Value & lst) {
+                        return lst;
                     },
                     &AnalyticsRestEndpoint::disableChannel,
                     this,
@@ -260,17 +263,16 @@ listChannels()
     return response;
 }
 
-string
+Json::Value
 AnalyticsRestEndpoint::
 enableChannel(const string & channel)
 {
-    if (channel == "all"){
+    if (channel == "ALL"){
         enableAllChannels();
-        return "all channels are enabled";
     }
-    if (!channelFilter[channel])
+    else if (!channel.empty() && !channelFilter[channel])
         channelFilter[channel] = true;
-    return "channel is enabled";
+    return listChannels();
 }
 
 void
@@ -291,13 +293,16 @@ disableAllChannels()
         channel.second = false;
 }
 
-string
+Json::Value
 AnalyticsRestEndpoint::
 disableChannel(const string & channel)
 {
-    if (channelFilter[channel])
+    if (channel == "ALL") {
+        disableAllChannels();
+    }
+    else if (!channel.empty() && channelFilter[channel])
         channelFilter[channel] = false;
-    return "channel is disabled";
+    return listChannels();
 }
 
 pair<string, string>

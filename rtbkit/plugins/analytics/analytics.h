@@ -7,6 +7,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <sstream>
 #include <utility>
 
@@ -91,6 +92,8 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
     void init();
 
+    void initChannels(ChannelFilter & channels) ;
+
     std::pair<std::string, std::string> bindTcp(int port = 0);
 
     void start();
@@ -99,10 +102,10 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
     Json::Value listChannels();
 
-    std::string enableChannel(const std::string & channel);
+    Json::Value enableChannel(const std::string & channel);
     void enableAllChannels();
     void disableAllChannels();
-    std::string disableChannel(const std::string & channel);
+    Json::Value disableChannel(const std::string & channel);
 
 private:
     std::string addEvent(const std::string & channel,
