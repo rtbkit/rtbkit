@@ -20,6 +20,8 @@
 #include "soa/jsoncpp/value.h"
 #include "soa/service/rest_request_router.h"
 
+#include "boost/thread/locks.hpp"
+#include "boost/thread/shared_mutex.hpp"
 
 typedef std::unordered_map< std::string, bool > ChannelFilter;
 
@@ -36,6 +38,17 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     void shutdown();
 
     void syncChannelFilters();
+    
+    template<typename... Args>
+    void publish(const std::string & channel, const Args & ... args)
+    {
+        if (!live) return;
+        if (!channelFilter[channel]) return;
+
+        std::stringstream ss;
+        make_message(ss, args...);
+        sendEvent(channel, ss.str());
+    }
 
 private:
     std::shared_ptr<Datacratic::HttpClient> client;
@@ -53,22 +66,10 @@ private:
     }
 
     template<typename Head, typename... Tail>
-    void make_message(std::stringstream & ss, const Head & head, Tail && ... tail)
+    void make_message(std::stringstream & ss, const Head & head, const Tail & ... tail)
     {
         ss << head << " ";
-        make_message(ss, std::forward<Tail>(tail)...);
-    }
-
-public:
-    template<typename... Args>
-    void publish(const std::string & channel, Args && ... args)
-    {
-        if (!live) return;
-        if (!channelFilter[channel]) return;
-
-        std::stringstream ss;
-        make_message(ss, std::forward<Args>(args)...);
-        sendEvent(channel, ss.str());
+        make_message(ss, tail...);
     }
 
 };
@@ -103,9 +104,9 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
     Json::Value listChannels();
 
     Json::Value enableChannel(const std::string & channel);
-    void enableAllChannels();
-    void disableAllChannels();
     Json::Value disableChannel(const std::string & channel);
+    Json::Value enableAllChannels();
+    Json::Value disableAllChannels();
 
 private:
     std::string addEvent(const std::string & channel,
@@ -117,6 +118,6 @@ private:
     Datacratic::RestRequestRouter router;
 
     ChannelFilter channelFilter;
-    bool enableAll;
+    boost::shared_mutex access;
 };
 

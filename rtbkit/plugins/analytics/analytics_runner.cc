@@ -38,39 +38,16 @@ int main(int argc, char ** argv) {
                 } );
 
     options_description configuration_options("Configuration options");
+
+    for ( auto & chan : channels ) {
+        configuration_options.add_options()
+            (chan.first.c_str(), bool_switch(&chan.second),
+             "enable logging on channel.");
+    }
+
     configuration_options.add_options()
         ("ALL", bool_switch(&enableAllChannels),
-         "enable all channels.")
-        ("WIN", bool_switch(&channels["WIN"]),
-         "log wins channel.")
-        ("UNMATCHEDWIN", bool_switch(&channels["UNMATCHEDWIN"]),
-         "log unmatched wins.")
-        ("UNMATCHEDLOSS", bool_switch(&channels["UNMATCHEDLOSS"]),
-         "log unmatched losses.")
-        ("UNMATCHEDCLICK", bool_switch(&channels["UNMATCHEDCLICK"]),
-         "log unmatched losses.")
-        ("CLICK", bool_switch(&channels["CLICK"]),
-         "log clicks.")
-        ("CONFIG", bool_switch(&channels["CONFIG"]),
-         "log config.")
-        ("MARK", bool_switch(&channels["MARK"]),
-         "log marks.")
-        ("MATCHEDCLICK", bool_switch(&channels["MATCHEDCLICK"]),
-         "log matched clicks.")
-        ("MATCHEDLOSS", bool_switch(&channels["MATCHEDLOSS"]),
-         "log matched loss.")
-        ("MATCHEDWIN", bool_switch(&channels["MATCHEDWIN"]),
-         "log matched win.")
-        ("NOBUDGET", bool_switch(&channels["NOBUDGET"]),
-         "log no budget.")
-        ("PAERROR", bool_switch(&channels["PAERROR"]),
-         "log post auction error.")
-        ("TOOLATE", bool_switch(&channels["TOOLATE"]),
-         "log too late.")
-        ("USAGE", bool_switch(&channels["USAGE"]),
-         "log usage.")
-        ("AUCTIONS", bool_switch(&channels["AUCTIONS"]),
-         "log actions.");
+         "enable all channels.");
 
     options_description all_opt;
     all_opt

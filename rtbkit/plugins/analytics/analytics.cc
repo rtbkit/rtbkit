@@ -136,8 +136,7 @@ AnalyticsRestEndpoint::
 AnalyticsRestEndpoint(shared_ptr<ServiceProxies> proxies,
                       const std::string & serviceName)
     : ServiceBase(serviceName, proxies),
-      RestServiceEndpoint(proxies->zmqContext),
-      enableAll(false)
+      RestServiceEndpoint(proxies->zmqContext)
 {
     httpEndpoint.allowAllOrigins();
 }
@@ -195,7 +194,7 @@ init()
                     "/channels",
                     {"GET"},
                     "Gets the list of available channels",
-                    "Returns a list of channels and their status",
+                    "Returns a list of channels and their status.",
                     [] (const Json::Value & lst) {
                         return lst;
                     },
@@ -207,7 +206,7 @@ init()
                     "/enable",
                     {"POST", "PUT"},
                     "Start logging a certain channel of event.",
-                    "Returns a success notice.",
+                    "Returns a list of channels.",
                     [] (const Json::Value & lst) {
                         return lst;
                     },
@@ -220,7 +219,7 @@ init()
                     "/disable",
                     {"POST", "PUT"},
                     "Stop logging a certain channel of event.",
-                    "Returns a success notice.",
+                    "Returns a list of channels.",
                     [] (const Json::Value & lst) {
                         return lst;
                     },
@@ -228,6 +227,31 @@ init()
                     this,
                     RestParamDefault<string>("channel", "event channel to disable", "")
             ); 
+    
+    addRouteSyncReturn(versionNode,
+                    "/enableAll",
+                    {"POST", "PUT"},
+                    "Start logging on all known channels of events.",
+                    "Returns a list of channels.",
+                    [] (const Json::Value & lst) {
+                        return lst;
+                    },
+                    &AnalyticsRestEndpoint::enableAllChannels,
+                    this
+            ); 
+
+    addRouteSyncReturn(versionNode,
+                    "/disableAll",
+                    {"POST", "PUT"},
+                    "Stop logging on all channels of events.",
+                    "Returns a list of channels.",
+                    [] (const Json::Value & lst) {
+                        return lst;
+                    },
+                    &AnalyticsRestEndpoint::disableAllChannels,
+                    this
+            ); 
+
 }
 
 string
@@ -242,21 +266,19 @@ string
 AnalyticsRestEndpoint::
 addEvent(const string & channel, const string & event)
 {
-    if (enableAll)
-        return print(channel, event);
-
-    if (channelFilter.find(channel) != channelFilter.end()
-            && channelFilter[channel]) {
-        return print(channel, event);
-    } else {
+    boost::shared_lock<boost::shared_mutex> lock(access);
+    auto it = channelFilter.find(channel);
+    if (it == channelFilter.end() ||  !it->second) 
         return "channel not found or not enabled";
-    }
+ 
+    return print(channel, event);
 }
 
 Json::Value
 AnalyticsRestEndpoint::
 listChannels()
 {
+    boost::shared_lock<boost::shared_mutex> lock(access);
     Json::Value response(Json::objectValue);
     for (const auto & channel : channelFilter)
         response[channel.first] = channel.second;
@@ -267,41 +289,50 @@ Json::Value
 AnalyticsRestEndpoint::
 enableChannel(const string & channel)
 {
-    if (channel == "ALL"){
-        enableAllChannels();
+    {
+        boost::lock_guard<boost::shared_mutex> guard(access); 
+        if (!channel.empty() && !channelFilter[channel])
+            channelFilter[channel] = true;
     }
-    else if (!channel.empty() && !channelFilter[channel])
-        channelFilter[channel] = true;
     return listChannels();
 }
 
-void
+Json::Value
 AnalyticsRestEndpoint::
 enableAllChannels()
 {
-    enableAll = true;
-    for (auto & channel : channelFilter)
-        channel.second = true;
+    {
+        boost::upgrade_lock<boost::shared_mutex> lock(access);
+        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        for (auto & channel : channelFilter)
+            channel.second = true;
+    }
+    return listChannels();
 }
 
-void
+Json::Value
 AnalyticsRestEndpoint::
 disableAllChannels()
 {
-    enableAll = false;
-    for (auto & channel : channelFilter)
-        channel.second = false;
+    {
+        boost::upgrade_lock<boost::shared_mutex> lock(access);
+        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        for (auto & channel : channelFilter)
+            channel.second = false;
+    }
+    return listChannels();
 }
 
 Json::Value
 AnalyticsRestEndpoint::
 disableChannel(const string & channel)
 {
-    if (channel == "ALL") {
-        disableAllChannels();
+    {
+        boost::upgrade_lock<boost::shared_mutex> lock(access);
+        boost::upgrade_to_unique_lock<boost::shared_mutex> unique(lock);
+        if (!channel.empty() && channelFilter[channel])
+            channelFilter[channel] = false;
     }
-    else if (!channel.empty() && channelFilter[channel])
-        channelFilter[channel] = false;
     return listChannels();
 }
 
