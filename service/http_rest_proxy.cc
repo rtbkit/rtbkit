@@ -315,7 +315,7 @@ performWithBackoff(const string & method, const string & resource,
                       respBody.size(), respBody.c_str());
         }
         if (code < 500) {
-            throw ML::Exception("[%d] error is unrecoverable", tid);
+            break;
         }
 
         /* recoverable errors */
