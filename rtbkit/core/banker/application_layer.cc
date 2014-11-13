@@ -64,7 +64,7 @@ init(std::string bankerUri, int activeConnections /* = 4 */, bool tcpNoDelay /* 
 
     httpClient.reset(new HttpClient(bankerUri, activeConnections));
     httpClient->sendExpect100Continue(false);
-    httpClient->toggleTcpNoDelay(tcpNoDelay);
+    httpClient->enableTcpNoDelay(tcpNoDelay);
     addSource("HttpLayer::httpClient", httpClient);
 }
 
