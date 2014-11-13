@@ -102,7 +102,7 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
     void shutdown();
 
-    Json::Value listChannels();
+    Json::Value listChannels() const;
 
     Json::Value enableChannel(const std::string & channel);
     Json::Value disableChannel(const std::string & channel);
@@ -111,14 +111,14 @@ struct AnalyticsRestEndpoint : public Datacratic::ServiceBase,
 
 private:
     std::string addEvent(const std::string & channel,
-                         const std::string & event);
+                         const std::string & event) const;
 
     std::string print(const std::string & channel,
-                      const std::string & event);
+                      const std::string & event) const;
 
     Datacratic::RestRequestRouter router;
 
     ChannelFilter channelFilter;
-    boost::shared_mutex access;
+    mutable boost::shared_mutex access;
 };
 

@@ -177,42 +177,27 @@ MatchedWinLoss::
 publish(AnalyticsClient& logger) const
 {
     logger.publish(
-            "MATCHED" + typeString(),                // 0
-            publishTimestamp(),                      // 1
+            "MATCHED" + typeString(),
+            publishTimestamp(),
 
-            auctionId.toString(),                    // 2
-            std::to_string(impIndex()),              // 3
-            response.agent,                          // 4
-            response.account.at(1, ""),              // 5
+            auctionId.toString(),
+            impId.toString(),
+            response.agent,
+            response.account.toString(),
 
-            winPrice.toString(),                     // 6
-            response.price.maxPrice.toString(),      // 7
-            std::to_string(response.price.priority), // 8
+            winPrice.toString(),
+            rawWinPrice.toString(),
 
-            requestStr,                              // 9
-            response.bidData,                        // 10
-            response.meta,                           // 11
+            requestStrFormat,
+            requestStr,
+            std::to_string(response.creativeId),
+            response.creativeName,
+            response.bidData,
+            augmentations.toString(),
+            response.meta,
 
-            // This is where things start to get weird.
-
-            std::to_string(response.creativeId),     // 12
-            response.creativeName,                   // 13
-            response.account.at(0, ""),              // 14
-
-            uids.toJsonStr(),                        // 15
-            meta,                                    // 16
-
-            // And this is where we lose all pretenses of sanity.
-
-            response.account.at(0, ""),              // 17
-            impId.toString(),                        // 18
-            response.account.toString(),             // 19
-
-            // Ok back to sanity now.
-
-            requestStrFormat,                        // 20
-            rawWinPrice.toString(),                  // 21
-            augmentations.toString()                 // 22
+            uids.toJsonStr(),
+            meta
         );
 }
 
@@ -281,23 +266,19 @@ MatchedCampaignEvent::
 publish(AnalyticsClient & logger) const
 {
     logger.publish(
-            "MATCHED" + label,                  // 0
-            publishTimestamp(),                 // 1
+            "MATCHED" + label,
+            publishTimestamp(),
+            auctionId.toString(),
+            impId.toString(),
+            requestStr,
 
-            auctionId.toString(),               // 2
-            impId.toString(),                   // 3
-            requestStr,                         // 4
+            bid.toStringNoNewLine(),
+            win.toStringNoNewLine(),
+            campaignEvents.toStringNoNewLine(),
+            visits.toStringNoNewLine(),
 
-            bid.toStringNoNewLine(),            // 5
-            win.toStringNoNewLine(),            // 6
-            campaignEvents.toStringNoNewLine(), // 7
-            visits.toStringNoNewLine(),         // 8
-
-            account.at(0, ""),                  // 9
-            account.at(1, ""),                  // 10
-            account.toString(),                 // 11
-
-            requestStrFormat                    // 12
+            account.toString(),
+            requestStrFormat
     );
 }
 
@@ -335,16 +316,15 @@ UnmatchedEvent::
 publish(AnalyticsClient & logger) const
 {
     logger.publish(
-            // Use event type not label since label is only defined for campaign events.
-            "UNMATCHED" + string(print(event.type)),             // 0
-            publishTimestamp(),                                  // 1
+            "UNMATCHED" + string(print(event.type)),
+            publishTimestamp(),
 
-            reason,                                              // 2
-            event.auctionId.toString(),                          // 3
-            event.adSpotId.toString(),                           // 4
+            reason,
+            event.auctionId.toString(),
+            event.adSpotId.toString(),
 
-            std::to_string(event.timestamp.secondsSinceEpoch()), // 5
-            event.metadata.toJson()                              // 6
+            std::to_string(event.timestamp.secondsSinceEpoch()),
+            event.metadata.toJson()
         );
 }
 

@@ -258,7 +258,7 @@ init()
 
 string
 AnalyticsRestEndpoint::
-print(const string & channel, const string & event)
+print(const string & channel, const string & event) const
 {
     cout << channel << " " << event << endl;
     return "success";
@@ -266,7 +266,7 @@ print(const string & channel, const string & event)
 
 string
 AnalyticsRestEndpoint::
-addEvent(const string & channel, const string & event)
+addEvent(const string & channel, const string & event) const
 {
     boost::shared_lock<boost::shared_mutex> lock(access);
     auto it = channelFilter.find(channel);
@@ -278,7 +278,7 @@ addEvent(const string & channel, const string & event)
 
 Json::Value
 AnalyticsRestEndpoint::
-listChannels()
+listChannels() const
 {
     boost::shared_lock<boost::shared_mutex> lock(access);
     Json::Value response(Json::objectValue);
