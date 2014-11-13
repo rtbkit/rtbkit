@@ -40,6 +40,8 @@ init(const string & baseUrl)
         syncChannelFilters();
     };
     addPeriodic("analytics::syncFilters", 10.0, syncFilters);
+
+    initialized = true;
 }
 
 void

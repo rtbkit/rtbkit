@@ -281,7 +281,7 @@ init()
     loopMonitor.addMessageLoop("configListener", &configListener);
     loopMonitor.addMessageLoop("monitorClient", &monitorClient);
     loopMonitor.addMessageLoop("monitorProviderClient", &monitorProviderClient);
-    loopMonitor.addMessageLoop("analytics", &analytics);
+    if (analytics.initialized) loopMonitor.addMessageLoop("analytics", &analytics);
 
     loopMonitor.onLoadChange = [=] (double)
         {

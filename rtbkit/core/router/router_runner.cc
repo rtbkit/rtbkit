@@ -155,13 +155,6 @@ init()
                                       slowModeTimeout, amountSlowModeMoneyLimit);
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
-    router->init();
-
-    const auto amount = Amount::parse(spendRate);
-    banker = bankerArgs.makeBankerWithArgs(proxies,
-                                           router->serviceName() + ".slaveBanker",
-                                           CurrencyPool(amount));
-
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
         if (!analyticsUri.empty()) {
@@ -170,6 +163,12 @@ init()
         else
             LOG(print) << "analytics-uri is not in the config" << endl;
     }
+    router->init();
+
+    const auto amount = Amount::parse(spendRate);
+    banker = bankerArgs.makeBankerWithArgs(proxies,
+                                           router->serviceName() + ".slaveBanker",
+                                           CurrencyPool(amount));
 
     router->setBanker(banker);
     router->bindTcp();
