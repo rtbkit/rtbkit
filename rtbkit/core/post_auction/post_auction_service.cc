@@ -430,7 +430,7 @@ void
 PostAuctionService::
 doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 {
-    if (event->type == MatchedWinLoss::Win) {
+    if (event->type == MatchedWinLoss::Win || event->type == MatchedWinLoss::LateWin) {
         lastWinLoss = Date::now();
         stats.matchedWins++;
     }
