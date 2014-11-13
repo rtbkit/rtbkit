@@ -21,6 +21,7 @@ int main(int argc, char ** argv) {
 
     ChannelFilter channels(
                 { {"AUCTION",       false},
+                  {"BID",           false},
                   {"CLICK",         false},
                   {"CONFIG",        false},
                   {"MARK",          false},
