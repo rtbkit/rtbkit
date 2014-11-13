@@ -218,6 +218,13 @@ initBidderInterface(Json::Value const & json)
 
 void
 Router::
+initAnalytics(const string & baseUrl)
+{
+    analytics.init(baseUrl);
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -274,6 +281,7 @@ init()
     loopMonitor.addMessageLoop("configListener", &configListener);
     loopMonitor.addMessageLoop("monitorClient", &monitorClient);
     loopMonitor.addMessageLoop("monitorProviderClient", &monitorProviderClient);
+    if (analytics.initialized) loopMonitor.addMessageLoop("analytics", &analytics);
 
     loopMonitor.onLoadChange = [=] (double)
         {
@@ -380,6 +388,7 @@ start(boost::function<void ()> onStop)
 
     bidder->start();
     logger.start();
+    analytics.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
 

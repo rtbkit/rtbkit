@@ -35,6 +35,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/monitor/monitor_client.h"
+#include "rtbkit/plugins/analytics/analytics.h"
 
 namespace RTBKIT {
 
@@ -138,6 +139,9 @@ struct Router : public ServiceBase,
 
     /** Initialize the bidder interface. */
     void initBidderInterface(Json::Value const & json);
+
+    /** Initialize analytics if it is used. */
+    void initAnalytics(const std::string & baseUrl);
 
     /** Initialize all of the internal data structures and configuration. */
     void init();
@@ -588,6 +592,8 @@ public:
     {
         logger.publish("ROUTERERROR", Date::now().print(5),
                        function, exception, args...);
+        analytics.publish("ROUTERERROR", Date::now().print(5),
+                       function, exception, args...);
         recordHit("error.%s", function);
     }
 
@@ -684,6 +690,7 @@ public:
         using namespace std;
         //cerr << "********* logging message to " << channel << endl;
         logger.publish(channel, Date::now().print(5), args...);
+        analytics.publish(channel, Date::now().print(5), args...);
     }
 
     /** Log a given message to the given channel. */
@@ -693,6 +700,7 @@ public:
         using namespace std;
         //cerr << "********* logging message to " << channel << endl;
         logger.publish(channel, args...);
+        analytics.publish(channel, args...);
     }
 
     /*************************************************************************/
@@ -733,6 +741,7 @@ public:
     Date getCurrentTime() const { return Date::now(); }
 
     ZmqNamedPublisher logger;
+    AnalyticsClient analytics;
 
     /** Debug only */
     bool doDebug;
