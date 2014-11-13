@@ -2,7 +2,7 @@
       Michael Burkat, 22 Oct 2014
         Copyright (c) 2014 Datacratic.  All rights reserved.
 
-        Analytics plugin used to  
+        Analytics plugin used to
 */
 #pragma once
 
@@ -39,7 +39,7 @@ struct AnalyticsClient : public Datacratic::MessageLoop {
     void shutdown();
 
     void syncChannelFilters();
-    
+
     template<typename... Args>
     void publish(const std::string & channel, const Args & ... args)
     {

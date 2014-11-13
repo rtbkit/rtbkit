@@ -2,7 +2,7 @@
       Michael Burkat, 22 Oct 2014
         Copyright (c) 2014 Datacratic.  All rights reserved.
 
-        Analytics plugin used to  
+        Analytics plugin used to
 */
 
 #include <iostream>
@@ -30,12 +30,12 @@ init(const string & baseUrl)
     client->sendExpect100Continue(false);
     addSource("analytics::client", client);
     cout << "analytics client is initialized" << endl;
-    
+
     auto heartbeat = [&] (uint64_t wakeups) {
         checkHeartbeat();
     };
     addPeriodic("analytics::heartbeat", 1.0, heartbeat);
-    
+
     auto syncFilters = [&] (uint64_t wakeups) {
         syncChannelFilters();
     };
@@ -115,7 +115,7 @@ syncChannelFilters()
                            string && body)
     {
         if (status != 200) return;
-        
+
         Json::Value filters = Json::parse(body);
         if (filters.isObject()) {
             for ( auto it = filters.begin(); it != filters.end(); ++it) {
@@ -216,7 +216,7 @@ init()
                     this,
                     RestParamDefault<string>("channel", "event channel to enable", "")
             );
- 
+
     addRouteSyncReturn(versionNode,
                     "/disable",
                     {"POST", "PUT"},
@@ -228,8 +228,8 @@ init()
                     &AnalyticsRestEndpoint::disableChannel,
                     this,
                     RestParamDefault<string>("channel", "event channel to disable", "")
-            ); 
-    
+            );
+
     addRouteSyncReturn(versionNode,
                     "/enableAll",
                     {"POST", "PUT"},
@@ -240,7 +240,7 @@ init()
                     },
                     &AnalyticsRestEndpoint::enableAllChannels,
                     this
-            ); 
+            );
 
     addRouteSyncReturn(versionNode,
                     "/disableAll",
@@ -292,7 +292,7 @@ AnalyticsRestEndpoint::
 enableChannel(const string & channel)
 {
     {
-        boost::lock_guard<boost::shared_mutex> guard(access); 
+        boost::lock_guard<boost::shared_mutex> guard(access);
         if (!channel.empty() && !channelFilter[channel])
             channelFilter[channel] = true;
     }
@@ -304,7 +304,7 @@ AnalyticsRestEndpoint::
 enableAllChannels()
 {
     {
-        boost::lock_guard<boost::shared_mutex> guard(access); 
+        boost::lock_guard<boost::shared_mutex> guard(access);
         for (auto & channel : channelFilter)
             channel.second = true;
     }
@@ -316,7 +316,7 @@ AnalyticsRestEndpoint::
 disableAllChannels()
 {
     {
-        boost::lock_guard<boost::shared_mutex> guard(access); 
+        boost::lock_guard<boost::shared_mutex> guard(access);
         for (auto & channel : channelFilter)
             channel.second = false;
     }
@@ -328,7 +328,7 @@ AnalyticsRestEndpoint::
 disableChannel(const string & channel)
 {
     {
-        boost::lock_guard<boost::shared_mutex> guard(access); 
+        boost::lock_guard<boost::shared_mutex> guard(access);
         if (!channel.empty() && channelFilter[channel])
             channelFilter[channel] = false;
     }
@@ -344,7 +344,7 @@ bindTcp(int port)
         location = RestServiceEndpoint::bindTcp(PortRange(), PortRange(port));
     else
         location = RestServiceEndpoint::bindTcp(PortRange(), getServices()->ports->getRange("analytics"));
-    
+
     cout << "Analytics listening on http port: " << location.second << endl;
     return location;
 }

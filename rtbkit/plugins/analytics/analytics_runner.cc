@@ -12,11 +12,11 @@ using namespace std;
 using namespace Datacratic;
 
 int main(int argc, char ** argv) {
-    
+
     using namespace boost::program_options;
-    
+
     ServiceProxyArguments serviceArgs;
-    
+
     bool enableAllChannels = false;
 
     ChannelFilter channels(
@@ -79,7 +79,7 @@ int main(int argc, char ** argv) {
 
     if (enableAllChannels)
         analytics.enableAllChannels();
-    
+
     auto addr = analytics.bindTcp();
     cerr << "analytics is listening on " << addr.first << ","
         << addr.second << endl;

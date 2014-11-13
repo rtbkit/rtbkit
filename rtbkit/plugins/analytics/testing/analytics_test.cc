@@ -1,6 +1,6 @@
 /* analytics_test.cc
 
-    Analytics plugin test   
+    Analytics plugin test
 */
 
 
