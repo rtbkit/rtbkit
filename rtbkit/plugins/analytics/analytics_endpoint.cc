@@ -148,6 +148,7 @@ string
 AnalyticsRestEndpoint::
 print(const string & channel, const string & event) const
 {
+    recordHit("channel." + channel);
     cout << channel << " " << event << endl;
     return "success";
 }
