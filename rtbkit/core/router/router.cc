@@ -702,6 +702,13 @@ run()
                               augmentationLoop.numAugmenting(),
                               inFlight.size(),
                               agents.size()));
+            logMessageToAnalytics("MARK",
+                       Date::fromSecondsSinceEpoch(last_check).print(),
+                       format("active: %zd augmenting, %zd inFlight, "
+                              "%zd agents",
+                              augmentationLoop.numAugmenting(),
+                              inFlight.size(),
+                              agents.size()));
 
             dutyCycleCurrent.ending = Date::now();
             dutyCycleHistory.push_back(dutyCycleCurrent);
@@ -960,6 +967,15 @@ logUsageMetrics(double period)
                    delta.auctions,
                    delta.bids,
                    info.config->bidProbability);
+        logMessageToAnalytics("USAGE", "AGENT", p, item.first,
+                   info.config->account.toString(),
+                   delta.intoFilters,
+                   delta.passedStaticFilters,
+                   delta.passedDynamicFilters,
+                   delta.auctions,
+                   delta.bids,
+                   info.config->bidProbability);
+
 
         last = move(newMetrics);
     }
@@ -988,6 +1004,14 @@ logUsageMetrics(double period)
                    delta.numBids,
                    delta.numAuctionsWithBid,
                    acceptAuctionProbability / numExchanges);
+        logMessageToAnalytics("USAGE", "ROUTER", p,
+                   delta.numRequests,
+                   delta.numAuctions,
+                   delta.numNoPotentialBidders,
+                   delta.numBids,
+                   delta.numAuctionsWithBid,
+                   acceptAuctionProbability / numExchanges);
+
 
         lastRouterUsageMetrics = move(newMetrics);
     }
@@ -1186,6 +1210,7 @@ returnErrorResponse(const std::vector<std::string> & message,
     using namespace std;
     if (message.empty()) return;
     logMessage("ERROR", error, message);
+    logMessageToAnalytics("ERROR", error, message);
     const auto& agent = message[0];
     AgentInfo & info = this->agents[agent];
     bidder->sendErrorMessage(info.config, agent, error, message);
@@ -1224,6 +1249,7 @@ returnInvalidBid(
          << formatted << endl;
     cerr << bidData << endl;
 
+    logMessageToAnalytics("INVALID", agentConfig, agent, formatted, auction);
     bidder->sendBidInvalidMessage(agentConfig, agent, formatted, auction);
 }
 
@@ -2028,6 +2054,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
+            this->logMessageToAnalytics("NOBUDGET", agent, auctionId,
+                    bidsString, message.meta);
             continue;
         }
         
@@ -2114,6 +2142,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
 
             this->logMessage(msg, agent, auctionId, bidsString, message.meta);
+            this->logMessageToAnalytics(msg, agent, auctionId, bidsString, message.meta);
             continue;
         }
         case Auction::WinLoss::WIN:
@@ -2133,6 +2162,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         if (logBids)
             // Send BID to logger
             logMessage("BID", agent, auctionId, bidsString, message.meta);
+        logMessageToAnalytics("BID", agent, auctionId, bidsString, message.meta);
         ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
@@ -2362,6 +2392,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (logAuctions)
         // Send AUCTION to logger
         logMessage("AUCTION", auction->id, auction->requestStr);
+    logMessageToAnalytics("AUCTION", auction->id, auction->requestStr);
 
     const BidRequest & request = *auction->request;
     int numFields = 0;
@@ -2446,6 +2477,7 @@ doConfig(const std::string & agent,
     RouterProfiler profiler(dutyCycleCurrent.nsConfig);
     //const string fName = "Router::doConfig:";
     logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
+    logMessageToAnalytics("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
 
     // TODO: no need for this...
     auto newConfig = std::make_shared<AgentConfig>(*config);
