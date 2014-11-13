@@ -432,7 +432,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 
     /* move assignment operator */
     cerr << "testing move assignment op.\n";
-    HttpClient client2("notp://nowhere", 1);
+    HttpClient client2("http://nowhere", 1);
     client2 = move(client1);
     doGet(client2);
 }
