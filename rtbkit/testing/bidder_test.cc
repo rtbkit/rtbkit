@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE( bidder_http_test )
         auto resource = bids.get("resource", "/").asString();
         upstreamBidderConfig["router"]["host"] = "http://" + url;
         upstreamBidderConfig["router"]["path"] = resource;
-        upstreamBidderConfig["adserver"]["host"] = "";
+        upstreamBidderConfig["adserver"]["host"] = "http://invalid-url-but-its-intended.com";
 
 
         upstreamStack.runThen(
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE( bidder_http_test_nobid )
         auto resource = bids.get("resource", "/").asString();
         upstreamBidderConfig["router"]["host"] = "http://" + url;
         upstreamBidderConfig["router"]["path"] = resource;
-        upstreamBidderConfig["adserver"]["host"] = "";
+        upstreamBidderConfig["adserver"]["host"] = "http://invalid-url-but-its-intended.com";
 
 
         upstreamStack.runThen(
@@ -250,7 +250,7 @@ BOOST_AUTO_TEST_CASE( multi_bidder_test )
         auto &httpIface = upstreamBidderConfig["interfaces"][1]["iface.http"];
         httpIface["router"]["host"] = "http://" + url;
         httpIface["router"]["path"] = resource;
-        httpIface["adserver"]["host"] = "";
+        httpIface["adserver"]["host"] = "http://invalid-url-but-its-intended.com";
 
         upstreamStack.runThen(upstreamRouterConfig, upstreamBidderConfig, USD_CPM(10),
                               100,
