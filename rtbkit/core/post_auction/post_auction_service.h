@@ -18,7 +18,7 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_named_pub_sub.h"
 #include "soa/service/zmq_message_router.h"
-#include "rtbkit/plugins/analytics/analytics.h"
+#include "rtbkit/common/analytics_publisher.h"
 
 namespace RTBKIT {
 
@@ -308,7 +308,7 @@ private:
 
     ZmqMessageRouter router;
 
-    AnalyticsClient analytics;
+    AnalyticsPublisher analytics;
 };
 
 } // namespace RTBKIT

@@ -30,12 +30,12 @@
 #include <thread>
 #include "rtbkit/common/exchange_connector.h"
 #include "rtbkit/common/post_auction_proxy.h"
+#include "rtbkit/common/analytics_publisher.h"
 #include "rtbkit/core/agent_configuration/blacklist.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/monitor/monitor_client.h"
-#include "rtbkit/plugins/analytics/analytics.h"
 
 namespace RTBKIT {
 
@@ -741,7 +741,7 @@ public:
     Date getCurrentTime() const { return Date::now(); }
 
     ZmqNamedPublisher logger;
-    AnalyticsClient analytics;
+    AnalyticsPublisher analytics;
 
     /** Debug only */
     bool doDebug;

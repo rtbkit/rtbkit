@@ -10,7 +10,8 @@
 #include <boost/test/unit_test.hpp>
 #include "jml/arch/timers.h"
 
-#include "rtbkit/plugins/analytics/analytics.h"
+#include "rtbkit/plugins/analytics/analytics_endpoint.h"
+#include "rtbkit/common/analytics_publisher.h"
 
 using namespace std;
 using namespace ML;
@@ -25,9 +26,9 @@ void setUpEndpoint(shared_ptr<AnalyticsRestEndpoint> & analyticsEndpoint)
     analyticsEndpoint->start();
 }
 
-void setUpClient(shared_ptr<AnalyticsClient> & analyticsClient)
+void setUpClient(shared_ptr<AnalyticsPublisher> & analyticsClient)
 {
-    analyticsClient = make_shared<AnalyticsClient> ();
+    analyticsClient = make_shared<AnalyticsPublisher> ();
     analyticsClient->init("http://127.0.0.1:40000");
     analyticsClient->start();
 }
@@ -37,7 +38,7 @@ BOOST_AUTO_TEST_CASE( analytics_simple_message_test )
     shared_ptr<AnalyticsRestEndpoint> analyticsEndpoint;
     setUpEndpoint(analyticsEndpoint);
 
-    shared_ptr<AnalyticsClient> analyticsClient;
+    shared_ptr<AnalyticsPublisher> analyticsClient;
     setUpClient(analyticsClient);
 
     // must sleep to let the heartbeat make a connection,
@@ -92,7 +93,7 @@ BOOST_AUTO_TEST_CASE( analytics_filter_sync_test )
     shared_ptr<AnalyticsRestEndpoint> analyticsEndpoint;
     setUpEndpoint(analyticsEndpoint);
 
-    shared_ptr<AnalyticsClient> analyticsClient;
+    shared_ptr<AnalyticsPublisher> analyticsClient;
     setUpClient(analyticsClient);
 
     analyticsEndpoint->enableChannel("Test");

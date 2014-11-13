@@ -9,7 +9,6 @@
 #include "events.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_named_pub_sub.h"
-#include "rtbkit/plugins/analytics/analytics.h"
 
 using namespace std;
 using namespace ML;
@@ -174,7 +173,7 @@ publish(ZmqNamedPublisher& logger) const
 
 void
 MatchedWinLoss::
-publish(AnalyticsClient& logger) const
+publish(AnalyticsPublisher & logger) const
 {
     logger.publish(
             "MATCHED" + typeString(),
@@ -263,7 +262,7 @@ publish(ZmqNamedPublisher& logger) const
 
 void
 MatchedCampaignEvent::
-publish(AnalyticsClient & logger) const
+publish(AnalyticsPublisher & logger) const
 {
     logger.publish(
             "MATCHED" + label,
@@ -313,7 +312,7 @@ publish(ZmqNamedPublisher& logger) const
 
 void
 UnmatchedEvent::
-publish(AnalyticsClient & logger) const
+publish(AnalyticsPublisher & logger) const
 {
     logger.publish(
             "UNMATCHED" + string(print(event.type)),
@@ -348,7 +347,7 @@ publish(ZmqNamedPublisher& logger) const
 
 void
 PostAuctionErrorEvent::
-publish(AnalyticsClient & logger) const
+publish(AnalyticsPublisher & logger) const
 {
     logger.publish("PAERROR", publishTimestamp(), key, message);
 }

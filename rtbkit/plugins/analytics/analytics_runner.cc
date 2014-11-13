@@ -1,6 +1,6 @@
 
 #include <string>
-#include "analytics.h"
+#include "analytics_endpoint.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -24,6 +24,7 @@ int main(int argc, char ** argv) {
                   {"BID",           false},
                   {"CLICK",         false},
                   {"CONFIG",        false},
+                  {"ERROR",         false},
                   {"MARK",          false},
                   {"MATCHEDCLICK",  false},
                   {"MATCHEDLOSS",   false},

@@ -10,7 +10,6 @@
 #include "simple_event_matcher.h"
 #include "sharded_event_matcher.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/plugins/analytics/analytics.h"
 
 using namespace std;
 using namespace Datacratic;
