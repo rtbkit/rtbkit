@@ -43,7 +43,8 @@ PostAuctionRunner() :
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
-    analyticsOn(false)
+    analyticsOn(false),
+    analyticsConnections(1)
 {
 }
 
@@ -69,7 +70,9 @@ doOptions(int argc, char ** argv,
         ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
          "Timeout before sending error on CampaignEvent pipe")
         ("analytics,a", bool_switch(&analyticsOn),
-         "Send data to analytics logger.");
+         "Send data to analytics logger.")
+        ("analytics-connections", value<int>(&analyticsConnections),
+         "Number of connections for the analytics publisher.");
 
     options_description all_opt = opts;
     all_opt
@@ -122,7 +125,7 @@ init()
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
         if (!analyticsUri.empty()) {
-            postAuctionLoop->initAnalytics(analyticsUri);
+            postAuctionLoop->initAnalytics(analyticsUri, analyticsConnections);
         }
         else
             LOG(print) << "analytics-uri is not in the config" << endl;

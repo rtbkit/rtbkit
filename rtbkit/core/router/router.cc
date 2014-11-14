@@ -218,9 +218,9 @@ initBidderInterface(Json::Value const & json)
 
 void
 Router::
-initAnalytics(const string & baseUrl)
+initAnalytics(const string & baseUrl, const int numConnections)
 {
-    analytics.init(baseUrl);
+    analytics.init(baseUrl, numConnections);
 }
 
 void

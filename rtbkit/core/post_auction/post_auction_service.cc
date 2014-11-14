@@ -207,10 +207,10 @@ initConnections(size_t shard)
 
 void
 PostAuctionService::
-initAnalytics(const string & baseUrl)
+initAnalytics(const string & baseUrl, const int numConnections)
 {
     LOG(print) << "analyticsURI: " << baseUrl << endl;
-    analytics.init(baseUrl);
+    analytics.init(baseUrl, numConnections);
 }
 
 void

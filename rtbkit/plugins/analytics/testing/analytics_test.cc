@@ -29,7 +29,7 @@ void setUpEndpoint(shared_ptr<AnalyticsRestEndpoint> & analyticsEndpoint)
 void setUpClient(shared_ptr<AnalyticsPublisher> & analyticsClient)
 {
     analyticsClient = make_shared<AnalyticsPublisher> ();
-    analyticsClient->init("http://127.0.0.1:40000");
+    analyticsClient->init("http://127.0.0.1:40000", 1);
     analyticsClient->start();
 }
 

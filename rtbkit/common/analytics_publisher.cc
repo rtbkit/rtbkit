@@ -21,9 +21,9 @@ using namespace Datacratic;
 
 void
 AnalyticsPublisher::
-init(const string & baseUrl)
+init(const string & baseUrl, const int numConnections)
 {
-    client = make_shared<HttpClient>(baseUrl, 1);
+    client = make_shared<HttpClient>(baseUrl, numConnections);
     client->sendExpect100Continue(false);
     addSource("analytics::client", client);
     cout << "analytics client is initialized" << endl;
