@@ -18,7 +18,7 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_named_pub_sub.h"
 #include "soa/service/zmq_message_router.h"
-#include "rtbkit/plugins/analytics/analytics.h"
+#include "rtbkit/common/analytics_publisher.h"
 
 namespace RTBKIT {
 
@@ -47,7 +47,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
     void initBidderInterface(Json::Value const & json);
     void init(size_t externalShard = 0, size_t internalShards = 1);
-    void initAnalytics(const std::string & baseUrl);
+    void initAnalytics(const std::string & baseUrl, const int numConnections);
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
 
@@ -308,7 +308,7 @@ private:
 
     ZmqMessageRouter router;
 
-    AnalyticsClient analytics;
+    AnalyticsPublisher analytics;
 };
 
 } // namespace RTBKIT

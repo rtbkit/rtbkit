@@ -30,12 +30,12 @@
 #include <thread>
 #include "rtbkit/common/exchange_connector.h"
 #include "rtbkit/common/post_auction_proxy.h"
+#include "rtbkit/common/analytics_publisher.h"
 #include "rtbkit/core/agent_configuration/blacklist.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/monitor/monitor_client.h"
-#include "rtbkit/plugins/analytics/analytics.h"
 
 namespace RTBKIT {
 
@@ -141,7 +141,7 @@ struct Router : public ServiceBase,
     void initBidderInterface(Json::Value const & json);
 
     /** Initialize analytics if it is used. */
-    void initAnalytics(const std::string & baseUrl);
+    void initAnalytics(const std::string & baseUrl, const int numConnections);
 
     /** Initialize all of the internal data structures and configuration. */
     void init();
@@ -690,6 +690,12 @@ public:
         using namespace std;
         //cerr << "********* logging message to " << channel << endl;
         logger.publish(channel, Date::now().print(5), args...);
+    }
+
+    /** Log a given message to analytics endpoint on given channel. */
+    template<typename... Args>
+    void logMessageToAnalytics(const std::string & channel, Args... args)
+    {
         analytics.publish(channel, Date::now().print(5), args...);
     }
 
@@ -700,7 +706,6 @@ public:
         using namespace std;
         //cerr << "********* logging message to " << channel << endl;
         logger.publish(channel, args...);
-        analytics.publish(channel, args...);
     }
 
     /*************************************************************************/
@@ -741,7 +746,7 @@ public:
     Date getCurrentTime() const { return Date::now(); }
 
     ZmqNamedPublisher logger;
-    AnalyticsClient analytics;
+    AnalyticsPublisher analytics;
 
     /** Debug only */
     bool doDebug;

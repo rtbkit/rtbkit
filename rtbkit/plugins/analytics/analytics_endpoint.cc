@@ -1,14 +1,14 @@
-/** analytics.h                                     -*- C++ -*-
+/** analytics_endpoint.cc                                     -*- C++ -*-
       Michael Burkat, 22 Oct 2014
         Copyright (c) 2014 Datacratic.  All rights reserved.
 
-        Analytics plugin used to
+        Analytics endpoint used to log events on different channels.
 */
 
 #include <iostream>
 #include <functional>
 
-#include "analytics.h"
+#include "analytics_endpoint.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/http_client.h"
 #include "soa/service/rest_request_binding.h"
@@ -17,118 +17,6 @@
 
 using namespace std;
 using namespace Datacratic;
-
-/********************************************************************************/
-/* ANALYTICS CLIENT                                                             */
-/********************************************************************************/
-
-void
-AnalyticsClient::
-init(const string & baseUrl)
-{
-    client = make_shared<HttpClient>(baseUrl, 1);
-    client->sendExpect100Continue(false);
-    addSource("analytics::client", client);
-    cout << "analytics client is initialized" << endl;
-
-    auto heartbeat = [&] (uint64_t wakeups) {
-        checkHeartbeat();
-    };
-    addPeriodic("analytics::heartbeat", 1.0, heartbeat);
-
-    auto syncFilters = [&] (uint64_t wakeups) {
-        syncChannelFilters();
-    };
-    addPeriodic("analytics::syncFilters", 10.0, syncFilters);
-
-    initialized = true;
-}
-
-void
-AnalyticsClient::
-start()
-{
-    MessageLoop::start();
-}
-
-void
-AnalyticsClient::
-shutdown()
-{
-    MessageLoop::shutdown();
-}
-
-void
-AnalyticsClient::
-sendEvent(const string & channel, const string & event)
-{
-    auto onResponse = [] (const HttpRequest & rq,
-            HttpClientError error,
-            int status,
-            string && headers,
-            string && body)
-    {
-        if (status != 200) {
-            cout << "status: " << status << endl
-                 << "error: " << error << endl;
-        }
-    };
-    string ressource("/v1/event");
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    Json::Value payload(Json::objectValue);
-    payload["channel"] = channel;
-    payload["event"] = event;
-    client->post(ressource, cbs, payload);
-}
-
-void
-AnalyticsClient::
-checkHeartbeat()
-{
-    auto onResponse = [&] (const HttpRequest & rq,
-                          HttpClientError error,
-                          int status,
-                          string && headers,
-                          string && body)
-    {
-        if (status == 200) {
-            if (!live) {
-                live = true;
-                syncChannelFilters();
-            }
-        }
-        else live = false;
-    };
-    string ressource("/heartbeat");
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    client->get(ressource, cbs);
-}
-
-void
-AnalyticsClient::
-syncChannelFilters()
-{
-    auto onResponse = [&] (const HttpRequest & rq,
-                           HttpClientError error,
-                           int status,
-                           string && headers,
-                           string && body)
-    {
-        if (status != 200) return;
-
-        Json::Value filters = Json::parse(body);
-        if (filters.isObject()) {
-            for ( auto it = filters.begin(); it != filters.end(); ++it) {
-                channelFilter[it.memberName()] = (*it).asBool();
-            }
-        }
-    };
-    if (!live) return;
-    string ressource("/v1/channels");
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    client->get(ressource, cbs);
-}
-
 
 /********************************************************************************/
 /* ANALYTICS REST ENDPOINT                                                      */
@@ -260,6 +148,7 @@ string
 AnalyticsRestEndpoint::
 print(const string & channel, const string & event) const
 {
+    recordHit("channel." + channel);
     cout << channel << " " << event << endl;
     return "success";
 }
