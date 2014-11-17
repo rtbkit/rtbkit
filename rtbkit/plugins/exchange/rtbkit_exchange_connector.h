@@ -63,6 +63,9 @@ struct RTBKitExchangeConnector : public OpenRTBExchangeConnector {
     parseBidRequest(HttpAuctionHandler &connection,
                     const HttpHeader &header,
                     const std::string &payload);
+
+    virtual void
+    adjustAuction(std::shared_ptr<Auction>& auction) const;
 protected:
 
     virtual void
