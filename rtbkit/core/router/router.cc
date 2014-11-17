@@ -702,13 +702,6 @@ run()
                               augmentationLoop.numAugmenting(),
                               inFlight.size(),
                               agents.size()));
-            logMessageToAnalytics("MARK",
-                       Date::fromSecondsSinceEpoch(last_check).print(),
-                       format("active: %zd augmenting, %zd inFlight, "
-                              "%zd agents",
-                              augmentationLoop.numAugmenting(),
-                              inFlight.size(),
-                              agents.size()));
 
             dutyCycleCurrent.ending = Date::now();
             dutyCycleHistory.push_back(dutyCycleCurrent);
