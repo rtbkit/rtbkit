@@ -138,5 +138,14 @@ BOOST_AUTO_TEST_CASE(time_period_op_plus_equal)
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(yearly + minutely, ML::Exception);
     }
+
+    {
+        TimePeriod t;
+
+        t += "1s";
+        BOOST_CHECK_EQUAL(t.granularity, SECONDS);
+        BOOST_CHECK_EQUAL(t.number, 1);
+        BOOST_CHECK_EQUAL(t.interval, 1);
+    }
 }
 #endif
