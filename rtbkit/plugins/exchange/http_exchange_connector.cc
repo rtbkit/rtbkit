@@ -309,7 +309,6 @@ handleUnknownRequest(HttpAuctionHandler & connection,
 
     // Otherwise, it's an error
     connection.sendErrorResponse("UNKNOWN_RESOURCE", "There is no handler for the requested resource '" + header.resource + "'");
-    onAuctionError(string("EXCHANGE_ERROR"), {}, string("UNKNOWN_RESOURCE There is no handler for requested resource '" + header.resource + "'"));
 }
 
 ExchangeConnector::ExchangeCompatibility

@@ -48,16 +48,26 @@ init(shared_ptr<ConfigurationService> config)
 
 void
 AdServerConnector::
+initAnalytics(const string & baseUrl, const int numConnections)
+{
+    cout << "analyticsURI: " << baseUrl << endl;
+    toAnalyticsService_.init(baseUrl, numConnections);
+}
+
+void
+AdServerConnector::
 start()
 {
     startTime_ = Date::now();
     recordHit("up");
+    toAnalyticsService_.start();
 }
 
 void
 AdServerConnector::
 shutdown()
 {
+    toAnalyticsService_.shutdown();
 }
 
 void
@@ -94,6 +104,7 @@ publishWin(const Id & bidRequestId,
     event.bidTimestamp = bidTimestamp;
 
     toPostAuctionService_.sendEvent(event);
+    toAnalyticsService_.publish("WIN", event.print());
 }
 
 void
@@ -118,6 +129,7 @@ publishLoss(const Id & bidRequestId,
     event.bidTimestamp = bidTimestamp;
 
     toPostAuctionService_.sendEvent(event);
+    toAnalyticsService_.publish("LOSS", event.print());
 }
 
 void
@@ -142,6 +154,7 @@ publishCampaignEvent(const string & label,
     event.metadata = impressionMeta;
 
     toPostAuctionService_.sendEvent(event);
+    toAnalyticsService_.publish("CLICK", event.print());
 }
 
 void

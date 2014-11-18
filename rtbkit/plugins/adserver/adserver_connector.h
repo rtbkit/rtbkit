@@ -16,6 +16,7 @@
 #include "rtbkit/common/bid_request.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/common/post_auction_proxy.h"
+#include "rtbkit/common/analytics_publisher.h"
 
 
 namespace RTBKIT {
@@ -31,6 +32,8 @@ struct AdServerConnector : public Datacratic::ServiceBase {
     virtual ~AdServerConnector();
 
     void init(std::shared_ptr<ConfigurationService> config);
+    void initAnalytics(const std::string & baseUrl, const int numConnections);
+
     virtual void shutdown();
 
     virtual void start();
@@ -98,6 +101,9 @@ struct AdServerConnector : public Datacratic::ServiceBase {
 private:
     // Connection to the post auction loops
     PostAuctionProxy toPostAuctionService_;
+
+    // Connection to analytics
+    AnalyticsPublisher toAnalyticsService_;
 
     // later... when we have multiple services
     //ZmqMultipleNamedClientBusProxy toPostAuctionServices;

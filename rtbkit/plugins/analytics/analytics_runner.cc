@@ -25,6 +25,7 @@ int main(int argc, char ** argv) {
                   {"CLICK",         false},
                   {"CONFIG",        false},
                   {"ERROR",         false},
+                  {"EXCHANGE_ERROR",false},
                   {"MATCHEDCLICK",  false},
                   {"MATCHEDLOSS",   false},
                   {"MATCHEDWIN",    false},

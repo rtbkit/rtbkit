@@ -2429,11 +2429,11 @@ onAuctionError(const std::string & channel,
                const std::string & message)
 {
     if (auction) {
-        cout << channel << " " << auction->requestStr << " " << message << endl;
+//         cout << channel << " " << auction->requestStr << " " << message << endl;
         logMessageToAnalytics(channel, auction->requestStr, message);
     }
     else {
-        cout << channel << " " << message << endl;
+//         cout << channel << " " << message << endl;
         logMessageToAnalytics(channel, message);
     }
 }
