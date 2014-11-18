@@ -9,11 +9,120 @@
 #include <boost/tuple/tuple.hpp>
 #include "jml/utils/exc_assert.h"
 
-
 using namespace std;
+using namespace Datacratic;
 
+
+namespace {
+
+TimeGranularity granularities[] = {
+    MILLISECONDS,
+    SECONDS,
+    MINUTES,
+    HOURS,
+    DAYS,
+    WEEKS,
+    MONTHS,
+    YEARS
+};
+
+size_t maxGranularity = (sizeof(granularities) / sizeof(TimeGranularity));
+
+int granularityIndex(TimeGranularity granularity)
+{
+    for (size_t i = 0; i < maxGranularity; i++) {
+        if (granularities[i] == granularity) {
+            return i;
+        }
+    }
+
+    throw ML::Exception("granularity not found");
+}
+
+}
 
 namespace Datacratic {
+
+TimeGranularity operator + (TimeGranularity granularity, int steps)
+{
+    int i = granularityIndex(granularity);
+
+    if (steps > 0) {
+        if (i + steps >= maxGranularity) {
+            throw ML::Exception("granularity index would be too high");
+        }
+    }
+    else if (steps < 0) {
+        if (i + steps < 0) {
+            throw ML::Exception("granularity index would be negative");
+        }
+    }
+
+    return granularities[i + steps];
+}
+
+/** Returns whether one granularity unit can be translated to the other. */
+bool canTranslateGranularity(TimeGranularity sourceGranularity,
+                             TimeGranularity destGranularity)
+{
+    /* We have 2 families of granularities: one based on
+       milliseconds and the other based on months. They are incompatible with
+       one another but they share characteristics which enables the
+       simplification of this code :
+       - the source granularity unit must be >= to the destination unit
+       - both units must be from the same family
+    */
+    if (sourceGranularity == destGranularity) {
+        return true;
+    }
+    else if (destGranularity > sourceGranularity) {
+        return false;
+    }
+    else if (sourceGranularity < MONTHS) {
+        return true;
+    }
+    else if (sourceGranularity == YEARS) {
+        return destGranularity == MONTHS;
+    }
+
+    throw ML::Exception("we should never get here");
+}
+
+/** Number of units of one granularity that first in the other granularity. */
+int granularityMultiplier(TimeGranularity sourceGranularity,
+                          TimeGranularity destGranularity)
+{
+    if (!canTranslateGranularity(sourceGranularity, destGranularity)) {
+        throw ML::Exception("specified granularities are incompatible with"
+                            " each other");
+    }
+
+    int fromIndex = granularityIndex(destGranularity);
+    int toIndex = granularityIndex(sourceGranularity);
+    if (fromIndex > toIndex) {
+        throw ML::Exception("the source granularity must be bigger that the"
+                            " destination");
+    }
+
+    int multiplier(1);
+
+    const int msMults[] = { 1000, 60, 60, 24, 7 };
+    const int monthsMults[] = { 12 };
+    const int * multipliers;
+    if (sourceGranularity < MONTHS) {
+        multipliers = msMults;
+    }
+    else {
+        multipliers = monthsMults;
+    }
+
+    int offset = fromIndex >= 6 ? 6 : 0;
+    for (int i = fromIndex; i < toIndex; i++) {
+        multiplier *= multipliers[i - offset];
+    }
+
+    return multiplier;
+}
 
 std::pair<TimeGranularity, double>
 parsePeriod(const std::string & pattern)
@@ -144,7 +253,7 @@ findPeriod(Date current, TimeGranularity granularity, double number_)
 	break;
 
     default:
-        throw ML::Exception("that granualrity is not supported");
+        throw ML::Exception("that granularity is not supported");
     }
 
     return make_pair(result, interval);
@@ -218,6 +327,34 @@ parse(const std::string & str)
 {
     std::tie(granularity, number) = parsePeriod(str);
     interval = findPeriod(Date(), granularity, number).second;
+}
+
+TimePeriod
+TimePeriod::
+operator + (const TimePeriod & other)
+    const
+{
+    TimePeriod result;
+
+    int thisIndex = granularityIndex(granularity);
+    int otherIndex = granularityIndex(other.granularity);
+
+    if (thisIndex < otherIndex) {
+        int multiplier
+            = granularityMultiplier(other.granularity, granularity);
+        result.number = number + multiplier * other.number;
+        result.granularity = granularity;
+    }
+    else {
+        int multiplier
+            = granularityMultiplier(granularity, other.granularity);
+        result.number = other.number + multiplier * number;
+        result.granularity = other.granularity;
+    }
+
+    result.interval = interval + other.interval;
+
+    return result;
 }
 
 } // namespace Datacratic
