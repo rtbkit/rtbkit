@@ -5,9 +5,9 @@ LIBARCH_SOURCES := \
 	cpuid.cc \
 	simd.cc \
 	exception.cc \
+	exception_handler.cc \
 	backtrace.cc \
         format.cc \
-	exception_handler.cc \
 	gpgpu.cc \
 	environment_static.cc \
 	cpu_info.cc \
@@ -16,21 +16,19 @@ LIBARCH_SOURCES := \
 	rtti_utils.cc \
 	rt.cc
 
-$(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
-
-$(eval $(call add_sources,$(LIBARCH_SOURCES)))
-$(eval $(call add_sources,exception_hook.cc))
-$(eval $(call add_sources,node_exception_tracing.cc))
-
-LIBARCH_LINK :=	ACE dl
+LIBARCH_LINK := ACE dl
 
 ifneq ($(BOOST_VERSION),42)
 LIBARCH_LINK += boost_system
 endif
 
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
-$(eval $(call library,exception_hook,exception_hook.cc,dl))
-$(eval $(call library,node_exception_tracing,node_exception_tracing.cc,dl))
+$(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
+
+$(eval $(call library,exception_hook,exception_hook.cc,arch dl))
+
+$(eval $(call library,node_exception_tracing,node_exception_tracing.cc,exception_hook arch dl))
+
 
 ifeq ($(CUDA_ENABLED),1)
 

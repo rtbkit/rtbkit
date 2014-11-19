@@ -12,6 +12,7 @@
 #include "jml/arch/cmp_xchg.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/exception.h"
+#include "jml/utils/guard.h"
 #include "jml/utils/string_functions.h"
 
 #include "soa/service/message_loop.h"
@@ -170,6 +171,11 @@ HttpClient(const string & baseUrl, int numParallel)
       avlConnections_(numParallel),
       nextAvail_(0)
 {
+    bool success(false);
+    ML::Call_Guard guard([&] () {
+        if (!success) { cleanupFds(); }
+    });
+
     fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (fd_ == -1) {
         throw ML::Exception(errno, "epoll_create");
@@ -201,6 +207,8 @@ HttpClient(const string & baseUrl, int numParallel)
     if (rc != ::CURLM_OK) {
         throw ML::Exception("curl error " + to_string(rc));
     }
+
+    success = true;
 }
 
 HttpClient::
@@ -233,12 +241,7 @@ HttpClient(HttpClient && other)
 HttpClient::
 ~HttpClient()
 {
-    if (fd_ != -1) {
-        ::close(fd_);
-    }
-    if (timerFd_ != -1) {
-        ::close(timerFd_);
-    }
+    cleanupFds();
 }
 
 void
@@ -246,6 +249,13 @@ HttpClient::
 sendExpect100Continue(bool value)
 {
     expect100Continue = value;
+}
+
+void
+HttpClient::
+toggleTcpNoDelay(bool value)
+{
+    tcpNoDelay = value;
 }
 
 void
@@ -297,6 +307,10 @@ addFd(int fd, bool isMod, int flags)
     int rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
                          fd, &event);
     if (rc == -1) {
+        rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
+                         fd, &event);
+    }
+    if (rc == -1) {
 	if (errno != EBADF) {
             throw ML::Exception(errno, "epoll_ctl");
         }
@@ -336,6 +350,7 @@ popRequests(size_t number)
 {
     std::vector<HttpRequest> requests;
     number = min(number, queue_.size());
+    requests.reserve(number);
 
     {
         Guard guard(queueLock_);
@@ -353,6 +368,19 @@ HttpClient::
 queuedRequests() const {
     Guard guard(queueLock_);
     return queue_.size();
+}
+
+void
+HttpClient::
+cleanupFds()
+    noexcept
+{
+    if (timerFd_ != -1) {
+        ::close(timerFd_);
+    }
+    if (fd_ != -1) {
+        ::close(fd_);
+    }
 }
 
 int
@@ -424,7 +452,7 @@ handleWakeupEvent()
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks, expect100Continue, debug_);
+            conn->perform(noSSLChecks, expect100Continue, tcpNoDelay, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -636,7 +664,7 @@ HttpConnection()
 void
 HttpClient::
 HttpConnection::
-perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
+perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -696,6 +724,9 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
     }
     if (debug) {
         easy_.setOpt<curlopt::Verbose>(1L);
+    }
+    if (tcpNoDelay) {
+        easy_.setOpt<curlopt::TcpNoDelay>(true);
     }
 }
 

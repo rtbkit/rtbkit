@@ -31,7 +31,7 @@ namespace ML {
 
     Starts off at null which means that no hook is installed.
 */
-extern void (*exception_tracer) (void *, const std::type_info *);
+extern bool (*exception_tracer) (void *, const std::type_info *);
 
 } // namespace ML
 

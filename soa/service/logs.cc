@@ -20,21 +20,46 @@ void Logging::ConsoleWriter::head(char const * timestamp,
                                   char const * function,
                                   char const * file,
                                   int line) {
-    stream << timestamp << " " << " \033[1;32m" << name << " ";
+    if(color) {
+        stream << timestamp << " " << "\033[1;32m" << name << " ";
+    }
+    else {
+        stream << timestamp << " " << name << " ";
+    }
 }
 
 void Logging::ConsoleWriter::body(std::string const & content) {
     if(color) {
-        stream << " \033[1;34m";
+        stream << "\033[1;34m";
         stream.write(content.c_str(), content.size() - 1);
-        stream << "\033[0m\n";
+        stream << "\033[0m";
     }
     else {
-        stream << " " << content;
+        stream << content;
     }
 
     std::cerr << stream.str();
     stream.str("");
+}
+
+void Logging::FileWriter::head(char const * timestamp,
+                               char const * name,
+                               char const * function,
+                               char const * file,
+                               int line) {
+    stream << timestamp << " " << name << " ";
+}
+
+void Logging::FileWriter::body(std::string const & content) {
+    file << stream.str() << content;
+    stream.str("");
+}
+
+void Logging::FileWriter::open(char const * filename) {
+    file.open(filename);
+    if(!file) {
+        std::cerr << "unable to open log file '" << filename << "'" << std::endl;
+    }
 }
 
 void Logging::JsonWriter::head(char const * timestamp,
@@ -53,7 +78,13 @@ void Logging::JsonWriter::head(char const * timestamp,
 void Logging::JsonWriter::body(std::string const & content) {
     stream.write(content.c_str(), content.size() - 1);
     stream << "\"}\n";
-    std::cerr << stream.str();
+    if(!writer) {
+        std::cerr << stream.str();
+    }
+    else {
+        writer->body(stream.str());
+    }
+
     stream.str("");
 }
 

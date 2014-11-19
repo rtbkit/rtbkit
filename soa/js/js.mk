@@ -11,7 +11,7 @@ LIBJS_SOURCES := \
 	js_registry.cc \
 	js_call.cc
 
-LIBJS_LINK := jsoncpp $(NODE_V8_LIB) node_exception_tracing arch utils types
+LIBJS_LINK := jsoncpp $(NODE_V8_LIB) arch utils types
 
 $(eval $(call library,js,$(LIBJS_SOURCES),$(LIBJS_LINK)))
 

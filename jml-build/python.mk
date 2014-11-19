@@ -27,8 +27,10 @@ PYTHON_EXECUTABLE ?= $(VIRTUALENV)/bin/python
 
 endif
 
-python_dependencies: python_requirements.txt
-	$(PIP) install -r python_requirements.txt
+python_dependencies:
+	@if [ -f python_requirements.txt ]; then \
+		$(PIP) install -r python_requirements.txt; \
+	fi
 
 # Loop over the python_extra_requirements.txt file and install packages in
 # order. We did that because the package "statsmodels" does not handle

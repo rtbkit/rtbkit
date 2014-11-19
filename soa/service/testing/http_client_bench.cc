@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
             baseUrl = "http://" + clientiface;
         }
 
-        ::printf("model\tconc.\treqs\tsize\ttime_secs\tqps\n");
+        ::printf("model\tconc.\treqs\tsize\ttime_secs\tBps\tqps\n");
 
         HttpMethod httpMethod;
         if (method == "GET") {
@@ -264,8 +264,9 @@ int main(int argc, char *argv[])
             throw ML::Exception("invalid 'model'");
         }
         double qps = maxReqs / delta;
-        ::printf("%d\t%lu\t%lu\t%lu\t%f\t%f\n",
-                 model, concurrency, maxReqs, payloadSize, delta, qps);
+        double bps = double(maxReqs * payload.size()) / delta;
+        ::printf("%d\t%lu\t%lu\t%lu\t%f\t%f\t%f\n",
+                 model, concurrency, maxReqs, payloadSize, delta, bps, qps);
     }
     else {
         while (1) {
