@@ -242,6 +242,12 @@ parseBidRequest(HttpAuctionHandler & connection,
     throw ML::Exception("need to override HttpExchangeConnector::parseBidRequest");
 }
 
+void
+HttpExchangeConnector::
+adjustAuction(std::shared_ptr<Auction>& auction) const
+{
+}
+
 double
 HttpExchangeConnector::
 getTimeAvailableMs(HttpAuctionHandler & connection,
