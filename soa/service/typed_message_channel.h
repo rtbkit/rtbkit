@@ -189,8 +189,8 @@ struct TypedMessageQueue: public AsyncEventSource
 
     /* number of messages present in the queue */
     uint64_t size()
+        const
     {
-        Guard guard(queueLock_);
         return queue_.size();
     }
 

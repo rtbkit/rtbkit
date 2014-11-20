@@ -64,6 +64,28 @@ parseBidRequest(HttpAuctionHandler &connection,
 
 void
 RTBKitExchangeConnector::
+adjustAuction(std::shared_ptr<Auction>& auction) const
+{
+    const auto& ext = auction->request->ext;
+    if (ext.isMember("rtbkit")) {
+        const auto& rtbkit = ext["rtbkit"];
+        if (rtbkit.isMember("augmentationList")) {
+
+            auto& augmentations = auction->augmentations;
+            const auto& augmentationList = rtbkit["augmentationList"];
+            for (auto it = augmentationList.begin(), end = augmentationList.end();
+                 it != end; ++it) {
+                std::string augmentor = it.memberName();
+
+                auto augList = AugmentationList::fromJson(*it);
+                augmentations[augmentor].mergeWith(augList);
+            }
+        }
+    }
+}
+
+void
+RTBKitExchangeConnector::
 setSeatBid(const Auction & auction,
            int spotNum,
            OpenRTB::BidResponse &response) const

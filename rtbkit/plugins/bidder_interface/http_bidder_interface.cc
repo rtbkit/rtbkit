@@ -475,8 +475,20 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
                                          const std::map<std::string, BidInfo> &bidders) const {
     tagRequest(request, bidders);
 
-    // We update the tmax value before sending the BidRequest to substract our processing time
+    // Take any augmentation data and fill in the ext field of the bid request with the data,
+    // under the rtbkit "namespace"
+    const auto& augmentations = auction->augmentations;
+    if (!augmentations.empty()) {
+        Json::Value augJson(Json::objectValue);
+        for (const auto& augmentor: augmentations) {
+            augJson[augmentor.first] = augmentor.second.toJson();
+        }
 
+        request.ext["rtbkit"]["augmentationList"] = augJson;
+    }
+
+
+    // We update the tmax value before sending the BidRequest to substract our processing time
     Date auctionExpiry = auction->expiry;
     double remainingTimeMs = auctionExpiry.secondsSince(Date::now()) * 1000;
     if (remainingTimeMs < 0) {

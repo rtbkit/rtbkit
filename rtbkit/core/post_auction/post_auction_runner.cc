@@ -4,6 +4,7 @@
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 */
 
+#include <string>
 #include "post_auction_runner.h"
 #include "post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
@@ -41,7 +42,9 @@ PostAuctionRunner() :
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
-    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout)
+    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
+    analyticsOn(false),
+    analyticsConnections(1)
 {
 }
 
@@ -65,7 +68,11 @@ doOptions(int argc, char ** argv,
         ("winlossPipe-seconds", value<int>(&winLossPipeTimeout),
          "Timeout before sending error on WinLoss pipe")
         ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
-         "Timeout before sending error on CampaignEvent pipe");
+         "Timeout before sending error on CampaignEvent pipe")
+        ("analytics,a", bool_switch(&analyticsOn),
+         "Send data to analytics logger.")
+        ("analytics-connections", value<int>(&analyticsConnections),
+         "Number of connections for the analytics publisher.");
 
     options_description all_opt = opts;
     all_opt
@@ -114,6 +121,16 @@ init()
 
     banker = bankerArgs.makeBankerWithArgs(proxies,
                                            postAuctionLoop->serviceName() + ".slaveBanker");
+
+    if (analyticsOn) {
+        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
+        if (!analyticsUri.empty()) {
+            postAuctionLoop->initAnalytics(analyticsUri, analyticsConnections);
+        }
+        else
+            LOG(print) << "analytics-uri is not in the config" << endl;
+    }
+
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
     postAuctionLoop->bindTcp();

@@ -45,6 +45,8 @@ struct RouterRunner {
     int slowModeTolerance;
 
     std::string slowModeMoneyLimit;
+    bool analyticsOn;
+    int analyticsConnections;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

@@ -27,7 +27,6 @@ struct OpenRTBBidSource : public BidSource {
 
     auto parseResponse(const std::string& rawResponse) -> std::pair<bool, std::vector<Bid>>;
 
-protected :
     virtual OpenRTB::BidRequest generateRequest();
 
 private:

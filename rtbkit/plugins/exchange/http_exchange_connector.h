@@ -134,6 +134,18 @@ struct HttpExchangeConnector
                     const HttpHeader & header,
                     const std::string & payload);
 
+    /** This method is called right after the bid request has been parsed and
+     *  the Auction object has been created. This method should be reimplemented
+     *  if you want to modify the auction before it is injected into the router
+     *
+     *  The default implementation of this function does nothing
+     *
+     *  @Postcondition: the auction must not be null
+     */
+    virtual void
+    adjustAuction(std::shared_ptr<Auction>& auction) const;
+
+
     /** Return the available time for the bid request in milliseconds.  This
         method should not parse the bid request, as when shedding load
         we want to do as little work as possible.
