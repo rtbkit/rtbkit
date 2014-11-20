@@ -107,7 +107,7 @@ struct HttpRequest {
 
 struct HttpClientImpl : public AsyncEventSource {
     HttpClientImpl(const std::string & baseUrl,
-                   int numParallel = 4, int queueSize = 0)
+                   int numParallel = 1024, int queueSize = 0)
         : AsyncEventSource()
     {
     }
@@ -177,7 +177,7 @@ struct HttpClient : public AsyncEventSource {
        "queueSize": size of the backlog of pending requests, after which
        operations will be refused (0 = infinite) */
     HttpClient(const std::string & baseUrl,
-               int numParallel = 4, int queueSize = 0);
+               int numParallel = 1024, int queueSize = 0);
     HttpClient(HttpClient && other) noexcept
     {
         *this = std::move(other);
