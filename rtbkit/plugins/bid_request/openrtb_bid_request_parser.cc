@@ -210,13 +210,22 @@ onBidRequest(OpenRTB::BidRequest & br) {
         this->onApp(*br.app);
     }
 
-    // Device
-    if(br.device)
-        this->onDevice(*br.device);
-
     // User object
     if(br.user)
         this->onUser(*br.user);
+
+    // Device
+    // Note : It's important that onUser() is called before onDevice()
+    // since the br.userIds field may be populated with device information
+    // if no user information is available
+    if(br.device) {
+        this->onDevice(*br.device);
+    }
+
+    // Do we have an ID_PROVIDER (stored as "prov" key) in ctx.br->userIds? 
+    if(ctx.br->userIds.count("prov") == 0)
+        // 4) Add Id(0) since it's required.
+        ctx.br->userIds.add(Id(0), ID_PROVIDER);
 
     // wseat // allowable buyer seats
     // Put them into a segment called openrtb-wseat which we can use for filtering after
@@ -410,19 +419,29 @@ void
 OpenRTBBidRequestParser::
 onDevice(OpenRTB::Device & device) {
 
+    if(device.devicetype.val > 3)
+        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
+
     ctx.br->language = device.language;
     ctx.br->userAgent = device.ua;
+    
     if(!device.ip.empty())
         ctx.br->ipAddress = device.ip;
     else if(!device.ipv6.empty())
         ctx.br->ipAddress = device.ipv6;
+    // Assign ctx.br->userAgentIPHash
+    if(!device.ua.empty()) {
+        const std::string &strToHash = (device.ip + device.ua.extractAscii());
+        ctx.br->userAgentIPHash = Id(CityHash64(strToHash.c_str(), strToHash.length()));
+        // Do we have a user id provider (set as "prov" key) (was in set in onUser()) ?
+        // If not 3) add user agent + ip hash
+        if(ctx.br->userIds.count("prov") == 0)
+            ctx.br->userIds.add(ctx.br->userAgentIPHash, ID_PROVIDER);
+    }
 
     if(device.geo) {
         this->onGeo(*device.geo);
     }
-
-    if(device.devicetype.val > 3)
-        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
 }
 
 void
@@ -476,6 +495,9 @@ onGeo(OpenRTB::Geo & geo) {
             loc.cityName = geo.city;
     }
 
+    // Zip code into location.
+    loc.postalCode = geo.zip;
+
     if(!geo.metro.empty()) {
         // TODO Metro code
         // https://developers.google.com/adwords/api/docs/appendix/cities-DMAregions?csw=1
@@ -502,7 +524,8 @@ onUser(OpenRTB::User & user) {
         ctx.br->userIds.add(user.id, ID_PROVIDER);
     // 3) At the BR level, we will validate we have a user ID.
     //    If not, we will use ip/ua hash
-
+    //    Done onDevice()
+    
     /*if(user.yob.val != -1) {
         // Nothing for now
     }*/
@@ -650,6 +673,8 @@ onDevice(OpenRTB::Device & device) {
     if(device.devicetype.val > 7)
         LOG(OpenRTBBidRequestLogs::error22) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
 
+    // Call 2.1 version
+    OpenRTBBidRequestParser::onDevice(device);
 }
 
 void
