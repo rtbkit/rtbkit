@@ -10,6 +10,10 @@
 
 using namespace std;
 
+namespace Default {
+    static constexpr int HttpTimeout = 1;
+}
+
 namespace RTBKIT {
 
 template<typename Result>
@@ -21,7 +25,7 @@ makeCallback(std::string functionName,
     //              "Result is not default constructible");
 
     return std::make_shared<HttpClientSimpleCallbacks>(
-        [=](const HttpRequest &,
+        [=](const HttpRequest &req,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body) {
         JML_TRACE_EXCEPTIONS(false);
@@ -32,8 +36,11 @@ makeCallback(std::string functionName,
         if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
-            onDone(std::make_exception_ptr(ML::Exception("HTTP Request failed in '%s': %s",
-                                                         functionName.c_str(), oss.str().c_str())),
+            onDone(
+                std::make_exception_ptr(
+                    ML::Exception("HttpRequest('%s %s') failed in '%s': %s",
+                                  req.verb_.c_str(), req.url_.c_str(), functionName.c_str(),
+                                  oss.str().c_str())),
                    Result { });
         }
         else {
@@ -76,7 +83,10 @@ addAccount(const AccountKey &account,
     httpClient->post("/v1/accounts", budgetResultCallback(onResult),
                      { },
                      { { "accountName", account.toString() },
-                         { "accountType", "budget" }});
+                         { "accountType", "budget" }
+                     },
+                     { }, /* headers */
+                     Default::HttpTimeout);
 }
 
 
@@ -90,7 +100,9 @@ topupTransfer(const std::string &accountStr,
     httpClient->put("/v1/accounts/" + accountStr + "/balance",
                     budgetResultCallback(onResult),
                     amount.toJson(),
-                    { { "accountType", AccountTypeToString(accountType) } });
+                    { { "accountType", AccountTypeToString(accountType) } },
+                    { }, /* headers */
+                    Default::HttpTimeout);
 }
 
 void
@@ -101,7 +113,10 @@ setBudget(const std::string &topLevelAccount,
 {
     httpClient->put("/v1/accounts/" + topLevelAccount + "/budget",
                     budgetResultCallback(onResult),
-                    amount.toJson());
+                    amount.toJson(),
+                    { },
+                    { },
+                    Default::HttpTimeout);
 }
 
 void
@@ -116,7 +131,9 @@ getAccountSummary(
                     makeCallback<AccountSummary>(
                         "HttpLayer::getAccountSummary",
                         onResult),
-                    { { "depth", to_string(depth) } });
+                    { { "depth", to_string(depth) } },
+                    { } /* headers */,
+                    Default::HttpTimeout);
 }
 
 void
@@ -127,7 +144,10 @@ getAccount(const AccountKey &account,
     httpClient->get("/v1/accounts/" + account.toString(),
                     makeCallback<Account>(
                         "HttpLayer::getAccount",
-                        onResult));
+                        onResult),
+                    { },
+                    { },
+                    Default::HttpTimeout);
 }
 
 void
@@ -141,7 +161,9 @@ addSpendAccount(const std::string &shadowStr,
                      {
                          { "accountName", shadowStr },
                          { "accountType", "spend" }
-                     });
+                     },
+                     { }, /* headers */
+                     Default::HttpTimeout);
 }
 
 void
@@ -152,7 +174,10 @@ syncAccount(const ShadowAccount &account, const std::string &shadowStr,
 
     httpClient->put("/v1/accounts/" + shadowStr + "/shadow",
                     makeCallback<Account>("HttpLayer::syncAcount", onDone),
-                    account.toJson());
+                    account.toJson(),
+                    { },
+                    { },
+                    Default::HttpTimeout);
 }
 
 void
@@ -163,14 +188,15 @@ request(std::string method, const std::string &resource,
     std::transform(begin(method), end(method), begin(method), [](char c) { return ::tolower(c); });
 
     auto onDone = std::make_shared<HttpClientSimpleCallbacks>(
-        [=](const HttpRequest &,
+        [=](const HttpRequest &req,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body) {
         if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(
-                         ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())),
+                         ML::Exception("HttpRequest('%s %s') failed with return code %s",
+                                       req.verb_.c_str(), req.url_.c_str(), oss.str().c_str())),
                      statusCode, "");
         }
         else {
@@ -179,13 +205,13 @@ request(std::string method, const std::string &resource,
     });
 
     if (method == "post") {
-        httpClient->post(resource, onDone, content, params);
+        httpClient->post(resource, onDone, content, params, { }, Default::HttpTimeout);
     }
     else if (method == "put") {
-        httpClient->put(resource, onDone, content, params);
+        httpClient->put(resource, onDone, content, params, { }, Default::HttpTimeout);
     }
     else if (method == "get") {
-        httpClient->get(resource, onDone, params);
+        httpClient->get(resource, onDone, params, { }, Default::HttpTimeout);
     }
     else {
         throw ML::Exception("Unknown method '%s'", method.c_str());
@@ -197,14 +223,15 @@ HttpLayer::
 budgetResultCallback(const BudgetController::OnBudgetResult &onResult)
 {
     return std::make_shared<HttpClientSimpleCallbacks>(
-        [=](const HttpRequest &,
+        [=](const HttpRequest &req,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body) {
         if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(
-                         ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())));
+                         ML::Exception("HttpRequest('%s %s') failed with return code %s",
+                                      req.verb_.c_str(), req.url_.c_str(), oss.str().c_str())));
         }
         else {
             onResult(nullptr);
