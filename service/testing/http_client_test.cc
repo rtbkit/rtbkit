@@ -330,7 +330,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    auto client = make_shared<HttpClient>(baseUrl);
+    auto client = make_shared<HttpClient>(baseUrl, 128);
     auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
