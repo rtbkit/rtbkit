@@ -882,10 +882,7 @@ onStateSaved(const BankerPersistence::Result& result,
             Json::Value archivedAccountKeys = Json::parse(info);
             ExcAssert(archivedAccountKeys.type() == Json::arrayValue);
             for (Json::Value jsonKey : archivedAccountKeys) {
-                ExcAssert(jsonKey.type() == Json::stringValue);
-                string sKey = jsonKey.asString();
-                replace(sKey.begin(), sKey.end(), '.', '_'); 
-                recordHit("account." + sKey + ".movedToArchive" );
+                recordHit("movedToArchive");
             }
         }
         //cerr << __FUNCTION__
@@ -902,8 +899,7 @@ onStateSaved(const BankerPersistence::Result& result,
             string keyStr = jsonKey.asString();
             accounts.markAccountOutOfSync(AccountKey(keyStr));
             LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
-            replace(keyStr.begin(), keyStr.end(), '.', '_');
-            recordHit("account." + keyStr + ".outOfSync");
+            recordHit("outOfSync");
         }
     }
     else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
@@ -1009,9 +1005,7 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
             accounts.restoreAccount(ak, a.toJson());
-            string sKey = ak.toString();
-            replace(sKey.begin(), sKey.end(), '.', '_');
-            recordHit("account." + sKey + ".restored");
+            recordHit("restored");
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
@@ -1065,19 +1059,17 @@ void
 MasterBanker::
 restoreAccount(const AccountKey & key)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".restoreAttempt");
+    Record record(this, "restoreAttempt");
  
     Guard guard(saveLock);
 
     pair<bool, bool> pAndA = accounts.accountPresentAndActive(key);
     if (pAndA.first && pAndA.second == Account::CLOSED) {
         accounts.reactivateAccount(key);
-        recordHit("account." + sKey + ".reactivated");
+        recordHit("reactivated");
         return;
     } else if (pAndA.first && pAndA.second == Account::ACTIVE) {
-        recordHit("account." + sKey + ".alreadyActive");
+        recordHit("alreadyActive");
         return;
     }
 
@@ -1117,9 +1109,7 @@ const Account
 MasterBanker::
 setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".setBudget");
+    Record record(this, "setBudget");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1135,9 +1125,7 @@ const Account
 MasterBanker::
 onCreateAccount(const AccountKey &key, AccountType type)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".onCreateAccount");
+    Record record(this, "onCreateAccount");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1153,9 +1141,7 @@ bool
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".closeAccount");
+    Record record(this, "closeAccount");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1188,9 +1174,7 @@ const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".setBalance");
+    Record record(this, "setBalance");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1206,9 +1190,7 @@ const Account
 MasterBanker::
 addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".addAdjustment");
+    Record record(this, "addAdjustment");
 
     {
         JML_TRACE_EXCEPTIONS(false);
@@ -1224,9 +1206,7 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".syncFromShadow");
+    Record record(this, "syncFromShadow");
 
     {
         JML_TRACE_EXCEPTIONS(false);
