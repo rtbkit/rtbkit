@@ -52,7 +52,7 @@ doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
         ML::futex_wake(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    auto client = make_shared<HttpClient>(baseUrl);
+    auto client = make_shared<HttpClient>(baseUrl, 4);
     HttpClient *ptr = client.get();
     loop.addSource("httpClient", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
@@ -120,7 +120,7 @@ doUploadRequest(MessageLoop & loop,
         ML::futex_wake(done);
     };
 
-    auto client = make_shared<HttpClient>(baseUrl);
+    auto client = make_shared<HttpClient>(baseUrl, 4);
     loop.addSource("httpClient", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -144,7 +144,6 @@ doUploadRequest(MessageLoop & loop,
 }
 
 }
-
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get )
@@ -327,8 +326,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     MessageLoop loop;
     loop.start();
 
-    string baseUrl("http://127.0.0.1:"
-                   + to_string(service.port()));
+    string baseUrl("http://127.0.0.1:" + to_string(service.port()));
 
     auto client = make_shared<HttpClient>(baseUrl, 4);
     auto & clientRef = *client.get();
@@ -435,6 +433,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     HttpClient client2("http://nowhere", 1);
     client2 = move(client1);
     doGet(client2);
+
+    service.shutdown();
 }
 #endif
 
@@ -459,7 +459,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    auto client = make_shared<HttpClient>(baseUrl);
+    auto client = make_shared<HttpClient>(baseUrl, 4);
     loop.addSource("client", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
 
@@ -492,9 +492,12 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
 
     loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
+
+    service.shutdown();
 }
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
 {
     ML::Watchdog watchdog(10);
@@ -508,7 +511,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    auto client = make_shared<HttpClient>(baseUrl);
+    auto client = make_shared<HttpClient>(baseUrl, 4);
     client->debug(true);
     client->sendExpect100Continue(true);
 
@@ -600,4 +603,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
 
         BOOST_CHECK_EQUAL(getClientHeader(body, "expect"), "");
     }
+
+    service.shutdown();
 }
+#endif
