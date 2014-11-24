@@ -2,9 +2,11 @@
 
 $(eval $(call include_sub_make,jsoncpp))
 $(eval $(call include_sub_make,types))
-#$(eval $(call include_sub_make,js))
-$(eval $(call include_sub_make,sync))
+ifeq ($(NODEJS_ENABLED),1)
+$(eval $(call include_sub_make,js))
 $(eval $(call include_sub_make,sigslot))
+endif
+$(eval $(call include_sub_make,sync))
 $(eval $(call include_sub_make,gc))
 $(eval $(call include_sub_make,service))
 $(eval $(call include_sub_make,logger))
