@@ -79,11 +79,11 @@ struct S3UrlFsHandler : public UrlFsHandler {
         auto api = getS3ApiForBucket(bucket);
         auto bucketPath = S3Api::parseUri(url.original);
         if (throwException) {
-            api->eraseObject(bucket, bucketPath.second);
+            api->eraseObject(bucket, "/" + bucketPath.second);
             return true;
         }
         else { 
-            return api->tryEraseObject(bucket, bucketPath.second);
+            return api->tryEraseObject(bucket, "/" + bucketPath.second);
         }
     }
 
