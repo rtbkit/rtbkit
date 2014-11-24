@@ -9,6 +9,7 @@
 
 #include <sys/epoll.h>
 
+#include <set>
 #include <atomic>
 #include <queue>
 #include <vector>
