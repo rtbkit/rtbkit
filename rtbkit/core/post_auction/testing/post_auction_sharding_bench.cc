@@ -143,7 +143,7 @@ private:
     Auction::Response makeBid() const
     {
         Auction::Response bid(USD_CPM(2), 1, AccountKey("a.b.c"));
-        bid.bidData = "{\"bids\":[{\"spotIndex\":0}]}";
+        bid.bidData = Bids::fromJson("{\"bids\":[{\"spotIndex\":0}]}");
         return bid;
     }
 

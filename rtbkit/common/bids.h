@@ -33,6 +33,7 @@ enum BidStatus {
     BS_NOBUDGET    ///< No budget
 };
 
+
 BidStatus bidStatusFromString(const std::string& str);
 
 const char* bidStatusToChar(BidStatus status);
@@ -83,6 +84,8 @@ struct Bid
      */
     AccountKey account;
 
+    //extra data come with this bid
+    Json::Value ext;
 
     bool isNullBid() const { return price.isZero(); }
 
@@ -110,6 +113,7 @@ struct Bids : public ML::compact_vector<Bid, 4>
     const Bid& bidForSpot(int spotIndex) const;
 
     Json::Value toJson() const;
+    std::string toJsonStr() const;
     static Bids fromJson(const std::string& raw);
 };
 
@@ -139,5 +143,18 @@ struct BidResult
     static BidResult parse(const std::vector<std::string>& msg);
 };
 
-
 } // namespace RTBKIT
+
+namespace Datacratic{
+using namespace RTBKIT;
+
+template<>
+struct DefaultDescription<Bids>
+  :public ValueDescriptionI<Bids, ValueKind::ARRAY>{
+  virtual void parseJsonTyped(Bids *val,
+			      JsonParsingContext &context) const;
+  virtual void printJsonTyped(const Bids *val,
+			      JsonPrintingContext &context) const;
+  virtual bool isDefaultTyped(const Bids *val) const;
+};
+}

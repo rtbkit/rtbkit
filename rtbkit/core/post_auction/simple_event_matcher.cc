@@ -548,7 +548,7 @@ doBidResult(
     if (status == BS_WIN) {
         WinCostModel wcm = response.wcm;
         wcm.data["win"] = winLossMeta;
-        Bids bids = Bids::fromJson(response.bidData);
+        Bids bids = response.bidData;
         price = wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
 
         recordOutcome(winPrice.value, "accounts.%s.winPrice.%s",

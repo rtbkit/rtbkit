@@ -108,6 +108,7 @@ toJson() const
     json["price"] = price.toString();
     json["priority"] = priority;
     json["spotIndex"] = spotIndex;
+    json["ext"] = ext;
     if (!account.empty()) json["account"] = account.toString();
 
     return json;
@@ -143,6 +144,14 @@ fromJson(ML::Parse_Context& context)
 
                 else foundField = false;
                 break;
+
+	    case 'e':
+	      if (fieldName == "ext"){
+		  bid.ext = expectJson(context);
+	      }
+		else
+		  foundField = false;
+		break;
 
             case 'p':
                 if (fieldName == "price")
@@ -212,6 +221,12 @@ toJson() const
     return json;
 }
 
+std::string
+Bids::
+toJsonStr() const{
+    return toJson().toStringNoNewLine();
+}
+
 Bids
 Bids::
 fromJson(const std::string& raw)
@@ -260,7 +275,6 @@ fromJson(const std::string& raw)
     return result;
 }
 
-
 /******************************************************************************/
 /* BID RESULT                                                                 */
 /******************************************************************************/
@@ -300,6 +314,29 @@ parse(const std::vector<std::string>& msg)
     return result;
 }
 
-
-
 } // namepsace RTBKIT
+
+namespace Datacratic{
+
+void
+DefaultDescription<Bids>::
+parseJsonTyped(Bids *val, JsonParsingContext &context) const{
+  Json::Value v = context.expectJson();
+  //could be optimized by defining a new function which parses JSON::Value directly
+  *val = std::move(Bids::fromJson(v.toStringNoNewLine()));
+}
+
+void
+DefaultDescription<Bids>::
+printJsonTyped(const Bids *val, JsonPrintingContext &context) const{
+  context.writeString(val->toJsonStr());
+}
+
+bool
+DefaultDescription<Bids>::
+isDefaultTyped(const Bids *val) const{
+  return val->empty();
+}
+
+}
+
