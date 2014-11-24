@@ -8,7 +8,7 @@
 #include "soa/service/http_client.h"
 #include "soa/utils/generic_utils.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "rtbkit/core/router/router.h"
 
@@ -154,9 +154,10 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     };
 
+    BidRequest & originalRequest = *auction->request;
+    std::shared_ptr<OpenRTBBidRequestParser> parser = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
 
-    BidRequest originalRequest = *auction->request;
-    OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
+    OpenRTB::BidRequest openRtbRequest = parser->toBidRequest(originalRequest);
     bool ok = prepareRequest(openRtbRequest, originalRequest, auction, bidders);
     /* If we took too much time processing the request, then we don't send it.  */
     if (!ok) {

@@ -819,8 +819,6 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        },
                        &MasterBanker::getActiveAccounts,
                        this);
-
-
 }
 
 void
@@ -919,6 +917,7 @@ onStateSaved(const BankerPersistence::Result& result,
     reportLatencies("save state", result.latencies);
     lastSaveLatency = std::move(result.latencies);
 
+    reportLatencies("save state", result.latencies);
     saving = false;
     ML::futex_wake(saving);
 }

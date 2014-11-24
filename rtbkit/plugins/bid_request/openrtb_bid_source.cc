@@ -5,7 +5,6 @@
 */
 
 #include "openrtb_bid_source.h"
-#include "openrtb_bid_request.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/service/http_header.h"
 #include <mutex>
@@ -33,10 +32,13 @@ namespace {
 
             size_t rejected, total;
             rejected = total = 0;
+            // Assuming that everything in that file is openrtb 2.1
+            auto p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+
             for (std::string line; getline(is, line); ) {
                 try {
                     ++total;
-                    auto br = OpenRtbBidRequestParser::parseBidRequest(line);
+                    auto br = p->parseBidRequest(line);
                     buffer.push_back(std::move(br));
                 } catch (const ML::Exception &) {
                     ++rejected;
@@ -77,15 +79,16 @@ namespace {
     std::once_flag flag;
 }
 
-
 OpenRTBBidSource::
 OpenRTBBidSource(Json::Value const & json) :
     BidSource(json),
     host(json.get("host", ML::hostname()).asString()),
     verb(json.get("verb", "POST").asString()),
     resource(json.get("resource", "/").asString()),
+    p(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")),
     replayFile(false)
 {
+
     if (json.isMember("replayFile")) {
         replayFile = true;
         // Make sure we load the file only once
@@ -137,7 +140,7 @@ BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     StructuredJsonPrintingContext context;
     DefaultDescription<OpenRTB::BidRequest> desc;
     desc.printJson(&req, context);
-    std::string content = context.output.toString();
+    const std::string & content = context.output.toString();
 
     int length = content.length();
 
@@ -154,7 +157,9 @@ BidRequest OpenRTBBidSource::generateRandomBidRequest() {
         verb.c_str(), resource.c_str(), length, host.c_str(), content.c_str());
 
     write(message);
-    std::unique_ptr<BidRequest> br(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
+    std::unique_ptr<BidRequest> br(p->parseBidRequest(content,
+                                                      "openrtb",
+                                                      "openrtb"));
     return BidRequest(*br);
 }
 

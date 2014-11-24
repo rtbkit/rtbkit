@@ -10,7 +10,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "soa/types/json_parsing.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "jml/utils/filter_streams.h"
@@ -39,6 +39,12 @@ vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/rubicon_mobile_web.json",
     "rtbkit/plugins/bid_request/testing/rubicon_test1.json"
 };
+
+vector<string> samples2_2 = {
+    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_imp.json",
+    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_video.json"
+};
+
 
 std::string loadFile(const std::string & filename)
 {
@@ -78,22 +84,23 @@ BOOST_AUTO_TEST_CASE( test_parse_openrtb_sample_requests )
         parseBidRequest(req);
 }
 
-void testBidRequest(const std::string & filename)
+void testBidRequest(const std::string & filename, const std::string & version = "2.2")
 {
     cerr << endl << "loading " << filename << endl;
-
     ML::Parse_Context context(filename);
-
-    auto res = OpenRtbBidRequestParser::parseBidRequest(context, "test", "test");
-
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory(version);
+    auto res = p->parseBidRequest(context, "test", "test");
     cerr << res->toJson() << endl;
-
 }
 
 BOOST_AUTO_TEST_CASE( test_openrtb_sample_requests )
 {
     for (auto s: samples)
         testBidRequest(s);
+
+    // Use 2.2 parsing
+    for (auto s: samples2_2)
+        testBidRequest(s, "2.2");
 }
 
 bool jsonDiff(const Json::Value & v1, const Json::Value & v2,
@@ -187,6 +194,7 @@ void testBidRequestRoundTrip(const std::string & filename,
 
     OpenRTB::BidRequest req;
 
+    ML::Parse_Context c(filename);
     {
         StreamingJsonParsingContext context;
         context.init(filename, reqStr.c_str(), reqStr.size());
@@ -204,9 +212,9 @@ void testBidRequestRoundTrip(const std::string & filename,
     OpenRTB::BidRequest req2;
 
     {
-        StreamingJsonParsingContext context;
-        context.init(filename, reqStr.c_str(), reqStr.size());
-        desc.parseJson(&req2, context);
+        StreamingJsonParsingContext context2;
+        context2.init(filename, reqStr.c_str(), reqStr.size());
+        desc.parseJson(&req2, context2);
     }
 
     string printed2;
@@ -219,10 +227,10 @@ void testBidRequestRoundTrip(const std::string & filename,
     
     BOOST_CHECK_EQUAL(printed, printed2);
 
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+    
     // Convert to a standard bid request
-    
-    std::unique_ptr<BidRequest> br(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
-    
+    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test"));   
     // Convert it to JSON
     string s1 = br->toJsonStr();
 
@@ -244,6 +252,7 @@ void testBidRequestConversion(const std::string &fileName, const std::string &re
 
     // Parse the BidRequest in OpenRTB format
     OpenRTB::BidRequest originalReq;
+    
     {
         StreamingJsonParsingContext context;
         context.init(fileName, request.c_str(), request.size());
@@ -258,11 +267,15 @@ void testBidRequestConversion(const std::string &fileName, const std::string &re
         jsonBr1 = stream.str();
     }
 
-    // Convert it to Datacratic format
-    std::unique_ptr<BidRequest> br { fromOpenRtb(std::move(originalReq), "openrtb", "openrtb") };
+    ML::Parse_Context c(fileName);
+
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+    
+    // Convert to a standard bid request
+    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test"));   
 
     // Convert it back to OpenRTB
-    OpenRTB::BidRequest br2 = toOpenRtb(*br);
+    OpenRTB::BidRequest br2 = p->toBidRequest(*br);
 
     string jsonBr2;
     {
@@ -293,7 +306,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_round_trip )
 
     for (unsigned i = 0;  i < reqs.size();  ++i) {
         testBidRequestRoundTrip(samples[i], reqs[i]);
-       // testBidRequestConversion(samples[i], reqs[i]);
+        //testBidRequestConversion(samples[i], reqs[i]);
     }
 }
 
@@ -371,20 +384,20 @@ BOOST_AUTO_TEST_CASE( benchmark_openrtb_conversion )
 
     DefaultDescription<OpenRTB::BidRequest> desc;
 
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+
     for (unsigned i = 0;  i < 1000;  ++i) {
         
         for (unsigned i = 0;  i < reqs.size();  ++i, ++done) {
-            
             
             OpenRTB::BidRequest req;
             
             {
                 StreamingJsonParsingContext context;
                 context.init(samples[i], reqs[i].c_str(), reqs[i].size());
-                desc.parseJson(&req, context);
+                std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
+        
             }
-
-            std::unique_ptr<BidRequest> br(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
         }
     }
 
@@ -402,17 +415,16 @@ BOOST_AUTO_TEST_CASE( benchmark_canonical_parsing )
 
     vector<string> reqs;
 
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+
     for (auto s: samples) {
         OpenRTB::BidRequest req;
         {
             StreamingJsonParsingContext context;
             context.init(s);
-            desc.parseJson(&req, context);
+            std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
+            reqs.push_back(br->toJsonStr());
         }
-
-        std::unique_ptr<BidRequest> br(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
-
-        reqs.push_back(br->toJsonStr());
     }
 
     int done = 0;
@@ -438,6 +450,8 @@ BOOST_AUTO_TEST_CASE( id_provider ) {
 
     DefaultDescription<OpenRTB::BidRequest> desc;
 
+    std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
+
     vector<string> reqs;
     bool hasBuyerUid, hasUserId, hasDeviceUA, hasDeviceIP;
 
@@ -449,11 +463,13 @@ BOOST_AUTO_TEST_CASE( id_provider ) {
         hasDeviceIP = false;
 
         OpenRTB::BidRequest req;
+        std::unique_ptr<BidRequest> datacraticReq;
         {
             StreamingJsonParsingContext context;
             context.init(s);
-            desc.parseJson(&req, context);
+            datacraticReq.reset(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
         }
+
 
         OpenRTB::BidRequest req2;
         {
@@ -461,8 +477,6 @@ BOOST_AUTO_TEST_CASE( id_provider ) {
             context.init(s);
             desc.parseJson(&req2, context);
         }
-
-        std::unique_ptr<BidRequest> datacraticReq(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
 
         if(req2.user) {
             if(req2.user->buyeruid)

@@ -132,14 +132,6 @@ init()
     const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
     const auto maxBidPriceAmount = USD_CPM(maxBidPrice);
 
-    if (slowModeTolerance > 600) {
-        THROW(error) << "slow mode tolerance is at " << slowModeTolerance 
-            << " which is somewhat unsafe.";
-    } else if (slowModeTolerance < 0.1) {
-        THROW(error) << "slow mode tolerance is at " << slowModeTolerance
-            << " which is unlikely to be correct.";
-    }
-
     if (maxBidPriceAmount > amountSlowModeMoneyLimit) {
         THROW(error) << "max-bid-price and slow-mode-money-limit "
             << "configuration is invalid" << endl

@@ -27,7 +27,7 @@
 */
 
 #include "nexage_exchange_connector.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -192,28 +192,11 @@ parseBidRequest(HttpAuctionHandler & connection,
         return res;
     }
 
-#if 0
-    /*
-     * Unfortunately, x-openrtb-version isn't sent in the real traffic
-     */
-    // Check for the x-openrtb-version header
-    auto it = header.headers.find("x-openrtb-version");
-    if (it == header.headers.end()) {
-        connection.sendErrorResponse("no OpenRTB version header supplied");
-        return res;
-    }
-
-    // Check that it's version 2.1
-    std::string openRtbVersion = it->second;
-    if (openRtbVersion != "2.0") {
-        connection.sendErrorResponse("expected OpenRTB version 2.0; got " + openRtbVersion);
-        return res;
-    }
-#endif
-
     // Parse the bid request
+    // Nexage used not to send x-openrtb-version but they're now at 2.2
+    // source : http://www.nexage.com/resource-center/openrtb-2-2-technical-reference/
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRtbBidRequestParser::parseBidRequest(context, exchangeName(), exchangeName()));
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.2")->parseBidRequest(context, exchangeName(), exchangeName()));
 
     return res;
 }

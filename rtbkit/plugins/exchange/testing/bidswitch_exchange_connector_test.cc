@@ -12,7 +12,6 @@
 #include <boost/lexical_cast.hpp>
 
 #include "rtbkit/common/testing/exchange_source.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/bidswitch_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/router/router.h"

@@ -51,7 +51,8 @@ void parseSDKs(const AdSpot & spot, BidRequest & result){
 BidRequest *
 fromOpenRtb(OpenRTB::BidRequest && req,
             const std::string & provider,
-            const std::string & exchange)
+            const std::string & exchange,
+            const std::string & version)
 {
     std::unique_ptr<BidRequest> result(new BidRequest());
 
@@ -89,15 +90,27 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     THROW(openrtbBidRequestError) << "Video::mimes needs to be populated." << endl;
                 }
             
-                /** 
-                 * Refers to table 6.6 of OpenRTB 2.1
-                 * Linearity is initialized to -1 if we don't get it in the bid request
-                 * so if it's under 0, it means it wasn't given and it can only be 1 or 2
-                 */
-                if(v.linearity.value() < 0 || v.linearity.value() > 2) {
-                    THROW(openrtbBidRequestError) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
-                }
+                if(version == "2.1") {
+                    /** 
+                    * Refers to table 6.6 of OpenRTB 2.1
+                    * Linearity is initialized to -1 if we don't get it in the bid request
+                    * so if it's under 0, it means it wasn't given and it can only be 1 or 2
+                    */
+                    if(v.linearity.value() < -0 ||v.linearity.value() > 2) {
+                        THROW(openrtbBidRequestError) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+                    }
                 
+                    /** 
+                    * Refers to table 6.7 of OpenRTB 2.1
+                    * Linearity is initialized to -1 if we don't get it in the bid request
+                    * so if it's under -1, it means it wasn't given and it can only be 1 to 6
+                    */
+                
+                    if(v.protocol.value() < 0 || v.protocol.value() > 6) {
+                        THROW(openrtbBidRequestError) << "Video::protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+                    }
+                }
+
                 if(v.minduration.value() < 0) {
                     THROW(openrtbBidRequestError) << "Video::minduration must be specified and positive." << endl;
                 }
@@ -110,16 +123,6 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     THROW(openrtbBidRequestError) << "Video::maxduration can't be smaller than Video::minduration." << endl;
                 }
 
-                /** 
-                 * Refers to table 6.7 of OpenRTB 2.1
-                 * Linearity is initialized to -1 if we don't get it in the bid request
-                 * so if it's under 0, it means it wasn't given and it can only be 1 to 6
-                 */
-                
-                if(v.protocol.value() < 0 || v.protocol.value() > 6) {
-                    THROW(openrtbBidRequestError) << "Video::protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
-                }
-                
                 spot.position = spot.video->pos;
 
                 Format format(v.w.value(), v.h.value());
@@ -200,8 +203,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             result->url = result->site->page;
         else if (result->site->id)
             result->url = Url("http://" + result->site->id.toString() + ".siteid/");
-    
-        // For segment filtering on iab-categories
+
+        // Adding IAB categories to segments
         for(auto& v : result->site->cat) {
             result->segments.add("iab-categories", v.val);
         }
@@ -213,12 +216,11 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             result->url = Url(result->app->bundle);
         else if (result->app->id)
             result->url = Url("http://" + result->app->id.toString() + ".appid/");
-    
-        // For segment filtering on iab-categories
+        
+        // Adding IAB categories to segments
         for(auto& v : result->app->cat) {
             result->segments.add("iab-categories", v.val);
         }
-
     }
 
     if (req.device) {
@@ -422,9 +424,10 @@ BidRequest *
 OpenRtbBidRequestParser::
 parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
-                const std::string & exchange)
+                const std::string & exchange,
+                const std::string & version)
 {
-    return fromOpenRtb(parseBidRequest(jsonValue), provider, exchange);
+    return fromOpenRtb(parseBidRequest(jsonValue), provider, exchange, version);
 }
 
 OpenRTB::BidRequest
@@ -442,9 +445,10 @@ BidRequest *
 OpenRtbBidRequestParser::
 parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,
-                const std::string & exchange)
+                const std::string & exchange,
+                const std::string & version)
 {
-    return fromOpenRtb(parseBidRequest(context), provider, exchange);
+    return fromOpenRtb(parseBidRequest(context), provider, exchange, version);
 }
 
 } // namespace RTBKIT
