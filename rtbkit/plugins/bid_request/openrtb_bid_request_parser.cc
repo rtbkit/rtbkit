@@ -23,7 +23,8 @@ namespace RTBKIT {
 
 std::unique_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
-openRTBBidRequestParserFactory(const std::string & version) {
+openRTBBidRequestParserFactory(const std::string & version) 
+{
 
     if(version == "2.0" || version == "2.1") {
         return std::unique_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
@@ -299,9 +300,11 @@ onBanner(OpenRTB::Banner & banner) {
     }
 
     // Add api to the segments in order to filter on it
-    for(auto & i : banner.api)
-        ctx.br->segments.add("api-banner", i.val, 1.0);
-
+    for(auto & api : banner.api) {
+        auto framework = apiFrameworks.find(api.val);
+        if (framework != apiFrameworks.end())
+            ctx.br->segments.add("api-banner", framework->second , 1.0);
+    }
     ctx.spot->position = banner.pos;
 }
 
@@ -335,9 +338,11 @@ onVideo(OpenRTB::Video & video) {
     ctx.spot->position = video.pos;
 
     // Add api to the segments in order to filter on it
-    for(auto & i : video.api)
-        ctx.br->segments.add("api-video", i.val, 1.0);
-
+    for(auto & api : video.api) {
+        auto framework = apiFrameworks.find(api.val);
+        if (framework != apiFrameworks.end())
+            ctx.br->segments.add("api-video", framework->second, 1.0);
+    }
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 }
 
@@ -659,9 +664,11 @@ onVideo(OpenRTB::Video & video) {
     ctx.spot->position = video.pos;
 
     // Add api to the segments in order to filter on it
-    for(auto & i : video.api)
-        ctx.br->segments.add("api-video", i.val, 1.0);
-
+    for(auto & api : video.api) {
+        auto framework = apiFrameworks.find(api.val);
+        if (framework != apiFrameworks.end())
+            ctx.br->segments.add("api-video", framework->second, 1.0);
+    }
     ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
 
 }

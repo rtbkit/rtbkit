@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <string>
 #include "rtbkit/common/bid_request.h"
 #include "jml/utils/parse_context.h"
 #include "rtbkit/plugins/bid_request/bid_request_parser.h"
@@ -71,7 +72,9 @@ struct OpenRTBBidRequestParser
         virtual void onUser(OpenRTB::User & user);
         virtual void onData(OpenRTB::Data & data);
         virtual void onSegment(OpenRTB::Segment & segment);
-    
+
+        std::unordered_map<int, std::string> apiFrameworks;
+
     private:
         RTBKIT::BidRequest * createBidRequestHelper(OpenRTB::BidRequest & br,
                                     const std::string & provider,
@@ -80,12 +83,25 @@ struct OpenRTBBidRequestParser
 
 struct OpenRTBBidRequestParser2point1 : OpenRTBBidRequestParser {
 
-    OpenRTBBidRequestParser2point1(){};
+    OpenRTBBidRequestParser2point1() {
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID"},
+                          {4, "ORMMA"}
+        };
+    };
 };
 
 struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {
 
-    OpenRTBBidRequestParser2point2(){};
+    OpenRTBBidRequestParser2point2() {
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID-1"},
+                          {4, "ORMMA"},
+                          {5, "MRAID-2"}
+        };
+    };
 
     private :
         virtual void onBidRequest(OpenRTB::BidRequest & br);

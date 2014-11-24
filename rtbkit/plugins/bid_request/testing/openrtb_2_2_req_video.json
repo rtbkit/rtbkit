@@ -23,7 +23,8 @@
                 "at" : 1
             }]
         },
-        "secure": 0
+        "secure": 0,
+        "api": 3
 	}], 
 	"device": { 
         "carrier": "na",
