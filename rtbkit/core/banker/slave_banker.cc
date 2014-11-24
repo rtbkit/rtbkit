@@ -124,15 +124,15 @@ SlaveBanker::SlaveBanker()
 }
 
 SlaveBanker::
-SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate)
+SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpdates)
     : createdAccounts(128), reauthorizing(false), numReauthorized(0)
 {
-    init(accountSuffix, spendRate);
+    init(accountSuffix, spendRate, batchedUpdates);
 }
 
 void
 SlaveBanker::
-init(const std::string & accountSuffix, CurrencyPool spendRate)
+init(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpdates)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
@@ -188,8 +188,13 @@ init(const std::string & accountSuffix, CurrencyPool spendRate)
                           this,
                           std::placeholders::_1),
                 true /* single threaded */);
+
+    auto authorizePtr = batchedUpdates ?
+        &SlaveBanker::reauthorizeBudgetBatched :
+        &SlaveBanker::reauthorizeBudget;
+
     addPeriodic("SlaveBanker::reauthorizeBudget", 1.0,
-                std::bind(&SlaveBanker::reauthorizeBudget,
+                std::bind(authorizePtr,
                           this,
                           std::placeholders::_1),
                 true /* single threaded */);
@@ -451,6 +456,55 @@ reportSpend(uint64_t numTimeoutsExpired)
 
 void
 SlaveBanker::
+reauthorizeBudgetBatched(uint64_t numTimeoutsExpired)
+{
+    Json::Value body;
+    body["amount"] = spendRate.toJson();
+    body["accountType"] = "spend";
+
+    Json::Value request;
+    auto onAccount = [&](const AccountKey& key, const ShadowAccount& Account) {
+        request[key.toString()] = body;
+    };
+    accounts.forEachInitializedAndActiveAccount(onAccount);
+
+    std::string payload = request.toStringNoNewLine();
+
+    using std::placeholders::_1;
+    using std::placeholders::_2;
+    using std::placeholders::_3;
+    applicationLayer->request("POST", "/v1/accounts/balance", {}, payload, std::bind(
+            &SlaveBanker::onReauthorizeBudgetBatchedResponse, this, _1, _2, _3));
+}
+
+void
+SlaveBanker::
+onReauthorizeBudgetBatchedResponse(
+        std::exception_ptr exc, int code, const std::string& payload)
+{
+    if (exc) {
+        logException(exc, "Exception when reauthorizing budget", error);
+        return;
+    }
+
+    if (code != Default::ExpectedMasterHttpCode) {
+        LOG(error) << "Error when reauthorizing budget for account" << std::endl;
+        LOG(error) << "Expected HTTP " << Default::ExpectedMasterHttpCode
+            << ", got " << code << std::endl;
+        return;
+    }
+
+    Json::Value response = Json::parse(payload);
+    for (const auto& key : response.getMemberNames()) {
+        auto account = Account::fromJson(response[key]);
+        accounts.syncFromMaster(AccountKey(key), account);
+    }
+
+    lastReauthorize = Date::now();
+}
+
+void
+SlaveBanker::
 reauthorizeBudget(uint64_t numTimeoutsExpired)
 {
     if (numTimeoutsExpired > 1) {
@@ -565,7 +619,8 @@ getProviderIndicators() const
 /*****************************************************************************/
 
 SlaveBankerArguments::SlaveBankerArguments()
-    : useHttp(Defaults::UseHttp)
+    : batched(Defaults::Batched)
+    , useHttp(Defaults::UseHttp)
     , httpConnections(0)
     , tcpNoDelay(Defaults::TcpNoDelay)
 {
@@ -586,6 +641,8 @@ SlaveBankerArguments::makeProgramOptions(std::string title)
     options.add_options()
         ("use-http-banker", po::bool_switch(&useHttp),
          "Communicate with the MasterBanker over http")
+        ("banker-batched", po::bool_switch(&batched),
+         "slave banker now uses batched communication to sync with the master banker.")
         ("http-connections", po::value<int>(&httpConnections)
                              ->default_value(Defaults::HttpConnections),
          "Number of active http connections to use when http is enabled")

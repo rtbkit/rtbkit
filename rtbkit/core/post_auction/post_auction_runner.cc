@@ -120,7 +120,9 @@ init()
     LOG(print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
     banker = bankerArgs.makeBankerWithArgs(proxies,
-                                           postAuctionLoop->serviceName() + ".slaveBanker");
+                                           postAuctionLoop->serviceName() + ".slaveBanker",
+                                           SlaveBanker::DefaultSpendRate,
+                                           bankerArgs.batched);
 
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();

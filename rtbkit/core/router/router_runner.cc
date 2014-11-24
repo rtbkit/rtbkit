@@ -162,7 +162,8 @@ init()
     const auto amount = Amount::parse(spendRate);
     banker = bankerArgs.makeBankerWithArgs(proxies,
                                            router->serviceName() + ".slaveBanker",
-                                           CurrencyPool(amount));
+                                           CurrencyPool(amount),
+                                           bankerArgs.batched);
 
     router->setBanker(banker);
     router->bindTcp();
