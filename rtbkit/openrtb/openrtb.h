@@ -648,8 +648,8 @@ struct Video {
     ~Video();
     Datacratic::List<MimeType> mimes;       ///< Content MIME types supported
     VideoLinearity linearity;               ///< Whether it's linear or not (table 6.6)
-    Datacratic::TaggedInt minduration;      ///< Minimum ad duration in seconds
-    Datacratic::TaggedInt maxduration;      ///< Maximum ad duration in seconds
+    Datacratic::TaggedFloat minduration;      ///< Minimum ad duration in seconds
+    Datacratic::TaggedFloat maxduration;      ///< Maximum ad duration in seconds
     VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
     Datacratic::List<VideoBidResponseProtocol> protocols; ///< Bid response protocols array (table 6.7) (OpenRTB2.2)
     Datacratic::TaggedInt w;                ///< Width of player in pixels

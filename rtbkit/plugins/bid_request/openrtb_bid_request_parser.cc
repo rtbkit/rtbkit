@@ -324,13 +324,13 @@ onVideo(OpenRTB::Video & video) {
         THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
     }
 
-    if(video.minduration.value() < 0) {
+    if(video.minduration.val < 0) {
         THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.minduration must be specified and positive." << endl;
     }
 
-    if(video.maxduration.value() < 0) {
+    if(video.maxduration.val < 0) {
         THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.maxduration must be specified and positive." << endl;
-    } else if (video.maxduration.value() < video.minduration.value()) {
+    } else if (video.maxduration.val < video.minduration.val) {
         // Illogical
         THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 
@@ -650,13 +650,13 @@ onVideo(OpenRTB::Video & video) {
         THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.protocol if specified must match a value in OpenRTB 2.2 Table 6.7." << endl;
     }
 
-    if(video.minduration.value() < 0 ) {
+    if(video.minduration.val < 0 ) {
         THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.minduration must be specified and positive." << endl;
     }
 
-    if(video.maxduration.value() < 0 ) {
+    if(video.maxduration.val < 0 ) {
         THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration must be specified and positive." << endl;
-    } else if (video.maxduration.value() < video.minduration.value()) {
+    } else if (video.maxduration.val < video.minduration.val) {
         // Illogical
         THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 

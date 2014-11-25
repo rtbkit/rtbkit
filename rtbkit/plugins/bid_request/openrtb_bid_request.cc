@@ -111,14 +111,14 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     }
                 }
 
-                if(v.minduration.value() < 0) {
+                if(v.minduration.val < 0) {
                     THROW(openrtbBidRequestError) << "Video::minduration must be specified and positive." << endl;
                 }
 
-                if(v.maxduration.value() < 0) {
+                if(v.maxduration.val < 0) {
                     THROW(openrtbBidRequestError) << "Video::maxduration must be specified and positive." << endl;
                 }
-                else if(v.maxduration.value() < v.minduration.value()) {
+                else if(v.maxduration.val < v.minduration.val) {
                     // Illogical
                     THROW(openrtbBidRequestError) << "Video::maxduration can't be smaller than Video::minduration." << endl;
                 }
