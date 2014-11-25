@@ -275,16 +275,14 @@ std::vector<std::shared_ptr<HttpRequest>>
 HttpClientV1::
 popRequests(size_t number)
 {
+    Guard guard(queueLock_);
     std::vector<std::shared_ptr<HttpRequest>> requests;
     number = min(number, queue_.size());
     requests.reserve(number);
 
-    {
-        Guard guard(queueLock_);
-        for (size_t i = 0; i < number; i++) {
-            requests.emplace_back(move(queue_.front()));
-            queue_.pop();
-        }
+    for (size_t i = 0; i < number; i++) {
+        requests.emplace_back(move(queue_.front()));
+        queue_.pop();
     }
 
     return requests;
