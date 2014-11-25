@@ -36,7 +36,9 @@ struct AnalyticsPublisher : public Datacratic::MessageLoop {
     void publish(const std::string & channel, const Args & ... args)
     {
         if (!live) return;
-        if (!channelFilter[channel]) return;
+
+        std::lock_guard<std::mutex> lock(mu);
+        if (channelFilter.find(channel) == channelFilter.end()) return;
 
         std::stringstream ss;
         make_message(ss, args...);
@@ -44,6 +46,7 @@ struct AnalyticsPublisher : public Datacratic::MessageLoop {
     }
 
 private:
+    std::mutex mu;
     std::shared_ptr<Datacratic::HttpClient> client;
     bool live;
     ChannelFilter channelFilter;

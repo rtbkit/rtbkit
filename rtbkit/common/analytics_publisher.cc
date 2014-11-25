@@ -71,7 +71,7 @@ sendEvent(const string & channel, const string & event)
         }
     };
     string ressource("/v1/event");
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    auto const & cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::objectValue);
     payload["channel"] = channel;
     payload["event"] = event;
@@ -112,9 +112,9 @@ syncChannelFilters()
                            string && body)
     {
         if (status != 200) return;
-
         Json::Value filters = Json::parse(body);
         if (filters.isObject()) {
+            std::lock_guard<std::mutex> lock(mu);
             for ( auto it = filters.begin(); it != filters.end(); ++it) {
                 channelFilter[it.memberName()] = (*it).asBool();
             }
