@@ -217,7 +217,7 @@ struct Launcher
                 signal(SIGTERM, SIG_DFL);
                 signal(SIGKILL, SIG_DFL);
 
-                int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
+                int res = prctl(PR_SET_PDEATHSIG, SIGTERM);
                 if(res == -1) {
                     THROW(launcherError) << "prctl failed errno=" << errno << std::endl;
                 }
