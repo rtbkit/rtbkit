@@ -264,18 +264,18 @@ enqueueRequest(const string & verb, const string & resource,
     string url = baseUrl_ + resource + queryParams.uriEscaped();
     {
         Guard guard(queueLock_);
-        queue_.emplace(verb, url, callbacks, content, headers, timeout);
+        queue_.emplace(std::make_shared<HttpRequest>(verb, url, callbacks, content, headers, timeout));
     }
     wakeup_.signal();
 
     return true;
 }
 
-std::vector<HttpRequest>
+std::vector<std::shared_ptr<HttpRequest>>
 HttpClientV1::
 popRequests(size_t number)
 {
-    std::vector<HttpRequest> requests;
+    std::vector<std::shared_ptr<HttpRequest>> requests;
     number = min(number, queue_.size());
     requests.reserve(number);
 
@@ -377,8 +377,8 @@ handleWakeupEvent()
 
     size_t numAvail = avlConnections_.size() - nextAvail_;
     if (numAvail > 0) {
-        vector<HttpRequest> requests = popRequests(numAvail);
-        for (HttpRequest & request: requests) {
+        vector<shared_ptr<HttpRequest>> requests = popRequests(numAvail);
+        for (auto & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
             conn->perform(noSSLChecks_, expect100Continue_, tcpNoDelay_,
@@ -449,8 +449,8 @@ checkMultiInfos()
             ::curl_easy_getinfo(msg->easy_handle,
                                 CURLINFO_PRIVATE, &conn);
 
-            shared_ptr<HttpClientCallbacks> & cbs = conn->request_.callbacks_;
-            cbs->onDone(conn->request_, translateError(msg->data.result));
+            shared_ptr<HttpClientCallbacks> & cbs = conn->request_->callbacks_;
+            cbs->onDone(*conn->request_, translateError(msg->data.result));
             conn->clear();
             multi_.remove(&conn->easy_);
             releaseConnection(conn);
@@ -600,32 +600,32 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debu
     afterContinue_ = false;
 
     easy_.reset();
-    easy_.setOpt<curlopt::Url>(request_.url_);
-    // easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
+    easy_.setOpt<curlopt::Url>(request_->url_);
+    // easy_.setOpt<curlopt::CustomRequest>(request_->verb_);
 
     list<string> curlHeaders;
-    for (const auto & it: request_.headers_) {
+    for (const auto & it: request_->headers_) {
         curlHeaders.push_back(it.first + ": " + it.second);
     }
-    if (request_.verb_ != "GET") {
-        const string & data = request_.content_.str;
-        if (request_.verb_ == "PUT") {
+    if (request_->verb_ != "GET") {
+        const string & data = request_->content_.str;
+        if (request_->verb_ == "PUT") {
             easy_.setOpt<curlopt::Upload>(true);
             easy_.setOpt<curlopt::InfileSize>(data.size());
         }
-        else if (request_.verb_ == "POST") {
+        else if (request_->verb_ == "POST") {
             easy_.setOpt<curlopt::Post>(true);
             easy_.setOpt<curlopt::PostFields>(data);
             easy_.setOpt<curlopt::PostFieldSize>(data.size());
         }
-        else if (request_.verb_ == "HEAD") {
+        else if (request_->verb_ == "HEAD") {
             easy_.setOpt<curlopt::NoBody>(true);
         }
         curlHeaders.push_back("Content-Length: "
                               + to_string(data.size()));
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
-                              + request_.content_.contentType);
+                              + request_->content_.contentType);
 
         if (!withExpect100Continue) {
             curlHeaders.push_back("Expect:");
@@ -633,14 +633,14 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debu
     }
     easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
 
-    easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
+    easy_.setOpt<curlopt::CustomRequest>(request_->verb_);
     easy_.setOpt<curlopt::Private>(this);
     easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
     easy_.setOpt<curlopt::WriteFunction>(onWrite_);
     easy_.setOpt<curlopt::ReadFunction>(onRead_);
     easy_.setOpt<curlopt::BufferSize>(65536);
-    if (request_.timeout_ != -1) {
-        easy_.setOpt<curlopt::Timeout>(request_.timeout_);
+    if (request_->timeout_ != -1) {
+        easy_.setOpt<curlopt::Timeout>(request_->timeout_);
     }
     easy_.setOpt<curlopt::NoSignal>(true);
     easy_.setOpt<curlopt::NoProgress>(true);
@@ -688,11 +688,11 @@ onCurlHeader(const char * data, size_t size)
             }
             int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
 
-            request_.callbacks_->onResponseStart(request_,
+            request_->callbacks_->onResponseStart(*request_,
                                                  move(version), code);
         }
         else {
-            request_.callbacks_->onHeader(request_, data, size);
+            request_->callbacks_->onHeader(*request_, data, size);
         }
     }
 
@@ -706,7 +706,7 @@ onCurlWrite(const char * data, size_t size)
     noexcept
 {
     // cerr << "onCurlWrite\n";
-    request_.callbacks_->onData(request_, data, size);
+    request_->callbacks_->onData(*request_, data, size);
     return size;
 }
 
@@ -716,7 +716,7 @@ HttpConnection::
 onCurlRead(char * buffer, size_t bufferSize)
     noexcept
 {
-    const string & data = request_.content_.str;
+    const string & data = request_->content_.str;
     size_t chunkSize = data.size() - uploadOffset_;
     if (chunkSize > bufferSize) {
         chunkSize = bufferSize;
