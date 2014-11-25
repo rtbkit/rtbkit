@@ -535,8 +535,13 @@ onUser(OpenRTB::User & user) {
         // Nothing for now
     }*/
 
-    if(!user.gender.empty()) {
+    if(!user.gender.empty()){
         if(user.gender.size() == 1) {
+
+            // TODO Validate if this valid behaviour
+            // If we receive m, f or o, toUpper()
+            user.gender = std::toupper(user.gender[0]);
+
             if(user.gender.compare("M") == 0) {
             
             } else if(user.gender.compare("F") == 0) {
@@ -546,13 +551,16 @@ onUser(OpenRTB::User & user) {
                                                      "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
             }
         } else {
-            // Invalid gender
-            LOG(OpenRTBBidRequestLogs::trace) << " br.user.gender : " << user.gender << 
-                                                 "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
+            // TODO Validate if we accept "unknown" or "UNKNOWN" as gender.
+            // According to the spec, unknown should be null (or empty).
+            if(!(user.gender.compare("unknown") || user.gender.compare("UNKNOWN")))
+                // Invalid gender
+                LOG(OpenRTBBidRequestLogs::trace) << " br.user.gender : " << user.gender << 
+                                                     "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
         }
 
     } else {
-        // Gender unknown
+        // Gender unknown.. According to the spec leave it null.
     }
 
     // Data object
