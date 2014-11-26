@@ -14,19 +14,17 @@ LIBLOGGER_LINK := \
 
 $(eval $(call library,logger,$(LIBLOGGER_SOURCES),$(LIBLOGGER_LINK)))
 
-ifeq($(NODEJS_ENABLED),1)
-$(eval $(call nodejs_addon,logger,logger_js.cc filter_js.cc,logger js sigslot))
-endif
-
 LIBLOG_METRICS_SOURCES := \
-    kvp_logger_interface.cc easy_kvp_logger.cc logger_metrics_interface.cc \
-    logger_metrics_term.cc
+	kvp_logger_interface.cc easy_kvp_logger.cc \
+    logger_metrics_interface.cc logger_metrics_term.cc
+ 
+ LIBLOG_METRICS_LINK := \
+    boost_filesystem boost_program_options types
 
-LIBLOG_METRICS_LINK := \
-    mongoclient boost_filesystem boost_program_options types
-
-ifeq($(NODEJS_ENABLED),1)
 $(eval $(call library,log_metrics,$(LIBLOG_METRICS_SOURCES),$(LIBLOG_METRICS_LINK)))
+
+ifeq ($(NODEJS_ENABLED),1)
+$(eval $(call nodejs_addon,logger,logger_js.cc filter_js.cc,logger js sigslot))
 endif
 
 $(eval $(call include_sub_make,js))

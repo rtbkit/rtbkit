@@ -10,7 +10,6 @@
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include "soa/sigslot/slot.h"
 
 namespace boost {
 namespace iostreams {
