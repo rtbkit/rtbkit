@@ -100,7 +100,9 @@ namespace Datacratic {
 
 Runner::
 Runner()
-    : closeStdin(false), running_(false), childPid_(-1),
+    : closeStdin(false), running_(false),
+      startDate_(Date::negativeInfinity()), endDate_(startDate_),
+      childPid_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       statusRemaining_(sizeof(Task::ChildStatus))
 {
@@ -210,6 +212,7 @@ handleChildStatus(const struct epoll_event & event)
                 ML::futex_wake(childPid_);
 
                 running_ = false;
+                endDate_ = Date::now();
                 ML::futex_wake(running_);
                 break;
             }
@@ -357,6 +360,7 @@ attemptTaskTermination()
 
         // cerr << "terminated task\n";
         running_ = false;
+        endDate_ = Date::now();
         ML::futex_wake(running_);
     }
 #if 0
@@ -420,6 +424,7 @@ run(const vector<string> & command,
         throw ML::Exception("already running");
 
     running_ = true;
+    startDate_ = Date::now();
     ML::futex_wake(running_);
 
     task_.statusState = Task::StatusState::ST_UNKNOWN;
@@ -535,6 +540,19 @@ waitTermination() const
     while (running_) {
         ML::futex_wait(running_, true);
     }
+}
+
+double
+Runner::
+duration()
+    const
+{
+    Date end = Date::now();
+    if (!running_) {
+        end = endDate_;
+    }
+
+    return (end - startDate_);
 }
 
 /* RUNNER::TASK */
