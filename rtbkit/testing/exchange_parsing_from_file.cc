@@ -8,7 +8,6 @@
 
 #include "rtbkit/testing/exchange_parsing_from_file.h"
 
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"

@@ -15,26 +15,12 @@
    Finally, it is based on the interface of HttpRestProxy.
 
    Caveat:
-   - no support for EPOLLONESHOT yet
-   - has not been tweaked for performance yet
    - since those require header interpretation, there is not support for
      cookies per se
 */
 
 #pragma once
 
-#include "sys/epoll.h"
-
-#include <mutex>
-#include <queue>
-#include <string>
-#include <vector>
-
-#include <curlpp/Easy.hpp>
-#include <curlpp/Multi.hpp>
-#include <curlpp/Types.hpp>
-
-#include "jml/arch/wakeup_fd.h"
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
@@ -42,13 +28,17 @@
 
 namespace Datacratic {
 
-struct MessageLoop;
+/* Forward declarations */
 
 struct HttpClientCallbacks;
 
-/* HTTPREQUEST */
+
+/****************************************************************************/
+/* HTTP REQUEST                                                             */
+/****************************************************************************/
 
 /* Representation of an HTTP request. */
+
 struct HttpRequest {
     /** Structure used to hold content for a POST request. */
     struct Content {
@@ -111,34 +101,130 @@ struct HttpRequest {
 };
 
 
-/* HTTPCLIENT */
+/****************************************************************************/
+/* HTTP CLIENT IMPL                                                         */
+/****************************************************************************/
+
+struct HttpClientImpl : public AsyncEventSource {
+    HttpClientImpl(const std::string & baseUrl,
+                   int numParallel = 1024, int queueSize = 0)
+        : AsyncEventSource()
+    {
+    }
+
+    HttpClientImpl(HttpClientImpl && other) = default;
+
+    virtual ~HttpClientImpl()
+    {}
+
+    /** SSL checks */
+    virtual void enableSSLChecks(bool value) = 0;
+
+    /** Enable the TCP_NODELAY option, also known as the Nagle's algorithm */
+    virtual void enableTcpNoDelay(bool value) = 0;
+
+    /** Enable the requesting of "100 Continue" responses in preparation of
+     * a PUT request */
+    virtual void sendExpect100Continue(bool value) = 0;
+
+    /** Use with servers that support HTTP pipelining */
+    virtual void enablePipelining(bool value) = 0;
+
+    /** Enqueue (or perform) the specified request */
+    virtual bool enqueueRequest(const std::string & verb,
+                                const std::string & resource,
+                                const std::shared_ptr<HttpClientCallbacks> & callbacks,
+                                const HttpRequest::Content & content,
+                                const RestParams & queryParams,
+                                const RestParams & headers,
+                                int timeout = -1) = 0;
+
+    /* Returns the number of requests in the queue */
+    virtual size_t queuedRequests() const = 0;
+};
+
+
+/****************************************************************************/
+/* HTTP CLIENT ERROR                                                        */
+/****************************************************************************/
+
+enum struct HttpClientError {
+    None,
+    Unknown,
+    Timeout,
+    HostNotFound,
+    CouldNotConnect,
+    SendError,
+    RecvError
+};
+
+std::ostream & operator << (std::ostream & stream, HttpClientError error);
+
+
+/****************************************************************************/
+/* HTTP CLIENT                                                              */
+/****************************************************************************/
 
 struct HttpClient : public AsyncEventSource {
+    /* This sets the requested version of the underlying HttpClientImpl. By
+     * default, this value is deduced from the "HTTP_CLIENT_VERSION"
+     * environment variable. It not set, this falls back to 1. */
+    static void setHttpClientImplVersion(int version);
 
     /* "baseUrl": scheme, hostname and port (scheme://hostname[:port]) that
        will be used as base for all requests
        "numParallels": number of requests that can be handled simultaneously
        "queueSize": size of the backlog of pending requests, after which
-       operations will be refused */
+       operations will be refused (0 = infinite)
+       "implVersion": use version X of the HttpClientImpl, fallback
+       to HTTP_CLIENT_IMPL
+    */
     HttpClient(const std::string & baseUrl,
-               int numParallel = 4);
-    HttpClient(HttpClient && other) noexcept;
+               int numParallel = 1024, int queueSize = 0,
+               int implVersion = 0);
+    HttpClient(HttpClient && other) noexcept
+    {
+        *this = std::move(other);
+    }
     HttpClient(const HttpClient & other) = delete;
 
-    ~HttpClient();
+    virtual int selectFd()
+        const
+    {
+        return impl->selectFd();
+    }
+
+    virtual bool processOne()
+    {
+        return impl->processOne();
+    }
 
     /** SSL checks */
-    bool noSSLChecks;
+    void enableSSLChecks(bool value)
+    {
+        impl->enableSSLChecks(value);
+    }
 
-    void sendExpect100Continue(bool value);
+    /** Enable the TCP_NODELAY option, also known as the Nagle's algorithm */
+    void enableTcpNoDelay(bool value)
+    {
+        impl->enableTcpNoDelay(value);
+    }
 
-    /** Toggle the TCP_NODELAY option, also known as the Nagle's algorithm */
-    void toggleTcpNoDelay(bool value);
+    /** Enable the requesting of "100 Continue" responses in preparation of
+     * a PUT request */
+    void sendExpect100Continue(bool value)
+    {
+        impl->sendExpect100Continue(value);
+    }
 
     /** Use with servers that support HTTP pipelining */
-    void enablePipelining();
+    void enablePipelining(bool value)
+    {
+        impl->enablePipelining(value);
+    }
 
-    /** Performs a POST request, with "resource" as the location of the
+    /** Performs a GET request, with "resource" as the location of the
      *  resource on the server indicated in "baseUrl". Query parameters
      *  should preferably be passed via "queryParams".
      *
@@ -186,13 +272,10 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
-    /** Performs a DELETE request.
+    /** Performs a DELETE request. Note that this method cannot be named
+     * "delete", which is a reserved keyword in C++.
      *
      *  Returns "true" when the request could successfully be enqueued.
-     */
-
-    /* The method can't be named delete because delete is a reserved keyword in
-     * C++
      */
     bool del(const std::string & resource,
              const std::shared_ptr<HttpClientCallbacks> & callbacks,
@@ -205,123 +288,42 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    /** Enqueue (or perform) the specified request */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
                         const std::shared_ptr<HttpClientCallbacks> & callbacks,
                         const HttpRequest::Content & content,
                         const RestParams & queryParams,
                         const RestParams & headers,
-                        int timeout = -1);
+                        int timeout = -1)
+    {
+        return impl->enqueueRequest(verb, resource, callbacks, content,
+                                    queryParams, headers, timeout);
+    }
 
-    size_t queuedRequests() const;
+    size_t queuedRequests()
+        const
+    {
+        return impl->queuedRequests();
+    }
 
-    HttpClient & operator = (HttpClient && other) noexcept;
+    HttpClient & operator = (HttpClient && other) noexcept
+    {
+        if (&other != this) {
+            impl = std::move(other.impl);
+        }
+
+        return *this;
+    }
 
 private:
-    void cleanupFds() noexcept;
-
-    /* AsyncEventSource */
-    virtual int selectFd() const;
-    virtual bool processOne();
-
-    /* Local */
-    std::vector<HttpRequest> popRequests(size_t number);
-
-    void handleEvents();
-    void handleEvent(const ::epoll_event & event);
-    void handleWakeupEvent();
-    void handleTimerEvent();
-    void handleMultiEvent(const ::epoll_event & event);
-
-    void checkMultiInfos();
-
-    static int socketCallback(CURL *e, curl_socket_t s, int what,
-                              void *clientP, void *sockp);
-    int onCurlSocketEvent(CURL *e, curl_socket_t s, int what, void *sockp);
-
-    static int timerCallback(CURLM *multi, long timeoutMs, void *clientP);
-    int onCurlTimerEvent(long timeout_ms);
-
-    void addFd(int fd, bool isMod, int flags) const;
-    void removeFd(int fd) const;
-
-    struct HttpConnection {
-        HttpConnection();
-
-        HttpConnection(const HttpConnection & other) = delete;
-
-        void clear()
-        {
-            easy_.reset();
-            request_.clear();
-            afterContinue_ = false;
-            uploadOffset_ = 0;
-        }
-        void perform(bool noSSLChecks, bool withExpect100Continue = true,
-                     bool tcpNoDelay = false,
-                     bool debug = false);
-
-        /* header and body write callbacks */
-        curlpp::types::WriteFunctionFunctor onHeader_;
-        curlpp::types::WriteFunctionFunctor onWrite_;
-        size_t onCurlHeader(const char * data, size_t size) noexcept;
-        size_t onCurlWrite(const char * data, size_t size) noexcept;
-
-        /* body read callback */
-        curlpp::types::ReadFunctionFunctor onRead_;
-        size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
-
-        curlpp::types::DebugFunctionFunctor onDebug_;
-        int onCurlDebug(curl_infotype info, char *buffer, size_t size);
-
-        HttpRequest request_;
-
-        curlpp::Easy easy_;
-        // HttpClientResponse response_;
-        bool afterContinue_;
-        size_t uploadOffset_;
-
-        struct HttpConnection *next;
-    };
-
-    HttpConnection * getConnection();
-    void releaseConnection(HttpConnection * connection);
-
-    std::string baseUrl_;
-    bool expect100Continue;
-    bool tcpNoDelay;
-
-    int fd_;
-    ML::Wakeup_Fd wakeup_;
-    int timerFd_;
-
-    curlpp::Multi multi_;
-    ::CURLM * handle_;
-
-    std::vector<HttpConnection> connectionStash_;
-    std::vector<HttpConnection *> avlConnections_;
-    size_t nextAvail_;
-
-    typedef std::mutex Mutex;
-    typedef std::unique_lock<Mutex> Guard;
-    mutable Mutex queueLock_;
-    std::queue<HttpRequest> queue_; /* queued requests */
+    std::unique_ptr<HttpClientImpl> impl;
 };
 
 
-enum struct HttpClientError {
-    None,
-    Unknown,
-    Timeout,
-    HostNotFound,
-    CouldNotConnect,
-    SendError,
-    RecvError
-};
-
-std::ostream & operator << (std::ostream & stream, HttpClientError error);
-
-/* HTTPCLIENTCALLBACKS */
+/****************************************************************************/
+/* HTTP CLIENT CALLBACKS                                                    */
+/****************************************************************************/
 
 struct HttpClientCallbacks {
     typedef std::function<void (const HttpRequest &,
@@ -331,11 +333,6 @@ struct HttpClientCallbacks {
                                 const char * data, size_t size)> OnData;
     typedef std::function<void (const HttpRequest & rq,
                                 HttpClientError errorCode)> OnDone;
-
-    typedef std::function<void (const HttpRequest & rq,
-                                curl_infotype info,
-                                char *buffer,
-                                size_t size)> OnDebug;
 
     HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
                         OnData onHeader = nullptr,
@@ -350,8 +347,6 @@ struct HttpClientCallbacks {
     virtual ~HttpClientCallbacks()
     {
     }
-
-    void useDebug(const OnDebug &onDebug);
 
     static const std::string & errorMessage(HttpClientError errorCode);
 
@@ -373,22 +368,21 @@ struct HttpClientCallbacks {
     virtual void onDone(const HttpRequest & rq,
                         HttpClientError errorCode);
 
-    virtual void onDebug(const HttpRequest &rq,
-                         curl_infotype info, char *buffer, size_t size);
-
 private:
     OnResponseStart onResponseStart_;
     OnData onHeader_;
     OnData onData_;
     OnDone onDone_;
-    OnDebug onDebug_;
 };
 
 
-/* SIMPLE CALLBACKS */
+/****************************************************************************/
+/* HTTP CLIENT SIMPLE CALLBACKS                                             */
+/****************************************************************************/
 
-/* This class enables to simplify the interface use by clients which do not
- * need support for progressive responses. */
+/* This class is a child of HttpClientCallbacks and offers a simplified
+ * interface when support for progressive responses is not necessary. */
+
 struct HttpClientSimpleCallbacks : public HttpClientCallbacks
 {
     typedef std::function<void (const HttpRequest &,  /* request */

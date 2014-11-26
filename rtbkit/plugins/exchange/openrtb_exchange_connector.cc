@@ -6,8 +6,8 @@
 
 #include "openrtb_exchange_connector.h"
 #include "rtbkit/common/testing/exchange_source.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_source.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -137,8 +137,8 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     // Check that it's version 2.1
     std::string openRtbVersion = it->second;
-    if (openRtbVersion != "2.1") {
-        connection.sendErrorResponse("UNSUPPORTED_OPENRTB_VERSION", "The request is required to be using version 2.1 of the OpenRTB protocol but requested " + openRtbVersion);
+    if (openRtbVersion != "2.1" && openRtbVersion != "2.2") {
+        connection.sendErrorResponse("UNSUPPORTED_OPENRTB_VERSION", "The request is required to be using version 2.1 or 2.2 of the OpenRTB protocol but requested " + openRtbVersion);
         return none;
     }
 
@@ -152,9 +152,9 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::shared_ptr<BidRequest> result;
     try {
         ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-        result.reset(OpenRtbBidRequestParser::parseBidRequest(context,
-                                                           exchangeName(),
-                                                           exchangeName()));
+        result.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory(openRtbVersion)->parseBidRequest(context,
+                                                                                              exchangeName(),
+                                                                                              exchangeName()));
     }
     catch(ML::Exception const & e) {
         this->recordHit("error.parsingBidRequest");

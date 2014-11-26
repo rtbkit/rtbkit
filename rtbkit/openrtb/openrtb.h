@@ -23,8 +23,8 @@
 #pragma once
 
 #include <string>
-#include <memory>
 #include <vector>
+#include <memory>
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include "soa/types/url.h"
@@ -39,27 +39,6 @@ namespace OpenRTB {
 //using namespace Datacratic;
 using Datacratic::Optional;
 using Datacratic::List;
-
-struct Deal
-{
-    Datacratic::Id id;                     ///< DEAL ID
-    Datacratic::TaggedDouble bidfloor;     ///< Deal price floow
-    std::string bidfloorcur;        ///< Currency
-    Datacratic::List<std::string> wseat;        ///< Array of buyer seats allowed to bid on this
-                               /// Direct Deal.
-    Datacratic::TaggedInt at;              ///< Auction type
-    Json::Value ext;           ///< Extensions
-};
-
-struct PMP
-{
-    Datacratic::TaggedIntDef<0> privateAuction; ///< Is this a private deal? A value of 1
-                                    /// indicates that open market bids need not be
-                                    /// returned and that only bids submitted inside
-                                    /// pmp.deals will be considered to serve.
-    Datacratic::List<Deal> deals;               ///< Array of deal objects, if present
-    Json::Value ext;                ///< Extensions
-};
 
 /*****************************************************************************/
 /* MIME TYPES                                                                */
@@ -189,7 +168,8 @@ struct ApiFramework: public Datacratic::TaggedEnum<ApiFramework> {
         VPAID_1 = 1,    ///< IAB Video Player-Ad Interface Definitions V1
         VPAID_2 = 2,    ///< IAB Video Player-Ad Interface Definitions V2
         MRAID = 3,      ///< IAB Mobile Rich Media Ad Interface Definitions
-        ORMMA = 4       ///< Google Open Rich Media Mobile Advertising
+        ORMMA = 4,       ///< Google Open Rich Media Mobile Advertising
+        MRAID2 = 5      ///< IAB Mobile Rich Media Ad Interface Definitions V2
     };
 };
 
@@ -476,7 +456,11 @@ struct DeviceType: public Datacratic::TaggedEnum<DeviceType> {
 
         MOBILE_OR_TABLET = 1,
         PC = 2,
-        TV = 3
+        TV = 3,
+        PHONE = 4,  ///< OpenRTB 2.2
+        TABLET = 5, ///< OpenRTB 2.2
+        CONNECTED_DEVICE = 6, ///< OpenRTB 2.2
+        SET_TOP_BOX = 7 ///< OpenRTB 2.2
     };
 };
 
@@ -520,6 +504,32 @@ struct MediaRating: public Datacratic::TaggedEnum<MediaRating> {
         ALL_AUDIENCES = 1,
         OVER_12 = 2,
         MATURE_AUDIENCES =3 
+    };
+};
+
+/*****************************************************************************/
+/* No-Bid Reason Codes                                                       */
+/*****************************************************************************/
+
+/** 6.19 No-Bid Reason Codes
+
+    The following table lists the options to signal the exchange why the impression
+    was not bid on.
+*/
+
+struct NoBidReason: public Datacratic::TaggedEnum<NoBidReason> {
+    enum Vals {
+        UNSPECIFIED = -1,  ///< Not explicitly specified
+
+        UNKNOWN_ERROR = 0,
+        TECHNICAL_ERROR = 1,
+        INVALID_REQUEST = 2,
+        KNOWN_WEB_SPIDER = 3,
+        SUSPECTED_NON_HUMAN_TRAFFIC = 4,
+        CLOUD_DATACENTER_OR_PROXY_IP = 5,
+        UNSUPPORTED_DEVICE = 6,
+        BLOCKED_PUBLISHER_OR_SITE = 7,
+        UNMATCHED_USER = 8
     };
 };
 
@@ -603,7 +613,10 @@ struct Banner {
     ///< NOTE: RTBkit extension: support for multiple formats
     Datacratic::List<int> w;                     ///< Width of ad
     Datacratic::List<int> h;                     ///< Height of ad
-
+    Datacratic::TaggedInt wmax;                  ///< max width of ad (OpenRTB 2.2)
+    Datacratic::TaggedInt hmax;                  ///< max height of ad (OpenRTB 2.2)
+    Datacratic::TaggedInt wmin;                  ///< min width of ad (OpenRTB 2.2)
+    Datacratic::TaggedInt hmin;                  ///< min height of ad (OpenRTB 2.2)
     Datacratic::Id id;                           ///< Ad ID
     AdPosition pos;                  ///< Ad position (table 6.5)
     Datacratic::List<BannerAdType> btype;        ///< Blocked creative types (table 6.2)
@@ -634,10 +647,11 @@ struct Banner {
 struct Video {
     ~Video();
     Datacratic::List<MimeType> mimes;       ///< Content MIME types supported
-    VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
-    Datacratic::TaggedInt minduration;      ///< Minimum ad duration in seconds
-    Datacratic::TaggedInt maxduration;      ///< Maximum ad duration in seconds
+    VideoLinearity linearity;               ///< Whether it's linear or not (table 6.6)
+    Datacratic::TaggedFloat minduration;      ///< Minimum ad duration in seconds
+    Datacratic::TaggedFloat maxduration;      ///< Maximum ad duration in seconds
     VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
+    Datacratic::List<VideoBidResponseProtocol> protocols; ///< Bid response protocols array (table 6.7) (OpenRTB2.2)
     Datacratic::TaggedInt w;                ///< Width of player in pixels
     Datacratic::TaggedInt h;                ///< Height of player in pixels
     ///< Starting delay in seconds for placement (table 6.9)
@@ -690,7 +704,44 @@ struct Publisher {
 
 typedef Publisher Producer;  /// They are the same...
 
-    
+/*****************************************************************************/
+/* DEAL                                                                      */
+/*****************************************************************************/
+
+/** 3.3.17 Direct deals object
+
+    A "deal" object constitutes a deal struck a priori between a buyer and a seller and indicates that
+    this impression is available under the terms of that deal.
+*/
+struct Deal { // New in OpenRTB 2.2
+    ~Deal();
+    Datacratic::Id id;                      ///< unique id for a direct deal
+    Datacratic::TaggedFloat bidfloor;       ///< bid floor for this impression in CPM of bidfloorcur
+    std::string bidfloorcur;                ///< currency of the bidfloor, ISO-4217
+    Datacratic::List<std::string> wseat;    ///< array of buyer seats allowed to bid on this deal
+    Datacratic::List<std::string> wadomain; ///< array of advertiser domains allowed to bid on this deal
+    Datacratic::TaggedInt at;               ///< type of auction : first / second price
+    Json::Value ext;                        ///< Extension object
+};
+
+
+/*****************************************************************************/
+/* PMP                                                                       */
+/*****************************************************************************/
+
+/** 3.3.16 PMP object
+
+    The “pmp” object contains a parent object for usage within the context of private marketplaces 
+    and the use of the RTB protocol to execute Direct Deals.
+ 
+*/
+struct PMP { // New in OpenRTB 2.2
+    ~PMP();
+    Datacratic::TaggedIntDef<0> privateAuction;    ///< Flag for private auction traffic : = 0 all bids, 1 = private deal
+    std::vector<Deal> deals;   ///< List of deals eligible for this impression
+    Json::Value ext;                ///< Extensions related to private deals between parties 
+};
+
 /*****************************************************************************/
 /* IMPRESSION                                                                */
 /*****************************************************************************/
@@ -716,6 +767,7 @@ struct Impression {
     Datacratic::UnicodeString tagid;                   ///< ad tag ID for auction
     Datacratic::TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
     std::string bidfloorcur;                ///< Bid floor currency
+    Datacratic::TaggedInt secure;           ///< Flag that requires secure https assets (1 == yes) (OpenRTB 2.2)
     Datacratic::List<std::string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
     Datacratic::Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
     Json::Value ext;                   ///< Extended impression attributes
@@ -912,6 +964,8 @@ struct Device {
     std::string didmd5;         ///< Device ID: MD5
     std::string dpidsha1;       ///< Device Platform ID: SHA1
     std::string dpidmd5;        ///< Device Platform ID: MD5
+    std::string macsha1;       ///< MAC ADDRESS: SHA1 (OpenRTB 2.2)
+    std::string macmd5;        ///< MAC ADDRESS: MD5 (OpenRTB 2.2)
     std::string ipv6;           ///< IPv6 address
     Datacratic::UnicodeString carrier;    ///< Carrier or ISP (derived from IP address)
     Datacratic::UnicodeString language;   ///< Browser language.  ISO 639-1 (alpha-2).
@@ -922,7 +976,8 @@ struct Device {
     Datacratic::TaggedBool js;         ///< Javascript is supported? 1 or 0
     ConnectionType connectiontype;    ///< Connection type (table 6.10)
     DeviceType devicetype; ///< Device type (table 6.16)
-    std::string flashver;       ///< Flash version on device
+    std::string flashver;   ///< Flash on device
+    std::string ifa;        ///< Native identifier for advertisers
     Json::Value ext;       ///< Extensions go here
 };
 
@@ -1018,6 +1073,26 @@ struct User {
     Datacratic::TaggedInt sessiondepth;    ///< User session depth
 };
 
+/*****************************************************************************/
+/* REGULATIONS                                                               */
+/*****************************************************************************/
+
+/** 3.3.15 Regulations object
+  
+    The “regs” object contains any legal, governmental, or industry regulations that apply to the 
+    request. The first regulation added signal whether or not the request falls under the United States 
+    Federal Trade Commission’s regulations for the United States Children’s Online Privacy 
+    Protection Act (“COPPA”). See the COPPA appendix for details.
+    
+    The regs object itself and all of its parameters are optional, so default values are not provided. 
+    If an optional parameter is not specified, it should be considered unknown.
+
+*/
+struct Regulations { // New in OpenRTB 2.2
+    ~Regulations();
+    Datacratic::TaggedIntDef<0> coppa;    ///< Flag for coppa regulated traffic : = 0 no, 1 = yes
+    Json::Value ext;                      ///< Extensions related to regulations 
+};
 
 /*****************************************************************************/
 /* BID REQUEST                                                               */
@@ -1040,14 +1115,12 @@ struct User {
 struct BidRequest {
     ~BidRequest();
     Datacratic::Id id;                             ///< Bid request ID
-
     std::vector<Impression> imp;            ///< List of impressions
     //unique_ptr<Context> context;     // TODO: factor out of site and app
     Datacratic::Optional<Site> site;
     Datacratic::Optional<App> app;
     Datacratic::Optional<Device> device;
     Datacratic::Optional<User> user;
-
     AuctionType at;                    ///< Auction type (1=first/2=second party)
     Datacratic::TaggedInt tmax;                    ///< Max time avail in ms
     std::vector<std::string> wseat;              ///< Allowed buyer seats
@@ -1055,6 +1128,7 @@ struct BidRequest {
     std::vector<std::string> cur;                ///< Allowable currencies
     Datacratic::List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
     std::vector<Datacratic::UnicodeString> badv;           ///< Blocked advertiser domains
+    Datacratic::Optional<Regulations> regs; ///< Regulations Object list (OpenRTB 2.2)
     Json::Value ext;                   ///< Protocol extensions
     Json::Value unparseable;           ///< Unparseable fields get put here
 };
@@ -1099,6 +1173,10 @@ struct Bid {
     Datacratic::Id cid;                       ///< Campaign ID
     Datacratic::Id crid;                      ///< Creative ID
     Datacratic::List<CreativeAttribute> attr; ///< Creative attributes
+    std::string dealid;                     ///< unique id for the deal associated with bid
+                                            ///< if its in bid request, required in bid response
+    Datacratic::TaggedInt w;                ///< width of ad in pixels
+    Datacratic::TaggedInt h;                ///< height of ad in pixels
     Json::Value ext;              ///< Extended bid fields
 };
 
@@ -1153,6 +1231,7 @@ struct BidResponse {
     Datacratic::Id bidid;
     std::string cur;
     Datacratic::UnicodeString customData;
+    NoBidReason nbr; ///< reason for not bidding
     Json::Value ext;
 };
 

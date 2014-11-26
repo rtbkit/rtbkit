@@ -24,6 +24,30 @@ enum TimeGranularity {
     YEARS
 };
 
+TimeGranularity operator + (TimeGranularity granularity, int steps);
+inline TimeGranularity operator - (TimeGranularity granularity, int steps)
+{
+    return (granularity + (-steps));
+}
+
+/** Returns whether one granularity unit can be translated to the other. */
+bool canTranslateGranularity(TimeGranularity sourceGranularity,
+                             TimeGranularity destGranularity);
+
+/** Number of units of one granularity that first in the other granularity. */
+int granularityMultiplier(TimeGranularity sourceGranularity,
+                          TimeGranularity destGranularity);
+
+/** Returns the number of units of "destGranularity" when translated from
+ * "sourceGranularity". */
+inline int translateGranularity(TimeGranularity sourceGranularity,
+                                int sourcePeriod,
+                                TimeGranularity destGranularity)
+{
+    return sourcePeriod * granularityMultiplier(sourceGranularity,
+                                                destGranularity);
+}
+
 /** Calculate when the next period will be. */
 std::pair<Date, double>
 findPeriod(Date now, TimeGranularity granularity, double interval);
@@ -112,9 +136,14 @@ struct TimePeriod {
 
     void parse(const std::string & val);
 
-    TimeGranularity granularity;
-    double number;
-    double interval;
+    TimePeriod operator + (const TimePeriod & other) const;
+
+    TimePeriod & operator += (const TimePeriod & other)
+    {
+        TimePeriod newPeriod = *this + other;
+        *this = newPeriod;
+        return *this;
+    }
 
     bool operator == (const TimePeriod & other) const
     {
@@ -125,6 +154,10 @@ struct TimePeriod {
     {
         return ! operator == (other);
     }
+
+    TimeGranularity granularity;
+    double number;
+    double interval;
 };
 
 // NOTE: this is defined in the value description library

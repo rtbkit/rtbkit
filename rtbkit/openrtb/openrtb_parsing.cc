@@ -49,6 +49,7 @@ DefaultDescription()
     addField("cur", &BidRequest::cur, "List of acceptable currencies to bid in");
     addField("bcat", &BidRequest::bcat, "Blocked advertiser content categories");
     addField("badv", &BidRequest::badv, "Blocked adversiser domains");
+    addField("regs", &BidRequest::regs, "Legal regulations");
     addField("ext", &BidRequest::ext, "Extended fields outside of protocol");
     addField("unparseable", &BidRequest::unparseable, "Unparseable fields are collected here");
 }
@@ -65,6 +66,7 @@ DefaultDescription()
     addField("tagid", &Impression::tagid, "Add tag ID for auction");
     addField("bidfloor", &Impression::bidfloor, "Bid floor in CPM of currency");
     addField("bidfloorcur", &Impression::bidfloorcur, "Currency for bid floor");
+    addField("secure", &Impression::secure, "Does the impression require https");
     addField("iframebuster", &Impression::iframebuster, "Supported iframe busters");
     addField("pmp", &Impression::pmp, "Contains any deals eligible for the impression");
     addField("ext", &Impression::ext, "Extended impression attributes");
@@ -103,6 +105,10 @@ DefaultDescription()
              new FormatListDescription());
     addField<List<int>>("h", &Banner::h, "Height of ad in pixels",
              new FormatListDescription());
+    addField("hmin", &Banner::id, "Ad minimum height");
+    addField("hmax", &Banner::pos, "Ad maximum height");
+    addField("wmin", &Banner::id, "Ad minimum width");
+    addField("wmax", &Banner::pos, "Ad maximum width");
     addField("id", &Banner::id, "Ad ID");
     addField("pos", &Banner::pos, "Ad position");
     addField("btype", &Banner::btype, "Blocked creative types");
@@ -121,7 +127,8 @@ DefaultDescription()
     addField("linearity", &Video::linearity, "Ad linearity");
     addField("minduration", &Video::minduration, "Minimum duration in seconds");
     addField("maxduration", &Video::maxduration, "Maximum duration in seconds");
-    addField("protocol", &Video::protocol, "Bid response protocols supported");
+    addField("protocol", &Video::protocol, "Bid response supported protocol");
+    addField("protocols", &Video::protocols, "Bid response supported protocols");
     addField("w", &Video::w, "Width of player in pixels");
     addField("h", &Video::h, "Height of player in pixels");
     addField("startdelay", &Video::startdelay, "Starting delay in seconds of video");
@@ -219,6 +226,8 @@ DefaultDescription()
     addField("didmd5", &Device::didmd5, "MD5 Device ID");
     addField("dpidsha1", &Device::dpidsha1, "SHA-1 Device Platform ID");
     addField("dpidmd5", &Device::dpidmd5, "MD5 Device Platform ID");
+    addField("macsha1", &Device::macsha1, "SHA-1 Mac Address");
+    addField("macmd5", &Device::macmd5, "MD5 Mac Address");
     addField("ipv6", &Device::ipv6, "Device IPv6 address");
     addField("carrier", &Device::carrier, "Carrier or ISP derived from IP address");
     addField("language", &Device::language, "Browser language");
@@ -230,6 +239,7 @@ DefaultDescription()
     addField("connectiontype", &Device::connectiontype, "Device connection type");
     addField("devicetype", &Device::devicetype, "Device type");
     addField("flashver", &Device::flashver, "Flash version on device");
+    addField("ifa", &Device::ifa, "Native identifier for advertisers");
     addField("ext", &Device::ext, "Extensions to device field go here");
 }
 
@@ -326,6 +336,7 @@ DefaultDescription()
     addField("bidfloor", &Deal::bidfloor, "bid floor");
     addField("bidfloorcur", &Deal::bidfloorcur, "Currency of the deal");
     addField("wseat", &Deal::wseat, "List of buyer seats allowed");
+    addField("wadomain", &Deal::wadomain, "List of advertiser domains allowed");
     addField("at", &Deal::at, "Auction type");
     addField("ext", &Deal::ext, "Extensions");
 }
@@ -337,5 +348,13 @@ DefaultDescription()
     addField("deals", &PMP::deals, "Deals");
     addField("ext", &PMP::ext, "Extensions");
 }
+
+DefaultDescription<OpenRTB::Regulations>::
+DefaultDescription()
+{
+    addField("coppa", &Regulations::coppa, "is coppa regulated traffic");
+    addField("ext", &Regulations::ext, "Extensions");
+}
+
 
 } // namespace Datacratic

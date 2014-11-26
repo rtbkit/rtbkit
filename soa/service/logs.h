@@ -101,12 +101,12 @@ struct Logging
     };
 
     struct FileWriter : public Writer {
-        FileWriter(char const * filename) {
-            open(filename);
+        FileWriter(char const * filename, char const mode = 'w') {
+            open(filename, mode);
         }
 
-        FileWriter(std::string const & filename) {
-            open(filename.c_str());
+        FileWriter(std::string const & filename, char const mode = 'w') {
+            open(filename.c_str(), mode);
         }
 
         void head(char const * timestamp,
@@ -118,7 +118,7 @@ struct Logging
         void body(std::string const & content);
 
     private:
-        void open(char const * filename);
+        void open(char const * filename, char const mode);
 
         std::ofstream file;
         std::stringstream stream;
@@ -164,7 +164,7 @@ struct Logging
         /** Boolean conversion allows you to know if it's enabled.  Usage:
 
             Logging::Category logMyComponent("myComponent");
-            
+
             std::string output;
             Json::Value loggingInfo;
 
@@ -264,7 +264,7 @@ struct Logging
 /** Macro to call to log a message to the given group.  Usage is as follows:
 
     Logging::Category errors("errors");
-    
+
     LOG(errors) << "error frobbing: " << errorMessage << endl;
 */
 #define LOG(group, ...) \
@@ -275,7 +275,7 @@ struct Logging
     as follows:
 
     Logging::Category logMyComponent("myComponent");
-    
+
     if (badErrorCondition)
         THROW(logMyComponent) << "fatal error with bad error condition";
 */

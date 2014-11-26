@@ -77,7 +77,6 @@ BidderInterface::Factory getFactory(std::string const & name) {
     throw ML::Exception("couldn't find bidder name " + name);
 }
 
-
 void BidderInterface::registerFactory(std::string const & name, Factory callback) {
     Guard guard(lock);
     if (!factories.insert(std::make_pair(name, callback)).second)
@@ -94,7 +93,6 @@ std::shared_ptr<BidderInterface> BidderInterface::create(
     if(serviceName.empty()) {
         serviceName = json.get("serviceName", "bidder").asString();
     }
-
 
     return std::shared_ptr<BidderInterface>(factory(serviceName, proxies, json));
 }

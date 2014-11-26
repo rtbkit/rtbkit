@@ -58,19 +58,19 @@ init(const Url & url)
 
 void
 TcpClient::
-init(const string & address, int port)
+init(const string & hostname, int port)
 {
     if (state_ == TcpClientState::Connecting
         || state_ == TcpClientState::Connected) {
         throw ML::Exception("connection already pending or established");
     }
-    if (address.empty()) {
-        throw ML::Exception("invalid address: " + address);
+    if (hostname.empty()) {
+        throw ML::Exception("hostname is empty");
     }
     if (port < 1) {
         throw ML::Exception("invalid port: " + to_string(port));
     }
-    address_ = address;
+    hostname_ = hostname;
     port_ = port;
 }
 
@@ -90,8 +90,8 @@ TcpClient::
 connect(const OnConnectionResult & onConnectionResult)
 {
     // cerr << "connect...\n";
-    ExcCheck(state() == Disconnected, "socket is not closed");
-    ExcCheck(!address_.empty(), "no address set");
+    ExcCheck(getFd() == -1, "socket is not closed");
+    ExcCheck(!hostname_.empty(), "no hostname set");
 
     state_ = TcpClientState::Connecting;
     ML::futex_wake(state_);
@@ -129,21 +129,21 @@ connect(const OnConnectionResult & onConnectionResult)
         }
     }
 
-    /* address resolution */
+    /* host resolution */
     struct sockaddr_in addr;
     addr.sin_port = htons(port_);
     addr.sin_family = AF_INET;
 
-    // cerr << " connecting to host: " + address_ + "\n";
-    res = ::inet_aton(address_.c_str(), &addr.sin_addr);
+    // cerr << " connecting to host: " + hostname_ + "\n";
+    res = ::inet_aton(hostname_.c_str(), &addr.sin_addr);
     if (res == 0) {
-        // cerr << "host is not an ip\n";
+        // cerr << "hostname is not an ip\n";
         struct hostent hostentry;
         struct hostent * hostentryP;
         int hErrnoP;
 
         char buffer[1024];
-        res = gethostbyname_r(address_.c_str(),
+        res = gethostbyname_r(hostname_.c_str(),
                               &hostentry,
                               buffer, sizeof(buffer),
                               &hostentryP, &hErrnoP);
@@ -215,7 +215,7 @@ handleConnectionEvent(int socketFd, OnConnectionResult onConnectionResult)
     }
 
     removeFd(socketFd);
-    unregisterFdCallback(socketFd);
+    unregisterFdCallback(socketFd, true);
     if (connCode == Success) {
         errno = 0;
         setFd(socketFd);

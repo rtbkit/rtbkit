@@ -353,8 +353,10 @@ private:
     const Account onCreateAccount(const AccountKey &account, AccountType type);
     const Account setBudget(const AccountKey &key, const CurrencyPool &newBudget);
     const Account setBalance(const AccountKey &key, CurrencyPool amount, AccountType type);
+    std::map<std::string, Account> setBalanceBatched(const Json::Value &transfers);
     const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
     const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
+    std::map<std::string, Account> syncFromShadowBatched(const Json::Value &transfers);
 
     void reportLatencies(const std::string& category,
                          const BankerPersistence::LatencyMap& latencies) const;
@@ -363,7 +365,8 @@ private:
     const std::vector<AccountKey> getActiveAccounts();
     void restoreAccount(const AccountKey & key);
     void reactivatePresentAccounts(const AccountKey & key);
-    
+
+    void checkPersistence();
 };
 
 } // namespace RTBKIT

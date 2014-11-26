@@ -1,3 +1,5 @@
+$(eval $(call test,epoll_test,services,boost))
+
 $(eval $(call test,named_endpoint_test,services,boost manual))
 $(eval $(call test,zmq_named_pub_sub_test,services,boost manual))
 $(eval $(call test,zmq_endpoint_test,services,boost manual))

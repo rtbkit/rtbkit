@@ -5,8 +5,6 @@
 */
 
 #include "rubicon_exchange_connector.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
-#include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"

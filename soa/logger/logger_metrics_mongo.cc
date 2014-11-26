@@ -1,6 +1,7 @@
 #include "logger_metrics_mongo.h"
 #include "mongo/bson/bson.h"
 #include "mongo/util/net/hostandport.h"
+#include "jml/utils/string_functions.h"
 
 namespace Datacratic{
 
@@ -16,18 +17,31 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
                                 s.c_str());
         }
     }
-    HostAndPort hostAndPort(config["hostAndPort"].asString());
-    conn.connect(hostAndPort);
-    string err;
+
+    vector<string> hapStrs = ML::split(config["hostAndPort"].asString(), ',');
+    if (hapStrs.size() > 1) {
+        vector<HostAndPort> haps;
+        for (const string & hapStr: hapStrs) {
+               haps.emplace_back(hapStr);
+        }
+        conn.reset(new mongo::DBClientReplicaSet(hapStrs[0], haps, 100));
+    }
+    else {
+        std::shared_ptr<DBClientConnection> tmpConn =
+            make_shared<DBClientConnection>();
+        tmpConn->connect(hapStrs[0]);
+        conn = tmpConn;
+    }
     db = config["database"].asString();
-    if(!conn.auth(db, config["user"].asString(),
+    string err;
+    if(!conn->auth(db, config["user"].asString(),
                   config["pwd"].asString(), err))
     {
         throw ML::Exception(
             "MongoDB connection failed with msg [%s]", err.c_str());
     }
     BSONObj obj = BSON(GENOID);
-    conn.insert(db + "." + coll, obj);
+    conn->insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
     logToTerm = config["logToTerm"].asBool();
 }
@@ -80,7 +94,7 @@ void LoggerMetricsMongo::logInCategory(const string& category,
              << ": " << json.toStyledString() << endl;
     }
 
-    conn.update(db + "." + coll,
+    conn->update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" << bson.obj()),
                     true);
@@ -108,7 +122,7 @@ void LoggerMetricsMongo
     if(logToTerm){
         cout << newCatStr << ": " << str << endl;
     }
-    conn.update(db + "." + coll,
+    conn->update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" 
                     << BSON(newCatStr << str)),

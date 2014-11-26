@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "soa/types/date.h"
 #include "soa/types/value_description.h"
 
 #include "epoller.h"
@@ -150,6 +151,14 @@ struct Runner: public Epoller {
         of a launch error, -3 when terminated. */
     pid_t childPid() const { return childPid_; }
 
+    Date startDate() const { return startDate_; }
+    Date endDate() const { return endDate_; }
+
+    /** The number of seconds since the actual start time of the subprocess.
+        If terminated, the actual interval between the start and the
+        termination times thereof. */
+    double duration() const;
+
 private:
     struct Task {
         struct ChildFds {
@@ -242,6 +251,8 @@ private:
     void attemptTaskTermination();
 
     int running_;
+    Date startDate_;
+    Date endDate_;
 
     /** Holds the child PID if > 0.  If not:
         -1 means the child has not launched yet

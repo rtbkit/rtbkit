@@ -10,7 +10,7 @@ class LoggerMetricsMongo : public ILoggerMetrics{
     protected:
         mongo::OID objectId;
         std::string db;
-        mongo::DBClientConnection conn;
+        std::shared_ptr<mongo::DBClientBase> conn;
 
         LoggerMetricsMongo(Json::Value config,
                            const std::string& coll,

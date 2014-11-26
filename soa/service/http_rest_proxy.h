@@ -304,27 +304,40 @@ struct JsonRestProxy : HttpRestProxy {
     /* authentication token */
     std::string authToken;
 
-    static void sleepAfterRetry(int retryNbr, int maxBaseTime);
+    /* number of exponential backoffs, -1 = unlimited */
+    int maxRetries;
+
+    /* maximum number of seconds to sleep before a retry, as computed before
+       randomization */
+    int maxBackoffTime;
+
+    bool authenticate(const JsonAuthenticationRequest & creds);
+
+    HttpRestProxy::Response get(const std::string & resource)
+        const
+    {
+        return performWithBackoff("GET", resource, "");
+    }
 
     HttpRestProxy::Response post(const std::string & resource,
-                                 const std::string & body) const
+                                 const std::string & body)
+        const
     {
-        return putOrPost(resource, body, true);
+        return performWithBackoff("POST", resource, body);
     }
 
     HttpRestProxy::Response put(const std::string & resource,
-                                const std::string & body) const
+                                const std::string & body)
+        const
     {
-        return putOrPost(resource, body, false);
+        return performWithBackoff("PUT", resource, body);
     }
-
-    HttpRestProxy::Response get(const std::string & resource) const;
 
     template<typename R>
     R getTyped(const std::string & resource, int expectedCode=-1)
         const
     {
-        auto resp = get(resource);
+        auto resp = performWithBackoff("GET", resource, "");
         if (expectedCode > -1) {
             if (resp.code() != expectedCode) {
                 throw ML::Exception("expected code: "
@@ -344,21 +357,12 @@ struct JsonRestProxy : HttpRestProxy {
         return data;
     }
 
-    bool authenticate(const JsonAuthenticationRequest & creds);
-
-    /* number of exponential backoffs, -1 = unlimited */
-    int maxRetries;
-
-    /* maximum number of seconds to sleep before a retry, as computed before
-       randomization */
-    int maxBackoffTime;
-
     template<typename R, typename T>
     R postTyped(const std::string & resource,
                 const T & payload, int expectedCode=-1)
         const
     {
-        return putOrPostTyped<R>(resource, payload, expectedCode, true);
+        return uploadWithBackoffTyped<R>("POST", resource, payload, expectedCode);
     }
 
     template<typename R, typename T>
@@ -366,24 +370,26 @@ struct JsonRestProxy : HttpRestProxy {
                const T & payload, int expectedCode=-1)
         const
     {
-        return putOrPostTyped<R>(resource, payload, expectedCode, false);
+        return uploadWithBackoffTyped<R>("PUT", resource, payload, expectedCode);
     }
 
 private:
-    HttpRestProxy::Response putOrPost(const std::string & resource,
-                                      const std::string & body,
-                                      bool isPost) const;
+    static void sleepAfterRetry(int retryNbr, int maxBaseTime);
+
+    HttpRestProxy::Response performWithBackoff(const std::string & method,
+                                               const std::string & resource,
+                                               const std::string & body) const;
 
     template<typename R, typename T>
-    R putOrPostTyped(const std::string & resource,
-                     const T & payload, int expectedCode, bool isPost)
+    R uploadWithBackoffTyped(const std::string & method,
+                             const std::string & resource,
+                             const T & payload,
+                             int expectedCode = -1)
         const
     {
-        std::string postData = jsonEncodeStr<T>(payload);
+        std::string uploadData = jsonEncodeStr<T>(payload);
 
-        auto resp = (isPost
-                     ? post(resource, postData)
-                     : put(resource, postData));
+        auto resp = performWithBackoff(method, resource, uploadData);
         if (expectedCode > -1) {
             if (resp.code() != expectedCode) {
                 throw ML::Exception("expected code: "

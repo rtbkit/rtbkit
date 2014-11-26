@@ -307,6 +307,8 @@ struct BidRequest {
     /** The impressions that are available within the bid request. */
     std::vector<AdSpot> imp;
 
+    /** The regulations that are related to this bid request. */
+    OpenRTB::Optional<OpenRTB::Regulations> regs;
 
     /* The following fields are all mirrored from the information in the rest
        of the bid request.  They provide a way for the bid request parser to

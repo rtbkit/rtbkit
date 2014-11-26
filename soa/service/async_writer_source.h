@@ -9,6 +9,7 @@
 
 #include <sys/epoll.h>
 
+#include <set>
 #include <atomic>
 #include <queue>
 #include <vector>
@@ -189,9 +190,10 @@ protected:
        operations */
     void registerFdCallback(int fd, const EpollCallback & cb);
 
-    /* disassociate a callback and a file descriptor from the callback
-       registry */
-    void unregisterFdCallback(int fd);
+    /* dissociate a callback and a file descriptor from the callback registry,
+       with the "delayed" parameter indicating whether the operation must
+       occur immediately or at the end of the epoll loop */
+    void unregisterFdCallback(int fd, bool delayed);
 
     std::vector<std::string> emptyMessageQueue();
 
@@ -235,7 +237,7 @@ private:
     void handleReadReady();
     void handleWriteReady();
     void handleWriteResult(int error, AsyncWrite && currentWrite);
-    void handleClosing(bool fromPeer);
+    void handleClosing(bool fromPeer, bool delayedUnregistration);
     void handleException();
 
     /* wakeup operations */
@@ -245,6 +247,7 @@ private:
     size_t numFds_;
 
     std::map<int, EpollCallback> fdCallbacks_;
+    std::set<int> delayedUnregistrations_;
 
     int fd_;
     std::atomic<bool> closing_;

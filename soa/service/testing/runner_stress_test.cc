@@ -181,7 +181,9 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
             while (sinkPtr.bytesSent() != stdInBytes) {
                 ML::sleep(0.2);
             }
-            stdInSink.requestClose();
+            if (sinkPtr.queueEnabled()) {
+                stdInSink.requestClose();
+            }
         }
 
         // cerr << "waiting termination...\n";

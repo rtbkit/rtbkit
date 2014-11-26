@@ -691,7 +691,36 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                         AccountKey()),
                        RestParamDefault<int>
                        ("maxDepth", "maximum depth to search (default unlimited)", -1));
+
+    auto batchedRet = [] (const std::map<std::string, Account> & accounts) {
+        Json::Value result;
+        for (const auto& item : accounts) {
+            result[item.first] = item.second.toJson();
+        }
+        return result;
+    };
+
+    addRouteSyncReturn(accountsNode,
+                       "/balance",
+                       {"PUT", "POST"},
+                       "Batched budget transfer from the parent such that "
+                       "account's balance amount matches the parameter",
+                       "Account: Representation of the modified account",
+                       batchedRet,
+                       &MasterBanker::setBalanceBatched,
+                       this,
+                       JsonParam<Json::Value>("", "list of accounts to update"));
     
+    addRouteSyncReturn(accountsNode,
+                       "/shadow",
+                       {"PUT", "POST"},
+                       "Update a spend account's spend and commitments",
+                       "Account: Representation of the modified account",
+                       batchedRet,
+                       &MasterBanker::syncFromShadowBatched,
+                       this,
+                       JsonParam<Json::Value>("", "list of accounts to sync"));
+
     auto & account
         = accountsNode.addSubRouter(Rx("/([^/]*)", "/<accountName>"),
                                     "operations on an individual account");
@@ -819,8 +848,6 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        },
                        &MasterBanker::getActiveAccounts,
                        this);
-
-
 }
 
 void
@@ -882,10 +909,7 @@ onStateSaved(const BankerPersistence::Result& result,
             Json::Value archivedAccountKeys = Json::parse(info);
             ExcAssert(archivedAccountKeys.type() == Json::arrayValue);
             for (Json::Value jsonKey : archivedAccountKeys) {
-                ExcAssert(jsonKey.type() == Json::stringValue);
-                string sKey = jsonKey.asString();
-                replace(sKey.begin(), sKey.end(), '.', '_'); 
-                recordHit("account." + sKey + ".movedToArchive" );
+                recordHit("movedToArchive");
             }
         }
         //cerr << __FUNCTION__
@@ -902,8 +926,7 @@ onStateSaved(const BankerPersistence::Result& result,
             string keyStr = jsonKey.asString();
             accounts.markAccountOutOfSync(AccountKey(keyStr));
             LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
-            replace(keyStr.begin(), keyStr.end(), '.', '_');
-            recordHit("account." + keyStr + ".outOfSync");
+            recordHit("outOfSync");
         }
     }
     else if (result.status == BankerPersistence::PERSISTENCE_ERROR) {
@@ -923,6 +946,7 @@ onStateSaved(const BankerPersistence::Result& result,
     reportLatencies("save state", result.latencies);
     lastSaveLatency = std::move(result.latencies);
 
+    reportLatencies("save state", result.latencies);
     saving = false;
     ML::futex_wake(saving);
 }
@@ -1009,9 +1033,7 @@ onAccountRestored(shared_ptr<Accounts> restoredAccounts,
         int numAccounts = 0;
         auto onAccount = [&] (const AccountKey & ak, const Account & a) {
             accounts.restoreAccount(ak, a.toJson());
-            string sKey = ak.toString();
-            replace(sKey.begin(), sKey.end(), '.', '_');
-            recordHit("account." + sKey + ".restored");
+            recordHit("restored");
             ++numAccounts;
         };
         restoredAccounts->forEachAccount(onAccount);
@@ -1065,19 +1087,17 @@ void
 MasterBanker::
 restoreAccount(const AccountKey & key)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".restoreAttempt");
+    Record record(this, "restoreAttempt");
  
     Guard guard(saveLock);
 
     pair<bool, bool> pAndA = accounts.accountPresentAndActive(key);
     if (pAndA.first && pAndA.second == Account::CLOSED) {
         accounts.reactivateAccount(key);
-        recordHit("account." + sKey + ".reactivated");
+        recordHit("reactivated");
         return;
     } else if (pAndA.first && pAndA.second == Account::ACTIVE) {
-        recordHit("account." + sKey + ".alreadyActive");
+        recordHit("alreadyActive");
         return;
     }
 
@@ -1113,19 +1133,22 @@ reactivatePresentAccounts(const AccountKey & key) {
     }
 }
 
+void
+MasterBanker::
+checkPersistence()
+{
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
+        throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
+}
+
+
 const Account
 MasterBanker::
 setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".setBudget");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "setBudget");
+    checkPersistence();
 
     reactivatePresentAccounts(key); 
     return accounts.setBudget(key, newBudget);
@@ -1135,15 +1158,8 @@ const Account
 MasterBanker::
 onCreateAccount(const AccountKey &key, AccountType type)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".onCreateAccount");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "onCreateAccount");
+    checkPersistence();
  
     reactivatePresentAccounts(key);
     return accounts.createAccount(key, type);
@@ -1153,15 +1169,8 @@ bool
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".closeAccount");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "closeAccount");
+    checkPersistence();
  
     reactivatePresentAccounts(key);
     auto account = accounts.closeAccount(key);
@@ -1188,33 +1197,45 @@ const Account
 MasterBanker::
 setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".setBalance");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "setBalance");
+    checkPersistence();
 
     reactivatePresentAccounts(key);
     return accounts.setBalance(key, amount, type);
+}
+
+std::map<std::string, Account>
+MasterBanker::
+setBalanceBatched(const Json::Value &transfers)
+{
+    Record record(this, "setBalanceBatched");
+    checkPersistence();
+
+    std::map<std::string, Account> result;
+    for (const auto& key : transfers.getMemberNames()) {
+        AccountKey account(key);
+        const auto& body = transfers[key];
+
+        ExcCheck(body.isMember("amount"), "missing ammount for account " + key);
+        auto amount = CurrencyPool::fromJson(body["amount"]);
+
+        auto type = AT_NONE;
+        if (body.isMember("accountType"))
+            type = AccountTypeFromString(body["accountType"].asString());
+
+        reactivatePresentAccounts(key);
+        result[key] = accounts.setBalance(account, amount, type);
+    }
+
+    return std::move(result);
 }
 
 const Account
 MasterBanker::
 addAdjustment(const AccountKey &key, CurrencyPool amount)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".addAdjustment");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "addAdjustment");
+    checkPersistence();
 
     reactivatePresentAccounts(key);
     return accounts.addAdjustment(key, amount);
@@ -1224,15 +1245,8 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
-    string sKey = key.toString();
-    replace(sKey.begin(), sKey.end(), '.', '_');
-    Record record(this, "account." + sKey + ".syncFromShadow");
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        if (lastSaveStatus == BankerPersistence::PERSISTENCE_ERROR)
-            throw ML::Exception("Master Banker persistence error: " + lastSaveInfo);
-    }
+    Record record(this, "syncFromShadow");
+    checkPersistence();
 
     // ignore if account is closed.
     pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
@@ -1240,6 +1254,35 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
         return accounts.getAccount(key);
 
     return accounts.syncFromShadow(key, shadow);
+}
+
+
+std::map<std::string, Account>
+MasterBanker::
+syncFromShadowBatched(const Json::Value &transfers)
+{
+    Record record(this, "syncFromShadow");
+    checkPersistence();
+
+    std::map<std::string, Account> result;
+    for (const auto& key : transfers.getMemberNames()) {
+        AccountKey account(key);
+        const auto& body = transfers[key];
+
+        ExcCheck(body.isMember("shadow"), "missing shadow for account " + key);
+        auto shadow = ShadowAccount::fromJson(body["shadow"]);
+
+        pair<bool, bool> presentActive = accounts.accountPresentAndActive(key);
+
+        if (presentActive.first && !presentActive.second) {
+            result[key] = accounts.getAccount(account);
+        }
+        else {
+            result[key] = accounts.syncFromShadow(account, shadow);
+        }
+    }
+
+    return result;
 }
 
 void

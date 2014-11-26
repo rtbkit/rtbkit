@@ -98,7 +98,6 @@ struct BidderInterface : public ServiceBase
                          std::string const & agent,
                          int ping) = 0;
 
-
     virtual void registerLoopMonitor(LoopMonitor *monitor) const { }
 
     //

@@ -17,7 +17,8 @@ namespace RTBKIT {
 BidRequest *
 fromOpenRtb(OpenRTB::BidRequest && req,
             const std::string & provider,
-            const std::string & exchange);
+            const std::string & exchange = "",
+            const std::string & version = "2.1");
 
 
 /** Converts RTBKIT BidRequest to OpenRTB BidRequest
@@ -39,7 +40,8 @@ struct OpenRtbBidRequestParser {
     static BidRequest *
     parseBidRequest(const std::string & jsonValue,
                     const std::string & provider,
-                    const std::string & exchange = "");
+                    const std::string & exchange = "",
+                    const std::string & version = "2.1");
 
     static OpenRTB::BidRequest
     parseBidRequest(ML::Parse_Context & context);
@@ -47,9 +49,8 @@ struct OpenRtbBidRequestParser {
     static BidRequest *
     parseBidRequest(ML::Parse_Context & context,
                     const std::string & provider,
-                    const std::string & exchange = "");
+                    const std::string & exchange = "",
+                    const std::string & version = "2.1");
         
 };
-
-
 } // namespace RTBKIT

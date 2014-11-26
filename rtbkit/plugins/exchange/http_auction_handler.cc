@@ -400,6 +400,9 @@ handleHttpPayload(const HttpHeader & header,
                                   "datacratic",
                                   firstData, expiry));
 
+        endpoint->adjustAuction(auction);
+
+
 #if 0
         static std::mutex lock;
         std::unique_lock<std::mutex> guard(lock);

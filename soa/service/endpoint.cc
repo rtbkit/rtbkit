@@ -107,7 +107,7 @@ spinup(int num_threads, bool synchronous)
 
     threadsActive_ = 0;
 
-    totalSleepTime.resize(num_threads, 0.0);
+    totalSleepTime.resize(num_threads, 1.0);
 
     for (unsigned i = 0;  i < num_threads;  ++i) {
         boost::thread * thread

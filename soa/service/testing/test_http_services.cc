@@ -126,6 +126,10 @@ handleHttpPayload(HttpTestConnHandler & handler,
     response["verb"] = header.verb;
     response["type"] = cType;
     response["payload"] = payload;
-        
+    Json::Value & jsonHeaders = response["headers"];
+    for (const auto & it: header.headers) {
+        jsonHeaders[it.first] = it.second;
+    }
+
     handler.sendResponse(200, response.toString(), "application/json");
 }
