@@ -423,8 +423,9 @@ run(const vector<string> & command,
     if (running_)
         throw ML::Exception("already running");
 
-    running_ = true;
     startDate_ = Date::now();
+    endDate_ = Date::negativeInfinity();
+    running_ = true;
     ML::futex_wake(running_);
 
     task_.statusState = Task::StatusState::ST_UNKNOWN;
