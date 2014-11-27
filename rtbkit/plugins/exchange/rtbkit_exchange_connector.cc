@@ -6,6 +6,9 @@
 
 #include "rtbkit_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
+#include "soa/utils/scope.h"
+
+#include <cctype>
 
 using namespace Datacratic;
 
@@ -37,24 +40,53 @@ parseBidRequest(HttpAuctionHandler &connection,
     auto request = 
         OpenRTBExchangeConnector::parseBidRequest(connection, header, payload);
 
-
     if (request != nullptr) {
+
+        auto failure = ScopeFailure([&]() noexcept { request.reset(); });
+
         for (const auto &imp: request->imp) {
+            if (!failure.ok()) break;
+
             if (!imp.ext.isMember("external-ids")) {
-                connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
-                    ML::format("The impression '%s' requires the 'external-ids' extension field",
-                               imp.id.toString()));  
-                request.reset();
-                break;
+                fail(failure, [&] {
+                    connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
+                        ML::format("The impression '%s' requires the 'external-ids' extension field",
+                                   imp.id.toString()));
+                });
             }
+
             else {
-                if(!imp.ext["external-ids"].isArray()) {
-                    connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
-                        ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
-                               imp.id.toString()));
-                    request.reset();
+                const auto& externalIds = imp.ext["external-ids"];
+                if(!externalIds.isObject()) {
+                    fail(failure, [&] {
+                        connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                            ML::format("The impression '%s' requires the 'external-ids' extension field as a dictionnary of { integer: [ list ] }",
+                                   imp.id.toString()));
+                    });
                     break;
                 }
+
+                for (auto it = externalIds.begin(), end = externalIds.end(); it != end && failure.ok(); ++it) {
+                    std::string id = it.key().asString();
+                    if (!std::all_of(id.begin(), id.end(), ::isdigit)) {
+                        fail(failure, [&] {
+                            connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                                    ML::format("The impression '%s' contains a non-integer external id '%s'", imp.id.toString(), id.c_str()));
+                        });
+                        break;
+                    }
+
+                    auto creativeIndexes = *it;
+                    if (!creativeIndexes.isArray()) {
+                        fail(failure, [&] {
+                            connection.sendErrorResponse(
+                                    "UNSUPPORTED_EXTENSION_FIELD",
+                            ML::format("The external id '%s' for the impression '%s' must contain a list of available creatives",
+                                       id.c_str(), imp.id.toString()));
+                        });
+                    }
+                }
+
             }
         }
     }
