@@ -96,17 +96,28 @@ namespace Scope {
             , failed { false }
         { }
 
-        void fail() { failed = true; }
-
         ~Failure() noexcept {
             if (std::uncaught_exception() || failed) {
                 Failure<Func>::exec();
             }
         }
 
+        bool ok() const { return !failed; }
+
+        template<typename T, typename U>
+        friend void fail(Failure<T>& failure, U func);
+
     private:
         bool failed;
     };
+
+    template<typename T, typename Func>
+    void fail(Failure<T>& failure, Func func) {
+        failure.failed = true;
+
+        func();
+    }
+
 } // namespace Scope
 
 template<typename Func>
@@ -124,20 +135,23 @@ Scope::Failure<Func> ScopeFailure(Func func) {
     return Scope::Failure<Func>(func);
 }
 
+using Scope::fail;
+
+
 #define CAT(a, b) a##b
 #define LABEL_(a) CAT(prefix, a)
 #define UNIQUE_LABEL(prefix) LABEL_(__LINE__)
 
 #define Scope_Exit(func) \
-    auto UNIQUE_LABEL = ScopeExit([&] { func }); \
+    auto UNIQUE_LABEL = ScopeExit([&]() noexcept(func()) { func }); \
     (void) 0
 
 #define Scope_Success(func) \
-    auto UNIQUE_LABEL = ScopeSuccess([&] { func }); \
+    auto UNIQUE_LABEL = ScopeSuccess([&]() noexcept(func()) { func }); \
     (void) 0
 
 #define Scope_Failure(func) \
-    auto UNIQUE_LABEL = ScopeFailure([&] { func }); \
+    auto UNIQUE_LABEL = ScopeFailure([&]() noexcept(func()) { func }); \
     (void) 0
 
 } // namespace Datacratic
