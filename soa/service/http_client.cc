@@ -70,7 +70,8 @@ setHttpClientImplVersion(int version)
 }
 
 HttpClient::
-HttpClient(const string & baseUrl, int numParallel, int queueSize)
+HttpClient(const string & baseUrl, int numParallel, int queueSize,
+           int implVersion)
 {
     bool isHttps(baseUrl.compare(0, 8, "https://") == 0);
 
@@ -81,11 +82,15 @@ HttpClient(const string & baseUrl, int numParallel, int queueSize)
         throw ML::Exception("'numParallel' must at least be equal to 1");
     }
 
-    if (httpClientImplVersion == 1) {
+    if (implVersion == 0) {
+        implVersion = httpClientImplVersion;
+    }
+
+    if (implVersion == 1) {
         impl.reset(new HttpClientV1(baseUrl, numParallel, queueSize));
     }
 #if 0
-    else if (httpClientImplVersion == 2) {
+    else if (implVersion == 2) {
         if (isHttps) {
             impl.reset(new HttpClientV1(baseUrl, numParallel, queueSize));
         }

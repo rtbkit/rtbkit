@@ -47,14 +47,16 @@ DoSleep(FILE * in)
 }
 
 void
-DoExit(FILE * in)
+DoExit(FILE * in, bool quiet)
 {
     int code;
 
     size_t n = ::fread(&code, sizeof(code), 1, in);
     ExcCheckNotEqual(n, 0, "no exit code received");
 
-    printf("helper: exit with code %d\n", code);
+    if (!quiet) {
+        printf("helper: exit with code %d\n", code);
+    }
 
     exit(code);
 }
@@ -67,7 +69,17 @@ int main(int argc, char *argv[])
         abt
     */
 
-    printf("helper: ready\n");
+    bool quiet(false);
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "--quiet") == 0) {
+            quiet = true;
+        }
+    }
+
+    if (!quiet) {
+        printf("helper: ready\n");
+    }
 
     while (1) {
         char command[3];
@@ -91,7 +103,7 @@ int main(int argc, char *argv[])
             DoSleep(stdin);
         }
         else if (::strncmp(command, "xit", 3) == 0) {
-            DoExit(stdin);
+            DoExit(stdin, quiet);
         }
         else if (::strncmp(command, "abt", 3) == 0) {
             ::abort();

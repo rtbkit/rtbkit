@@ -66,7 +66,7 @@ private:
     void cleanupFds() noexcept;
 
     /* Local */
-    std::vector<HttpRequest> popRequests(size_t number);
+    std::vector<std::shared_ptr<HttpRequest>> popRequests(size_t number);
 
     void handleEvents();
     void handleEvent(const ::epoll_event & event);
@@ -94,7 +94,7 @@ private:
         void clear()
         {
             easy_.reset();
-            request_.clear();
+            request_.reset();
             afterContinue_ = false;
             uploadOffset_ = 0;
         }
@@ -111,7 +111,7 @@ private:
         curlpp::types::ReadFunctionFunctor onRead_;
         size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
 
-        HttpRequest request_;
+        std::shared_ptr<HttpRequest> request_;
 
         curlpp::Easy easy_;
         // HttpClientResponse response_;
@@ -143,7 +143,7 @@ private:
     typedef std::mutex Mutex;
     typedef std::unique_lock<Mutex> Guard;
     mutable Mutex queueLock_;
-    std::queue<HttpRequest> queue_; /* queued requests */
+    std::queue<std::shared_ptr<HttpRequest>> queue_; /* queued requests */
 };
 
 } // namespace Datacratic

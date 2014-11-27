@@ -107,7 +107,7 @@ struct HttpRequest {
 
 struct HttpClientImpl : public AsyncEventSource {
     HttpClientImpl(const std::string & baseUrl,
-                   int numParallel = 4, int queueSize = 0)
+                   int numParallel = 1024, int queueSize = 0)
         : AsyncEventSource()
     {
     }
@@ -175,9 +175,13 @@ struct HttpClient : public AsyncEventSource {
        will be used as base for all requests
        "numParallels": number of requests that can be handled simultaneously
        "queueSize": size of the backlog of pending requests, after which
-       operations will be refused (0 = infinite) */
+       operations will be refused (0 = infinite)
+       "implVersion": use version X of the HttpClientImpl, fallback
+       to HTTP_CLIENT_IMPL
+    */
     HttpClient(const std::string & baseUrl,
-               int numParallel = 4, int queueSize = 0);
+               int numParallel = 1024, int queueSize = 0,
+               int implVersion = 0);
     HttpClient(HttpClient && other) noexcept
     {
         *this = std::move(other);
