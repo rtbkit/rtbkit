@@ -38,20 +38,12 @@ int main(int argc, char** argv)
     using namespace boost::program_options;
 
     std::string configuration = "rtbkit/examples/adserver-config.json";
-    bool analyticsOn = false;
-    int analyticsConnections = 1;
-
 
     ServiceProxyArguments args;
     options_description options = args.makeProgramOptions();
     options_description more("Ad Server");
     more.add_options()
-        ("adserver-configuration,f", value(&configuration), "configuration file")
-        ("analytics,a", bool_switch(&analyticsOn),
-         "Send data to analytics logger.")
-        ("analytics-connections", value<int>(&analyticsConnections),
-         "Number of connections for the analytics publisher.");
-
+        ("adserver-configuration,f", value(&configuration), "configuration file");
 
     options.add(more);
     options.add_options() ("help,h", "Print this message");
@@ -68,16 +60,6 @@ int main(int argc, char** argv)
     auto proxies = args.makeServiceProxies();
     auto serviceName = args.serviceName("");
     auto server = RTBKIT::AdServerConnector::create(serviceName, proxies, loadJsonFromFile(configuration));
-
-    if (analyticsOn) {
-        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
-        if (!analyticsUri.empty()) {
-            server->initAnalytics(analyticsUri, analyticsConnections);
-        }
-        else
-            cout << "analytics-uri is not in the config" << endl;
-    }
-
     server->start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));

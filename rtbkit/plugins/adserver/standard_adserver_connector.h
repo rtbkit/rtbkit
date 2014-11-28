@@ -19,6 +19,7 @@
 #include "soa/types/date.h"
 
 #include "rtbkit/plugins/adserver/http_adserver_connector.h"
+#include "rtbkit/common/analytics_publisher.h"
 
 namespace RTBKIT {
 
@@ -33,6 +34,9 @@ struct StandardAdServerArguments : ServiceProxyArguments
     int eventsPort;
 
     bool verbose;
+
+    bool analyticsOn;
+    int analyticsConnections;
 };
 
 struct StandardAdServerConnector : public HttpAdServerConnector
@@ -55,12 +59,15 @@ struct StandardAdServerConnector : public HttpAdServerConnector
     HttpAdServerResponse handleDeliveryRq(const HttpHeader & header,
                           const Json::Value & json, const string & jsonStr);
 
+    void publishError(HttpAdServerResponse & resp);
+
     /** */
     Datacratic::ZmqNamedPublisher publisher_;
+    AnalyticsPublisher analytics_;
 
 private :
 
-    void init(int winsPort, int eventsPort, bool verbose);
+    void init(int winsPort, int eventsPort, bool verbose, bool analyticsOn = false, int analyticsConnections = 1);
     virtual void initEventType(const Json::Value &json);
 
     std::map<std::string , std::string> eventType;  
