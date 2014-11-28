@@ -16,7 +16,7 @@ struct ExternalIdsCreativeExchangeFilter
     static constexpr const char *name = "ExternalIdsCreativeExchangeFilter";
 
     bool filterCreative(FilterState &state, const AdSpot &spot,
-                        const AgentConfig &config, const Creative &creative) const
+                        const AgentConfig &config, const Creative &) const
     {
         // We're doing this check at the exchange connector level
 #if 0
@@ -25,12 +25,11 @@ struct ExternalIdsCreativeExchangeFilter
         }
 #endif
         const auto &external_ids = spot.ext["external-ids"];
-        for (auto it = external_ids.begin(), end = external_ids.end(); it != end; ++it) {
-            int id = std::stoi(it.key().asString());
-            if (id == config.externalId) return true;
-        }
-
-        return false;
+        auto it = std::find_if(std::begin(external_ids), std::end(external_ids),
+                      [&](const Json::Value &value) {
+                         return value.isIntegral() && value.asInt() == config.externalId;
+                  });
+        return it != std::end(external_ids);
     }
 
 };

@@ -8,8 +8,6 @@
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "soa/utils/scope.h"
 
-#include <cctype>
-
 using namespace Datacratic;
 
 namespace RTBKIT {
@@ -40,8 +38,8 @@ parseBidRequest(HttpAuctionHandler &connection,
     auto request = 
         OpenRTBExchangeConnector::parseBidRequest(connection, header, payload);
 
-    if (request != nullptr) {
 
+    if (request != nullptr) {
         auto failure = ScopeFailure([&]() noexcept { request.reset(); });
 
         for (const auto &imp: request->imp) {
@@ -54,39 +52,14 @@ parseBidRequest(HttpAuctionHandler &connection,
                                    imp.id.toString()));
                 });
             }
-
             else {
-                const auto& externalIds = imp.ext["external-ids"];
-                if(!externalIds.isObject()) {
+                if(!imp.ext["external-ids"].isArray()) {
                     fail(failure, [&] {
                         connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
-                            ML::format("The impression '%s' requires the 'external-ids' extension field as a dictionnary of { integer: [ list ] }",
+                            ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
                                    imp.id.toString()));
                     });
-                    break;
                 }
-
-                for (auto it = externalIds.begin(), end = externalIds.end(); it != end && failure.ok(); ++it) {
-                    std::string id = it.key().asString();
-                    if (!std::all_of(id.begin(), id.end(), ::isdigit)) {
-                        fail(failure, [&] {
-                            connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
-                                    ML::format("The impression '%s' contains a non-integer external id '%s'", imp.id.toString(), id.c_str()));
-                        });
-                        break;
-                    }
-
-                    auto creativeIndexes = *it;
-                    if (!creativeIndexes.isArray()) {
-                        fail(failure, [&] {
-                            connection.sendErrorResponse(
-                                    "UNSUPPORTED_EXTENSION_FIELD",
-                            ML::format("The external id '%s' for the impression '%s' must contain a list of available creatives",
-                                       id.c_str(), imp.id.toString()));
-                        });
-                    }
-                }
-
             }
         }
     }

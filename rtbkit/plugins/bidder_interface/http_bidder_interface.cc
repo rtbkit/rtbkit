@@ -476,9 +476,13 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
             ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
                      "adSpotIndex out of range");
             auto &imp = request.imp[adSpotIndex];
-            auto &ext = imp.ext["external-ids"];
+            auto &externalIds = imp.ext["external-ids"];
+            externalIds.append(agentConfig->externalId);
 
-            auto &creativesList = ext[std::to_string(agentConfig->externalId)];
+            auto& creativesExtField = imp.ext["creative-indexes"];
+
+
+            auto &creativesList = creativesExtField[std::to_string(agentConfig->externalId)];
             for (int index: creativeIndexes) {
                 creativesList.append(index);
             }
