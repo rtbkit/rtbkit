@@ -191,7 +191,7 @@ publish(AnalyticsPublisher & logger) const
             requestStr,
             std::to_string(response.creativeId),
             response.creativeName,
-            response.bidData,
+            response.bidData.toJsonStr(),
             augmentations.toString(),
             response.meta,
 
