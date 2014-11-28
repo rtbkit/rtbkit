@@ -70,6 +70,4 @@ protected:
                             OpenRTB::BidResponse & response) const;
 };
 
-
-
 } // namespace RTBKIT

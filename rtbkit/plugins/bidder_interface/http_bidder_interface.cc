@@ -8,7 +8,7 @@
 #include "soa/service/http_client.h"
 #include "soa/utils/generic_utils.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "rtbkit/core/router/router.h"
 
@@ -154,9 +154,10 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     };
 
+    BidRequest & originalRequest = *auction->request;
+    std::shared_ptr<OpenRTBBidRequestParser> parser = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
 
-    BidRequest originalRequest = *auction->request;
-    OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
+    OpenRTB::BidRequest openRtbRequest = parser->toBidRequest(originalRequest);
     bool ok = prepareRequest(openRtbRequest, originalRequest, auction, bidders);
     /* If we took too much time processing the request, then we don't send it.  */
     if (!ok) {
@@ -474,8 +475,20 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
                                          const std::map<std::string, BidInfo> &bidders) const {
     tagRequest(request, bidders);
 
-    // We update the tmax value before sending the BidRequest to substract our processing time
+    // Take any augmentation data and fill in the ext field of the bid request with the data,
+    // under the rtbkit "namespace"
+    const auto& augmentations = auction->augmentations;
+    if (!augmentations.empty()) {
+        Json::Value augJson(Json::objectValue);
+        for (const auto& augmentor: augmentations) {
+            augJson[augmentor.first] = augmentor.second.toJson();
+        }
 
+        request.ext["rtbkit"]["augmentationList"] = augJson;
+    }
+
+
+    // We update the tmax value before sending the BidRequest to substract our processing time
     Date auctionExpiry = auction->expiry;
     double remainingTimeMs = auctionExpiry.secondsSince(Date::now()) * 1000;
     if (remainingTimeMs < 0) {

@@ -171,6 +171,34 @@ publish(ZmqNamedPublisher& logger) const
         );
 }
 
+void
+MatchedWinLoss::
+publish(AnalyticsPublisher & logger) const
+{
+    logger.publish(
+            "MATCHED" + typeString(),
+            publishTimestamp(),
+
+            auctionId.toString(),
+            impId.toString(),
+            response.agent,
+            response.account.toString(),
+
+            winPrice.toString(),
+            rawWinPrice.toString(),
+
+            requestStrFormat,
+            requestStr,
+            std::to_string(response.creativeId),
+            response.creativeName,
+            response.bidData.toJsonStr(),
+            augmentations.toString(),
+            response.meta,
+
+            uids.toJsonStr(),
+            meta
+        );
+}
 
 /******************************************************************************/
 /* MATCHED CAMPAIGN EVENT                                                     */
@@ -232,6 +260,27 @@ publish(ZmqNamedPublisher& logger) const
     );
 }
 
+void
+MatchedCampaignEvent::
+publish(AnalyticsPublisher & logger) const
+{
+    logger.publish(
+            "MATCHED" + label,
+            publishTimestamp(),
+            auctionId.toString(),
+            impId.toString(),
+            requestStr,
+
+            bid.toStringNoNewLine(),
+            win.toStringNoNewLine(),
+            campaignEvents.toStringNoNewLine(),
+            visits.toStringNoNewLine(),
+
+            account.toString(),
+            requestStrFormat
+    );
+}
+
 
 /******************************************************************************/
 /* UNMATCHED EVENT                                                            */
@@ -249,7 +298,7 @@ publish(ZmqNamedPublisher& logger) const
 {
     logger.publish(
             // Use event type not label since label is only defined for campaign events.
-            "UNMATCHED" + event.type,                            // 0
+            "UNMATCHED" + string(print(event.type)),             // 0
             publishTimestamp(),                                  // 1
 
             reason,                                              // 2
@@ -258,6 +307,23 @@ publish(ZmqNamedPublisher& logger) const
 
             std::to_string(event.timestamp.secondsSinceEpoch()), // 5
             event.metadata.toJson()                              // 6
+        );
+}
+
+void
+UnmatchedEvent::
+publish(AnalyticsPublisher & logger) const
+{
+    logger.publish(
+            "UNMATCHED" + string(print(event.type)),
+            publishTimestamp(),
+
+            reason,
+            event.auctionId.toString(),
+            event.adSpotId.toString(),
+
+            std::to_string(event.timestamp.secondsSinceEpoch()),
+            event.metadata.toJson()
         );
 }
 
@@ -279,5 +345,11 @@ publish(ZmqNamedPublisher& logger) const
     logger.publish("PAERROR", publishTimestamp(), key, message);
 }
 
+void
+PostAuctionErrorEvent::
+publish(AnalyticsPublisher & logger) const
+{
+    logger.publish("PAERROR", publishTimestamp(), key, message);
+}
 
 } // namepsace RTBKIT

@@ -203,7 +203,14 @@ initConnections(size_t shard)
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 0.1,
             std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
+}
 
+void
+PostAuctionService::
+initAnalytics(const string & baseUrl, const int numConnections)
+{
+    LOG(print) << "analyticsURI: " << baseUrl << endl;
+    analytics.init(baseUrl, numConnections);
 }
 
 void
@@ -215,6 +222,7 @@ start(std::function<void ()> onStop)
     loopMonitor.start();
     matcher->start();
     bidder->start();
+    analytics.start();
 }
 
 void
@@ -229,6 +237,7 @@ shutdown()
     endpoint.shutdown();
     configListener.shutdown();
     monitorProviderClient.shutdown();
+    analytics.shutdown();
 }
 
 
@@ -420,13 +429,14 @@ void
 PostAuctionService::
 doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 {
-    if (event->type == MatchedWinLoss::Win) {
+    if (event->type == MatchedWinLoss::Win || event->type == MatchedWinLoss::LateWin) {
         lastWinLoss = Date::now();
         stats.matchedWins++;
     }
     else stats.matchedLosses++;
 
     event->publish(logger);
+    event->publish(analytics);
 
     deliverEvent("bidResult." + event->typeString(), "doWinLossEvent", event->response.account,
         [&](const AgentConfigEntry& entry)
@@ -444,6 +454,7 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
     lastCampaignEvent = Date::now();
 
     event->publish(logger);
+    event->publish(analytics);
 
     // For the moment, send the message to all of the agents that are
     // bidding on this account
@@ -487,6 +498,7 @@ doUnmatched(std::shared_ptr<UnmatchedEvent> event)
 {
     stats.unmatchedEvents++;
     event->publish(logger);
+    event->publish(analytics);
 }
 
 void
@@ -495,6 +507,7 @@ doError(std::shared_ptr<PostAuctionErrorEvent> error)
 {
     stats.errors++;
     error->publish(logger);
+    error->publish(analytics);
 }
 
 

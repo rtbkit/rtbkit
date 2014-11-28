@@ -217,7 +217,7 @@ struct Launcher
                 signal(SIGTERM, SIG_DFL);
                 signal(SIGKILL, SIG_DFL);
 
-                int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
+                int res = prctl(PR_SET_PDEATHSIG, SIGTERM);
                 if(res == -1) {
                     THROW(launcherError) << "prctl failed errno=" << errno << std::endl;
                 }
@@ -373,7 +373,7 @@ struct Launcher
             return 0;
         }
 
-        void script(std::string const & filename, std::string const & sh, std::string const & node, bool master) {
+        void script(std::string const & filename, std::string const & sh, std::string const & node, bool master, std::string const & binPath = "./build/x86_64/bin") {
             std::ofstream file(sh);
             if(!file) {
                 THROW(launcherError) << "cannot create '" << sh << "' script" << std::endl;
@@ -382,7 +382,7 @@ struct Launcher
             file << "#!/bin/bash" << std::endl;
             file << std::endl;
             file << "tmux kill-session -t rtb" << std::endl;
-            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " " << filename << "'" << std::endl;
+            file << "tmux new-session -d -s rtb '" << binPath << "/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " " << filename << "'" << std::endl;
             file << "tmux rename-window 'launcher'" << std::endl;
 
             int i = 0;
@@ -442,11 +442,11 @@ struct Launcher
 
     struct Service : public MessageLoop
     {
-        void run(Json::Value const & root, std::string const & name, std::string const & filename, std::string const & sh, bool launch, bool master) {
+        void run(Json::Value const & root, std::string const & name, std::string const & filename, std::string const & sh, bool launch, bool master, std::string const & binPath = "./build/x86_64/bin") {
             sequence = Datacratic::Launcher::Sequence::createFromJson(root);
 
             if(!sh.empty()) {
-                sequence.script(filename, sh, name, master);
+                sequence.script(filename, sh, name, master, binPath);
             }
 
             if(launch) {
