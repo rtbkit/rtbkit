@@ -870,8 +870,10 @@ handleAgentMessage(const std::vector<std::string> & message)
         const string & address = message[0];
         const string & request = message[1];
 
-        if (request.empty())
+        if (request.empty()) {
             returnErrorResponse(message, "null request field");
+            return;
+        }
 
         if (request == "CONFIG") {
             string configName = message.at(2);
