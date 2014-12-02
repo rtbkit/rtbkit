@@ -64,7 +64,7 @@ struct FixedPriceBiddingAgent :
 	    budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
 	    budgetController.start();
 	} else {
-	    auto bankerUri = getServices()->bankerUri;
+	    //auto bankerUri = getServices()->bankerUri;
 	    ExcCheck(!bankerUri.empty(), "the banker-uri must be specified in the bootstrap.json");
 	    ExcCheck(httpActiveConnections > 0, "The number of active http connections must be > 0");
 	    std::stringstream ss;
