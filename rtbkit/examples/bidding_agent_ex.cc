@@ -47,7 +47,7 @@ struct FixedPriceBiddingAgent :
     {}
 
 
-    void init(const std::string &bankerUri)
+  void init(const std::string &bankerUri, const bool useHttpBanker, const int httpActiveConnections)
     {
         // We only want to specify a subset of the callbacks so turn the
         // annoying safety belt off.
@@ -58,8 +58,25 @@ struct FixedPriceBiddingAgent :
 
         // This component is used to speak with the master banker and pace the
         // rate at which we spend our budget.
-        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
-        budgetController.start();
+
+        if(!useHttpBanker) {
+	    std::cout << "using zmq interface for the MasterBanker" << std::endl;
+	    budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
+	    budgetController.start();
+	} else {
+	    auto bankerUri = getServices()->bankerUri;
+	    ExcCheck(!bankerUri.empty(), "the banker-uri must be specified in the bootstrap.json");
+	    ExcCheck(httpActiveConnections > 0, "The number of active http connections must be > 0");
+	    std::stringstream ss;
+	    ss << "using http interface for the MasterBanker" << std::endl;
+	    ss << "url                = " << bankerUri << std::endl;
+	    ss << "active connections = " << httpActiveConnections;
+	    std::cout << ss.str() << std::endl;
+	    budgetController.setApplicationLayer(
+		    make_application_layer<HttpLayer>(bankerUri, httpActiveConnections));
+	    budgetController.start();
+	}
+
 
         // Update our pacer every 10 seconds. Note that since this interacts
         // with the budgetController which is only synced up with the router
@@ -209,12 +226,18 @@ int main(int argc, char** argv)
     Datacratic::ServiceProxyArguments args;
 
     std::string bankerUri;
+    bool useHttpBanker = false;
+    int httpActiveConnections = 4;
 
     options_description options = args.makeProgramOptions();
     options.add_options()
         ("help,h", "Print this message")
         ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)");
+         "URI of the master banker (host:port)")
+        ("use-http-banker", bool_switch(&useHttpBanker),
+	 "Communicate with the MasterBanker over http")
+        ("http-connections", value<int>(&httpActiveConnections)->default_value(4),
+            "Number of active http connections to use when http is enabled");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(options).run(), vm);
@@ -227,7 +250,7 @@ int main(int argc, char** argv)
 
     auto serviceProxies = args.makeServiceProxies();
     RTBKIT::FixedPriceBiddingAgent agent(serviceProxies, "fixed-price-agent-ex");
-    agent.init(bankerUri);
+    agent.init(bankerUri, useHttpBanker, httpActiveConnections);
     agent.start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));
