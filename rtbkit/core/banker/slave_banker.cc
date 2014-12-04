@@ -497,7 +497,7 @@ onReauthorizeBudgetBatchedResponse(
     Json::Value response = Json::parse(payload);
     for (const auto& key : response.getMemberNames()) {
         auto account = Account::fromJson(response[key]);
-        accounts.syncFromMaster(AccountKey(key).parent()), account);
+        accounts.syncFromMaster(AccountKey(key).parent(), account);
     }
 
     lastReauthorize = Date::now();
