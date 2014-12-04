@@ -46,6 +46,7 @@ struct MatchedWinLoss
 
     Datacratic::Id auctionId;
     Datacratic::Id impId;
+    int impIndex;
 
     Amount winPrice;    // post-WinCostModel
     Amount rawWinPrice; // pre-WinCostModel
@@ -54,7 +55,6 @@ struct MatchedWinLoss
 
     Datacratic::UnicodeString requestStr;
     std::string requestStrFormat;
-    std::shared_ptr<BidRequest> request;
 
     UserIds uids;
     std::string meta;
@@ -75,7 +75,6 @@ struct MatchedWinLoss
 
     std::string typeString() const;
     std::string confidenceString() const;
-    size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
     void publish(AnalyticsPublisher & logger) const;
@@ -99,12 +98,12 @@ struct MatchedCampaignEvent
     std::string label;
     Datacratic::Id auctionId;
     Datacratic::Id impId;
+    int impIndex;
     AccountKey account;
 
     Datacratic::Date timestamp;
 
     Datacratic::UnicodeString requestStr;
-    std::shared_ptr<BidRequest> request;
     std::string requestStrFormat;
 
     Json::Value bid;
@@ -114,8 +113,6 @@ struct MatchedCampaignEvent
     JsonHolder augmentations;
 
     MatchedCampaignEvent(std::string label, const FinishedInfo& info);
-
-    size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
     void publish(AnalyticsPublisher & logger) const;

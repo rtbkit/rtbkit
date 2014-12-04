@@ -32,12 +32,11 @@ struct FinishedInfo {
     {
     }
 
-    Date auctionTime; ///< !!! WARNING !!! Not filled in by anyone.
+    Date auctionTime;
 
     Id auctionId;       ///< Auction ID from host
     Id adSpotId;          ///< Spot ID from host
     int spotIndex;
-    std::shared_ptr<BidRequest> bidRequest;  ///< What we bid on
     Datacratic::UnicodeString bidRequestStr;
     std::string bidRequestStrFormat;
     JsonHolder augmentations;
@@ -129,9 +128,6 @@ struct FinishedInfo {
     Json::Value toJson() const;
 
     bool fromOldRouter;
-
-    std::string serializeToString() const;
-    void reconstituteFromString(const std::string & str);
 };
 
 

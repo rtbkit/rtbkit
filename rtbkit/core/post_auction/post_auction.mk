@@ -5,8 +5,7 @@ LIB_POST_AUCTION_SOURCES := \
 	sharded_event_matcher.cc \
 	events.cc \
 	finished_info.cc \
-	post_auction_service.cc \
-	submission_info.cc
+	post_auction_service.cc
 
 LIB_POST_AUCTION_LINK := \
 	agent_configuration zeromq boost_thread logger opstats leveldb services banker rtb
