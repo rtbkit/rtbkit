@@ -147,9 +147,10 @@ struct TestAgent : public BiddingAgent {
     void doBid(const Id & id,
                const Bids & bids,
                const Json::Value & metadata,
-               const WinCostModel & wcm)
+               const WinCostModel & wcm,
+               bool record = true)
     {
-        if (bids.size() != 0)
+        if (record && bids.size() != 0)
             recordBid(id);
         RTBKIT::BiddingAgent::doBid(id, bids, metadata, wcm);
     }
