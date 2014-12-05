@@ -37,6 +37,8 @@ struct PostAuctionRunner {
     bool analyticsOn;
     int analyticsConnections;
 
+    std::string forwardAuctionsUri;
+
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());

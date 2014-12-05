@@ -72,7 +72,9 @@ doOptions(int argc, char ** argv,
         ("analytics,a", bool_switch(&analyticsOn),
          "Send data to analytics logger.")
         ("analytics-connections", value<int>(&analyticsConnections),
-         "Number of connections for the analytics publisher.");
+         "Number of connections for the analytics publisher.")
+        ("forward-auctions", value<std::string>(&forwardAuctionsUri),
+         "When provided the PAL will forward all auctions to the given URI.");
 
     options_description all_opt = opts;
     all_opt
@@ -137,6 +139,8 @@ init()
     postAuctionLoop->setBanker(banker);
     postAuctionLoop->bindTcp();
 
+    if (!forwardAuctionsUri.empty())
+        postAuctionLoop->forwardAuctions(forwardAuctionsUri);
 }
 
 void

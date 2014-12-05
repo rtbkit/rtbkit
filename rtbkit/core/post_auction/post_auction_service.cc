@@ -9,7 +9,10 @@
 #include "post_auction_service.h"
 #include "simple_event_matcher.h"
 #include "sharded_event_matcher.h"
+#include "event_forwarder.h"
 #include "rtbkit/common/messages.h"
+#include "soa/service/rest_request_params.h"
+#include "soa/service/rest_request_binding.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -82,6 +85,12 @@ bindTcp()
     logger.bindTcp(getServices()->ports->getRange("logs"));
     endpoint.bindTcp(getServices()->ports->getRange("postAuctionLoop"));
     bridge.agents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
+
+    if (restEndpoint) {
+        restEndpoint->bindTcp(
+                getServices()->ports->getRange("postAuctionREST.zmq"),
+                getServices()->ports->getRange("postAuctionREST.http"));
+    }
 }
 
 void
@@ -103,6 +112,7 @@ init(size_t externalShard, size_t internalShards)
 
     initMatcher(internalShards);
     initConnections(externalShard);
+    initRestEndpoint();
     monitorProviderClient.init(getServices()->config);
 }
 
@@ -215,6 +225,53 @@ initAnalytics(const string & baseUrl, const int numConnections)
 
 void
 PostAuctionService::
+initRestEndpoint()
+{
+    const auto& params = getServices()->params;
+    if (!params.isMember("ports") ||
+            !params["ports"].isMember("postAuctionLoopREST.zmq") ||
+            !params["ports"].isMember("postAuctionLoopREST.http"))
+    {
+        return;
+    }
+
+    restEndpoint.reset(new RestServiceEndpoint(getZmqContext()));
+    restEndpoint->init(getServices()->config, serviceName());
+
+    restRouter.reset(new RestRequestRouter);
+
+    restEndpoint->onHandleRequest = restRouter->requestHandler();
+    restRouter->description = "Forwarding API for the RTBKIT post auction loop";
+    restRouter->addHelpRoute("/", "GET");
+
+    auto & versionNode = restRouter->addSubRouter("/v1", "version 1 of API");
+
+    addRouteSync(
+            versionNode,
+            "/auctions",
+            {"POST"},
+            "Submit and auction to the PAL",
+            &PostAuctionService::doAuction,
+            this,
+            JsonParam< std::shared_ptr< SubmittedAuctionEvent> >("", "auction to submit"));
+
+    addSource("PostAuctionService::restEndpoint", *restEndpoint);
+}
+
+void
+PostAuctionService::
+forwardAuctions(const std::string& uri)
+{
+    ExcAssert(!forwarder);
+    ExcCheck(!uri.empty(), "empty forwarding uri");
+
+    LOG(print) << "forwarding all bids to: " << uri << endl;
+    forwarder.reset(new EventForwarder(*this, uri));
+}
+
+
+void
+PostAuctionService::
 start(std::function<void ()> onStop)
 {
     loop.start(onStop);
@@ -238,6 +295,7 @@ shutdown()
     configListener.shutdown();
     monitorProviderClient.shutdown();
     analytics.shutdown();
+    forwarder.reset();
 }
 
 
@@ -406,6 +464,7 @@ PostAuctionService::
 doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
 {
     stats.auctions++;
+    if (forwarder) forwarder->forwardAuction(event);
     matcher->doAuction(std::move(event));
 }
 
