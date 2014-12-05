@@ -216,7 +216,6 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
 
         submission.bidRequest = event->bidRequest();
         submission.bidRequestStrFormat = std::move(event->bidRequestStrFormat);
-        submission.bidRequestStr = std::move(event->bidRequestStr);
         submission.augmentations = std::move(event->augmentations);
         submission.bid = std::move(event->bidResponse);
 
@@ -315,7 +314,7 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
                           typeStr, winPrice.getCurrencyStr());
 
-            auto winLatency = Date::now().secondsSince(info.bidRequest->timestamp);
+            auto winLatency = Date::now().secondsSince(info.auctionTime);
             recordOutcome(winLatency * 1000.0, "winLatencyMs");
         }
 
@@ -514,7 +513,7 @@ doBidResult(
         doError("doBidResult.adSpotIdNotFound",
                 "adspot ID " + adSpotId.toString() +
                 " not found in auction " +
-                submission.bidRequestStr.utf8String());
+                submission.bidRequestStr().utf8String());
     }
 
     const Auction::Response & response = submission.bid;
@@ -571,11 +570,11 @@ doBidResult(
 
     // Finally, place it in the finished queue
     FinishedInfo i;
+    i.auctionTime = submission.bidRequest->timestamp;
     i.auctionId = auctionId;
     i.adSpotId = adSpotId;
     i.spotIndex = adspot_num;
-    i.bidRequest = submission.bidRequest;
-    i.bidRequestStr = submission.bidRequestStr;
+    i.bidRequestStr = submission.bidRequestStr();
     i.bidRequestStrFormat = submission.bidRequestStrFormat ;
     i.bid = response;
     i.reportedStatus = status;
