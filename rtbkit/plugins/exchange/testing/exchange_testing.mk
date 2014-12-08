@@ -9,3 +9,4 @@ $(eval $(call test,nexage_exchange_connector_test,nexage_exchange bid_test_utils
 $(eval $(call test,adx_exchange_connector_test,adx_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
 $(eval $(call test,openrtb_exchange_connector_test,openrtb_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
 $(eval $(call test,rtbkit_exchange_connector_test,rtbkit_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
+$(eval $(call test,casale_exchange_connector_test,casale_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))

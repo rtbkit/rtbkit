@@ -179,6 +179,7 @@ struct TestAgent : public BiddingAgent {
                                        const WinCostModel & wcm)
         {
             //std::cerr << amount.toString() << std::endl;
+            __sync_fetch_and_add(&numBidRequests, 1);
             Bid & bid = bids[0];
             bid.bid(bid.availableCreatives[0], amount);
             doBid(id, bids, Json::Value(), wcm);
