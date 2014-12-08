@@ -243,7 +243,7 @@ OpenRTBExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
                           const std::string & reason) const
 {
-    return HttpResponse(204, "application/json", "{}");
+    return HttpResponse(204, "none", "");
 }
 
 HttpResponse

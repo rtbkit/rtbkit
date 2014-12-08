@@ -245,7 +245,7 @@ getResponse(const HttpAuctionHandler & connection,
     }
 
     if (seatToBid.empty())
-        return HttpResponse(204, "none", "{}");
+        return HttpResponse(204, "none", "");
 
     static Datacratic::DefaultDescription<OpenRTB::BidResponse> desc;
     std::ostringstream stream;
