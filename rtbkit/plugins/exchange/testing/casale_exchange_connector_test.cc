@@ -16,6 +16,7 @@
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/plugins/exchange/casale_exchange_connector.h"
 #include "rtbkit/testing/bid_stack.h"
+#include "soa/service/http_header.h"
 
 using namespace RTBKIT;
 
@@ -119,6 +120,8 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
     agent->bidWithFixedAmount(USD_CPM(10));
     stack.addAgent(agent);
 
+    int numBids { 0 };
+
     stack.runThen(
         routerConfig, bidderConfig, USD_CPM(10), 0,
         [&](const Json::Value& config)
@@ -137,10 +140,18 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
 
             auto response = exchangeConnection.read();
             std::cerr << response << std::endl;
+
+            HttpHeader header;
+            header.parse(response);
+            if (header.resource == "200") {
+                ++numBids;
+            }
         }
     });
 
-    BOOST_CHECK_EQUAL(agent->numBidRequests, 1);
+    BOOST_CHECK(numBids > 0);
+
+    BOOST_CHECK_EQUAL(agent->numBidRequests, numBids);
 }
 
 
