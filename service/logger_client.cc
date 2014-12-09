@@ -33,6 +33,11 @@ void LoggerClient::consumeMessage(const std::string & messageId)
     logger->consumeMessage(messageId);
 }
 
+void LoggerClient::publishMessage(const std::string & topic,
+                    const std::string & message)
+{
+    logger->publishMessage(topic,message);    
+}
 
 
 

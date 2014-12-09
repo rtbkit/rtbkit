@@ -21,6 +21,9 @@ struct LoggerClient{
                    const std::string & channel);   
 
     void consumeMessage(const std::string & messageId);
+    void publishMessage(const std::string & topic,
+                        const std::string & message);
+
 private:
     std::shared_ptr<Logger> logger;
 };

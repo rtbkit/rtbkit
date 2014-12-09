@@ -30,6 +30,9 @@ struct Logger {
 
     virtual void consumeMessage(const std::string & messageId) = 0;
 
+    virtual void publishMessage(const std::string & topic,
+    							const std::string & message) = 0;
+
 };
 
 } // namespace Datacratic

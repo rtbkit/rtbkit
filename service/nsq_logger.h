@@ -24,6 +24,8 @@ struct NsqLogger : public Logger {
     					   const std::string & channel);
 
     virtual void consumeMessage(const std::string & messageId);
+	virtual void publishMessage(const std::string & topic,
+                                const std::string & message);
 
 private:
 

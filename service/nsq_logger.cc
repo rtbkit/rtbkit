@@ -35,4 +35,10 @@ void NsqLogger::consumeMessage(const std::string & messageId)
 	client->fin(messageId);
 }
 
+void NsqLogger::publishMessage(const std::string & topic,
+                               const std::string & message)
+{
+    client->pub(topic,message);
+}
+
 } // namespace Datacratic
