@@ -783,7 +783,7 @@ getResponse(const HttpAuctionHandler & connection,
         const BidRequest & br = *auction.request;
 
         // handle macros.
-        AdxCreativeConfiguration::Context ctx { creative, resp, br };
+        AdxCreativeConfiguration::Context ctx { creative, resp, br, static_cast<int>(spotNum) };
 
         // populate, substituting whenever necessary
         ad->set_html_snippet(

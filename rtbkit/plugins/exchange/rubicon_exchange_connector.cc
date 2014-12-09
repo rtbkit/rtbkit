@@ -243,7 +243,8 @@ setSeatBid(Auction const & auction,
     RubiconCreativeConfiguration::Context ctx = {
         creative,
         resp,
-        *auction.request
+        *auction.request,
+        spotNum
     };
 
     b.adm = configuration_.expand(crinfo->adm, ctx);

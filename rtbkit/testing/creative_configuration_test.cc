@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE(test_snippet)
         response.meta = value.toString();
     }
 
-    TestCreativeConfiguration::Context context{example1, response, bidrequest};
+    TestCreativeConfiguration::Context context{example1, response, bidrequest, 0};
     {
 
         const auto RESULT1 = "helloworld";
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(test_overwrite_var_marker)
     bidrequest.auctionId = Datacratic::Id(EXPECTED);
     RTBKIT::Auction::Response response;
 
-    CreativeConfigurationInst::Context context{example1, response, bidrequest};
+    CreativeConfigurationInst::Context context{example1, response, bidrequest, 0};
     BOOST_CHECK_EQUAL(EXPECTED, conf.expand(snippet, context));
 }
 

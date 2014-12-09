@@ -201,7 +201,8 @@ CasaleExchangeConnector::setSeatBid(
     CasaleCreativeConfiguration::Context context {
         creative,
         resp,
-        *auction.request
+        *auction.request,
+        spotNum
     };
 
     bid.cid = Id(resp.agent);
