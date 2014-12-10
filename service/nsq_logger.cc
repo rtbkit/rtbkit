@@ -6,8 +6,8 @@
 
 #include "soa/service/nsq_logger.h"
 
-namespace Datacratic {
 
+using namespace Datacratic;
 
 NsqLogger::NsqLogger(const std::string & loggerUrl,
    	   	  			 OnClosing onClosing,
@@ -40,5 +40,3 @@ void NsqLogger::publishMessage(const std::string & topic,
 {
     client->pub(topic,message);
 }
-
-} // namespace Datacratic

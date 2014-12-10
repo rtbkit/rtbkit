@@ -57,7 +57,8 @@ LIBSERVICES_SOURCES := \
 	nprobe.cc \
 	logs.cc \
 	nsq_logger.cc \
-	logger_client.cc \
+        log_publisher.cc \
+	log_subscriber.cc \
 	nsq_client.cc 
 
 LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description

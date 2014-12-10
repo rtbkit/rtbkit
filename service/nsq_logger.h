@@ -6,12 +6,18 @@
 
 #pragma once
 
-#include "soa/service/logger.h"
+#include "soa/service/ilogger.h"
 #include "soa/service/nsq_client.h"   
 
 namespace Datacratic {
 
-struct NsqLogger : public Logger {
+
+/****************************************************************************/
+/* NSQ LOGGER                                                               */
+/****************************************************************************/
+
+/* Implementation of the ilogger interface using NSQ client*/
+struct NsqLogger : public ILogger {
 
     NsqLogger(const std::string & loggerUrl,
     	   	  OnClosing onClosing = nullptr,

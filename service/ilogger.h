@@ -19,10 +19,14 @@ typedef std::function<void (Date, uint16_t,
 typedef std::function<void(bool,
                            const std::vector<std::string> & msgs)> OnClosing;
 
+/****************************************************************************/
+/* ILOGGER                                                                  */
+/****************************************************************************/
 
-struct Logger {
+/* Interface for a logger. */
+struct ILogger {
   
-    virtual ~Logger() {}
+    virtual ~ILogger() {}
 
     virtual void init(const std::string & loggerUrl) = 0;
     virtual void subscribe(const std::string & topic, 
@@ -31,7 +35,7 @@ struct Logger {
     virtual void consumeMessage(const std::string & messageId) = 0;
 
     virtual void publishMessage(const std::string & topic,
-    							const std::string & message) = 0;
+    							              const std::string & message) = 0;
 
 };
 
