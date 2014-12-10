@@ -618,6 +618,11 @@ getProviderIndicators() const
 /* SLAVE BANKER ARGUMENTS                                                    */
 /*****************************************************************************/
 
+constexpr bool SlaveBankerArguments::Defaults::UseHttp;
+constexpr bool SlaveBankerArguments::Defaults::Batched;
+constexpr int SlaveBankerArguments::Defaults::HttpConnections;
+constexpr bool SlaveBankerArguments::Defaults::TcpNoDelay;
+
 SlaveBankerArguments::SlaveBankerArguments()
     : batched(Defaults::Batched)
     , useHttp(Defaults::UseHttp)
