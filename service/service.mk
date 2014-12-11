@@ -21,6 +21,16 @@ LIBRECOSET_ZEROMQ_LINK := \
 
 $(eval $(call library,zeromq,$(LIBRECOSET_ZEROMQ_SOURCES),$(LIBRECOSET_ZEROMQ_LINK)))
 
+
+LIBRECOSET_RUNNERCOMMON_SOURCES := \
+	runner_common.cc
+
+LIBRECOSET_RUNNERCOMMON_LINK :=
+
+$(eval $(call library,runner_common,$(LIBRECOSET_RUNNERCOMMON_SOURCES),$(LIBRECOSET_RUNNERCOMMON_LINK)))
+$(eval $(call program,runner_helper,runner_common))
+
+
 LIBSERVICES_SOURCES := \
 	transport.cc \
 	endpoint.cc \
@@ -57,9 +67,12 @@ LIBSERVICES_SOURCES := \
 	nprobe.cc \
 	logs.cc
 
-LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description
+LIBSERVICES_LINK := opstats curl curlpp boost_regex runner_common zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
+$(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
+
+$(LIB)/libservices.so: $(BIN)/runner_helper
 
 
 LIBENDPOINT_SOURCES := \
@@ -68,8 +81,6 @@ LIBENDPOINT_LINK := \
 	services
 
 $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
-
-
 
 
 LIBCLOUD_SOURCES := \
