@@ -10,10 +10,6 @@
 
 using namespace std;
 
-namespace Default {
-    static constexpr int HttpTimeout = 1;
-}
-
 namespace RTBKIT {
 
 template<typename Result>
@@ -61,13 +57,15 @@ topupTransfer(const AccountKey &account,
 
 void
 HttpLayer::
-init(std::string bankerUri, int activeConnections /* = 4 */, bool tcpNoDelay /* = false */)
+init(std::string bankerUri, double timeout, int activeConnections /* = 4 */, bool tcpNoDelay /* = false */)
 {
     if (bankerUri.empty())
         throw ML::Exception("bankerUri can not be empty");
 
     if (bankerUri.compare(0, 7, "http://"))
         bankerUri = "http://" + bankerUri;
+
+    this->timeout = timeout;
 
     httpClient.reset(new HttpClient(bankerUri, activeConnections));
     httpClient->sendExpect100Continue(false);
@@ -86,7 +84,7 @@ addAccount(const AccountKey &account,
                          { "accountType", "budget" }
                      },
                      { }, /* headers */
-                     Default::HttpTimeout);
+                     timeout);
 }
 
 
@@ -102,7 +100,7 @@ topupTransfer(const std::string &accountStr,
                     amount.toJson(),
                     { { "accountType", AccountTypeToString(accountType) } },
                     { }, /* headers */
-                    Default::HttpTimeout);
+                    timeout);
 }
 
 void
@@ -116,7 +114,7 @@ setBudget(const std::string &topLevelAccount,
                     amount.toJson(),
                     { },
                     { },
-                    Default::HttpTimeout);
+                    timeout);
 }
 
 void
@@ -133,7 +131,7 @@ getAccountSummary(
                         onResult),
                     { { "depth", to_string(depth) } },
                     { } /* headers */,
-                    Default::HttpTimeout);
+                    timeout);
 }
 
 void
@@ -147,7 +145,7 @@ getAccount(const AccountKey &account,
                         onResult),
                     { },
                     { },
-                    Default::HttpTimeout);
+                    timeout);
 }
 
 void
@@ -163,7 +161,7 @@ addSpendAccount(const std::string &shadowStr,
                          { "accountType", "spend" }
                      },
                      { }, /* headers */
-                     Default::HttpTimeout);
+                     timeout);
 }
 
 void
@@ -177,7 +175,7 @@ syncAccount(const ShadowAccount &account, const std::string &shadowStr,
                     account.toJson(),
                     { },
                     { },
-                    Default::HttpTimeout);
+                    timeout);
 }
 
 void
@@ -205,13 +203,13 @@ request(std::string method, const std::string &resource,
     });
 
     if (method == "post") {
-        httpClient->post(resource, onDone, content, params, { }, Default::HttpTimeout);
+        httpClient->post(resource, onDone, content, params, { }, timeout);
     }
     else if (method == "put") {
-        httpClient->put(resource, onDone, content, params, { }, Default::HttpTimeout);
+        httpClient->put(resource, onDone, content, params, { }, timeout);
     }
     else if (method == "get") {
-        httpClient->get(resource, onDone, params, { }, Default::HttpTimeout);
+        httpClient->get(resource, onDone, params, { }, timeout);
     }
     else {
         throw ML::Exception("Unknown method '%s'", method.c_str());

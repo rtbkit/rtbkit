@@ -109,6 +109,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
 
     SlaveBanker(const std::string & accountSuffix,
             CurrencyPool spendRate = DefaultSpendRate,
+            double syncRate = 1.0,
             bool batchedUpdates = false);
 
     /** Initialize the slave banker.  
@@ -120,6 +121,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
     */
     void init(const std::string & accountSuffix,
               CurrencyPool spendRate = DefaultSpendRate,
+              double syncRate = 1.0,
               bool batchedUpdates = false);
 
     /** Notify the banker that we're going to need to be spending some
@@ -320,9 +322,13 @@ class SlaveBankerArguments
 {
 public:
     struct Defaults {
-        static constexpr bool UseHttp = false;
+        static const std::string SpendRate;
+        static constexpr double SyncRate = 1.0;
         static constexpr bool Batched = false;
+
+        static constexpr bool UseHttp = false;
         static constexpr int HttpConnections = 1 << 3;
+        static constexpr double HttpTimeout = 3.0;
         static constexpr bool TcpNoDelay = false;
     };
 
@@ -338,11 +344,12 @@ public:
             std::shared_ptr<ServiceProxies> proxies) const;
 
     /** Create a SlaveBanker by forwarding the arguments to the constructor */
-    template<typename... Args>
-    std::shared_ptr<SlaveBanker> makeBankerWithArgs(
-            std::shared_ptr<ServiceProxies> proxies, Args&& ...args) const {
-
-        auto banker = std::make_shared<SlaveBanker>(std::forward<Args>(args)...);
+    std::shared_ptr<SlaveBanker> makeBanker(
+            std::shared_ptr<ServiceProxies> proxies,
+            const std::string& accountSuffix) const
+    {
+        auto spendRate = CurrencyPool(this->spendRate) * syncRate;
+        auto banker = std::make_shared<SlaveBanker>(accountSuffix, spendRate, syncRate, batched);
 
         banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
         return banker;
@@ -352,10 +359,13 @@ public:
     static Logging::Category trace;
     static Logging::Category error;
 
+private:
+    std::string spendRate;
+    double syncRate;
     bool batched;
 
-private:
     bool useHttp;
+    double httpTimeout;
     int httpConnections;
     bool tcpNoDelay;
 
