@@ -11,9 +11,9 @@ static const std::string NSQ_LOGGING = "nsqLogging";
 
 using namespace Datacratic;
 
+
 LogSubscriber::
-LogSubscriber(const std::string & loggerType, 
-        	  const std::string & loggerUrl,
+LogSubscriber(const std::string & loggerType, const std::string & loggerUrl,
               OnClosing onClosing,
               const OnMessageReceived & onMessageReceived)
 {
@@ -21,11 +21,9 @@ LogSubscriber(const std::string & loggerType,
         logger.reset(new NsqLogger(loggerUrl, onClosing, onMessageReceived));
 }
 
-
 void 
 LogSubscriber::
-subscribe(const std::string & topic, 
-          const std::string & channel) 
+subscribe(const std::string & topic, const std::string & channel) 
 {
     logger->subscribe(topic,channel);
 }
@@ -36,4 +34,3 @@ consumeMessage(const std::string & messageId)
 {
     logger->consumeMessage(messageId);
 }
-

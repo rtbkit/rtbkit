@@ -1,33 +1,29 @@
-/* logger_subscriber.h   
+/* log_subscriber.h                                                  -*-C++-*-
    Mathieu Vadnais, December 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
-   
+
 */
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <vector>
+#include <functional>
+
 #include "soa/types/date.h"
 #include "soa/service/ilogger.h"
-#include <string>
-#include <functional>
+
 
 namespace Datacratic {
 
-
-typedef std::function<void (Date, uint16_t,
-                            const std::string &,
-                            const std::string &)> OnMessageReceived;
-typedef std::function<void(bool,
-                           const std::vector<std::string> & msgs)> OnClosing;
-
 /****************************************************************************/
-/* LOG SUBSCRIBER                                                             */
+/* LOG SUBSCRIBER                                                           */
 /****************************************************************************/
 
 /* This struct is responsible for subscribing to a topic and channel. */
-struct LogSubscriber{
-  
-    LogSubscriber(const std::string & loggerType, 
+struct LogSubscriber {
+    LogSubscriber(const std::string & loggerType,
                   const std::string & loggerUrl,
                   OnClosing onClosing = nullptr,
                   const OnMessageReceived & onMessageReceived = nullptr);
@@ -35,8 +31,7 @@ struct LogSubscriber{
     ~LogSubscriber(){}
 
     void init(const std::string & loggerUrl);
-    void subscribe(const std::string & topic, 
-    			   const std::string & channel);
+    void subscribe(const std::string & topic, const std::string & channel);
 
     void consumeMessage(const std::string & messageId);
 
