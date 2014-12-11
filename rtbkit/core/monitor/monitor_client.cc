@@ -5,6 +5,7 @@
 #include <jml/arch/exception_handler.h>
 
 #include "monitor_client.h"
+#include "jml/utils/exc_check.h"
 
 using namespace std;
 
@@ -78,6 +79,7 @@ getStatus(double tolerance)
     const
 {
     if (testMode) return testResponse;
+    ExcCheckLessEqual(checkTimeout_, tolerance / 2, "Check timeout must be less or equal to tolerance divided by two");
     return Date::now().secondsSince(lastSuccess) < tolerance;
 }
 

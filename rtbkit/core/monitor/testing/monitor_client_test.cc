@@ -32,8 +32,6 @@ BOOST_AUTO_TEST_CASE( test_monitor_client_getStatus )
 
     client.lastSuccess = now.plusSeconds(-0.5);
     BOOST_CHECK_EQUAL(client.getStatus(), true);
-    BOOST_CHECK_EQUAL(client.getStatus(1.0), true);
-    BOOST_CHECK_EQUAL(client.getStatus(0.25), false);
 }
 
 BOOST_AUTO_TEST_CASE( test_monitor_client_onResponseReceived )
