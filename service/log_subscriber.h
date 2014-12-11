@@ -11,13 +11,8 @@
 #include <vector>
 #include <functional>
 
-#include "soa/types/date.h"
 #include "soa/service/ilogger.h"
 
-
-typedef std::function<void (Date, uint16_t,
-                            const std::string &,
-                            const std::string &)> OnMessageReceived;
 namespace Datacratic {
 
 /****************************************************************************/
