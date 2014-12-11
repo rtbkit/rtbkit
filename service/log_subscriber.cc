@@ -13,12 +13,11 @@ using namespace Datacratic;
 
 LogSubscriber::
 LogSubscriber(const std::string & loggerType, 
-        	  const std::string & loggerUrl,
-              OnClosing onClosing,
+        	    const std::string & loggerUrl,
               const OnMessageReceived & onMessageReceived)
 {
     if (loggerType == NSQ_LOGGING)
-        logger.reset(new NsqLogger(loggerUrl, onClosing, onMessageReceived));
+        logger.reset(new NsqLogger(loggerUrl, onMessageReceived));
 }
 
 

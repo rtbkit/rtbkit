@@ -17,8 +17,6 @@ namespace Datacratic {
 typedef std::function<void (Date, uint16_t,
                             const std::string &,
                             const std::string &)> OnMessageReceived;
-typedef std::function<void(bool,
-                           const std::vector<std::string> & msgs)> OnClosing;
 
 /****************************************************************************/
 /* LOG SUBSCRIBER                                                             */
@@ -29,7 +27,6 @@ struct LogSubscriber{
   
     LogSubscriber(const std::string & loggerType, 
                   const std::string & loggerUrl,
-                  OnClosing onClosing = nullptr,
                   const OnMessageReceived & onMessageReceived = nullptr);
 
     ~LogSubscriber(){}

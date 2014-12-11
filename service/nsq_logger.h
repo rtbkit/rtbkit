@@ -8,6 +8,7 @@
 
 #include "soa/service/ilogger.h"
 #include "soa/service/nsq_client.h"   
+#include "soa/service/message_loop.h"
 
 namespace Datacratic {
 
@@ -20,10 +21,9 @@ namespace Datacratic {
 struct NsqLogger : public ILogger {
 
     NsqLogger(const std::string & loggerUrl,
-    	   	  OnClosing onClosing = nullptr,
               const OnMessageReceived & onMessageReceived = nullptr);
 
-    virtual ~NsqLogger(){}
+    virtual ~NsqLogger();
 
     virtual void init(const std::string & loggerUrl);
     virtual void subscribe(const std::string & topic, 
@@ -35,7 +35,12 @@ struct NsqLogger : public ILogger {
 
 private:
 
-	std::unique_ptr<NsqClient> client;
+    void onClosed(bool fromPeer, 
+                  const std::vector<std::string> & msgs);
+
+    std::unique_ptr<NsqClient> client;
+    MessageLoop loop;
+    int closed_;
  
 };
 

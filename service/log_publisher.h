@@ -28,7 +28,7 @@ struct LogPublisher{
 
     void init(const std::string & loggerUrl);
     void publishMessage(const std::string & topic,
-    							      const std::string & message);
+                        const std::string & message);
 
 private:
     std::shared_ptr<ILogger> logger;

@@ -16,8 +16,6 @@ namespace Datacratic {
 typedef std::function<void (Date, uint16_t,
                             const std::string &,
                             const std::string &)> OnMessageReceived;
-typedef std::function<void(bool,
-                           const std::vector<std::string> & msgs)> OnClosing;
 
 /****************************************************************************/
 /* ILOGGER                                                                  */

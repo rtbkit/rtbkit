@@ -9,34 +9,73 @@
 
 using namespace Datacratic;
 
-NsqLogger::NsqLogger(const std::string & loggerUrl,
-   	   	  			 OnClosing onClosing,
-          			 const OnMessageReceived & onMessageReceived) 
+NsqLogger::
+NsqLogger(const std::string & loggerUrl,
+          const OnMessageReceived & onMessageReceived)
+    :closed_(true)
 {
-	client.reset(new NsqClient(onClosing, onMessageReceived));
-	init(loggerUrl);
-	client->connectSync();
+    loop.start();
+    auto onClosed = [&] (bool fromPeer,
+                         const std::vector<std::string> & msgs) {
+        this->onClosed(fromPeer, msgs);
+    };
+    client.reset(new NsqClient(onClosed, onMessageReceived));
+    init(loggerUrl);
+    client->connectSync();
+    closed_ = false;
 }
 
-void NsqLogger::init(const std::string & loggerUrl)
+NsqLogger::
+~NsqLogger()
 {
-	client->init(loggerUrl);
+    auto onClosed = [&] (const NsqFrame & frame) {
+        client->requestClose();
+    };
+    client->cls(onClosed);
+
+    while (!closed_) {
+        int old(closed_);
+        ML::futex_wait(closed_, old);
+    }    
+    loop.shutdown();
 }
 
-void NsqLogger::subscribe(const std::string & topic, 
-			   			  const std::string & channel) 
+void 
+NsqLogger::
+init(const std::string & loggerUrl)
 {
-
-	client->sub(topic,channel);
+    client->init(loggerUrl);
 }
 
-void NsqLogger::consumeMessage(const std::string & messageId)
+void 
+NsqLogger::
+subscribe(const std::string & topic, 
+          const std::string & channel) 
 {
-	client->fin(messageId);
+
+    client->sub(topic,channel);
 }
 
-void NsqLogger::publishMessage(const std::string & topic,
-                               const std::string & message)
+void 
+NsqLogger::
+consumeMessage(const std::string & messageId)
+{
+    client->fin(messageId);
+}
+
+void 
+NsqLogger::
+publishMessage(const std::string & topic,
+               const std::string & message)
 {
     client->pub(topic,message);
+}
+
+void 
+NsqLogger::
+onClosed(bool fromPeer, 
+         const std::vector<std::string> & msgs)
+{
+    closed_ = true;
+    ML::futex_wake(closed_);
 }
