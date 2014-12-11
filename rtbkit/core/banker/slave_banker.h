@@ -345,15 +345,7 @@ public:
 
     /** Create a SlaveBanker by forwarding the arguments to the constructor */
     std::shared_ptr<SlaveBanker> makeBanker(
-            std::shared_ptr<ServiceProxies> proxies,
-            const std::string& accountSuffix) const
-    {
-        auto spendRate = CurrencyPool(this->spendRate) * syncRate;
-        auto banker = std::make_shared<SlaveBanker>(accountSuffix, spendRate, syncRate, batched);
-
-        banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
-        return banker;
-    }
+            std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const;
 
     static Logging::Category print;
     static Logging::Category trace;
