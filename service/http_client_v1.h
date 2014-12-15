@@ -11,6 +11,7 @@
 
 #include "sys/epoll.h"
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -32,14 +33,10 @@ namespace Datacratic {
 /* HTTP CLIENT V1                                                           */
 /****************************************************************************/
 
-struct HttpClientV1 : public HttpClientImpl {
+struct HttpClientV1 : public AsyncEventSource,
+                      public HttpClientImpl {
     HttpClientV1(const std::string & baseUrl,
                  int numParallel, int queueSize);
-
-    HttpClientV1(HttpClientV1 && other) noexcept;
-    HttpClientV1 & operator = (HttpClientV1 && other) noexcept;
-
-    HttpClientV1(const HttpClientV1 & other) = delete;
 
     ~HttpClientV1();
 
@@ -48,6 +45,7 @@ struct HttpClientV1 : public HttpClientImpl {
     virtual bool processOne();
 
     /* HttpClientImpl */
+    void enableDebug(bool value);
     void enableSSLChecks(bool value);
     void sendExpect100Continue(bool value);
     void enableTcpNoDelay(bool value);
@@ -126,6 +124,7 @@ private:
     void releaseConnection(HttpConnection * connection);
 
     std::string baseUrl_;
+    bool debug_;
     bool expect100Continue_;
     bool tcpNoDelay_;
     bool noSSLChecks_;

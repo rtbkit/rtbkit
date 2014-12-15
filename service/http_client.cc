@@ -104,6 +104,7 @@ HttpClient(const string & baseUrl, int numParallel, int queueSize,
     }
 
     /* centralize the default values */
+    enableDebug(false);
     enableSSLChecks(true);
     enableTcpNoDelay(false);
     sendExpect100Continue(true);

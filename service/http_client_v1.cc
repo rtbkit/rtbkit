@@ -22,8 +22,8 @@
 #include "jml/utils/guard.h"
 #include "jml/utils/string_functions.h"
 
-#include "soa/service/message_loop.h"
-#include "soa/service/http_header.h"
+#include "singleton_loop.h"
+#include "http_header.h"
 
 #include "http_client_v1.h"
 
@@ -67,10 +67,22 @@ translateError(CURLcode curlError)
     return error;
 }
 
+SingletonLoop &
+getHTTPClientLoop()
+{
+    static SingletonLoop loop;
+
+    loop.start();
+
+    return loop;
 }
 
+} // file scope
 
-/* HTTPCLIENT */
+
+/****************************************************************************/
+/* HTTP CLIENT V1                                                           */
+/****************************************************************************/
 
 HttpClientV1::
 HttpClientV1(const string & baseUrl, int numParallel, int queueSize)
@@ -125,41 +137,24 @@ HttpClientV1(const string & baseUrl, int numParallel, int queueSize)
     }
 
     success = true;
-}
 
-HttpClientV1::
-HttpClientV1(HttpClientV1 && other)
-    noexcept
-    : HttpClientImpl(move(other)),
-      baseUrl_(move(other.baseUrl_)),
-      expect100Continue_(move(other.expect100Continue_)),
-      tcpNoDelay_(move(other.tcpNoDelay_)),
-      noSSLChecks_(move(other.noSSLChecks_)),
-      fd_(other.fd_),
-      wakeup_(move(other.wakeup_)),
-      timerFd_(other.timerFd_),
-      connectionStash_(move(other.connectionStash_)),
-      avlConnections_(move(other.avlConnections_)),
-      nextAvail_(other.nextAvail_),
-      queue_(move(other.queue_))
-{
-    other.fd_ = -1;
-    other.timerFd_ = -1;
-
-    /* the move operator of Curl::Multi is dubious but our multi handle is not
-       supposed to be active at this point, therefore we do not need to move it */
-    ::CURLM ** handle = (::CURLM **) &multi_;
-    handle_ = *handle;
-    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETFUNCTION, socketCallback);
-    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
-    ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
-    ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
+    SingletonLoop & loop = getHTTPClientLoop();
+    loop.addSource(*this);
 }
 
 HttpClientV1::
 ~HttpClientV1()
 {
+    SingletonLoop & loop = getHTTPClientLoop();
+    loop.removeSource(*this);
     cleanupFds();
+}
+
+void
+HttpClientV1::
+enableDebug(bool value)
+{
+    debug_ = value;
 }
 
 void
@@ -188,29 +183,6 @@ HttpClientV1::
 enablePipelining(bool value)
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, value ? 1 : 0);
-}
-
-HttpClientV1 &
-HttpClientV1::
-operator = (HttpClientV1 && other)
-    noexcept
-{
-    AsyncEventSource::operator = (move(other));
-    baseUrl_ = move(other.baseUrl_);
-    expect100Continue_ = move(other.expect100Continue_);
-    tcpNoDelay_ = move(other.tcpNoDelay_);
-    noSSLChecks_ = move(other.noSSLChecks_);
-    fd_ = other.fd_;
-    other.fd_ = -1;
-    wakeup_ = move(other.wakeup_);
-    timerFd_ = other.timerFd_;
-    other.timerFd_ = -1;
-    connectionStash_ = move(other.connectionStash_);
-    avlConnections_ = move(other.avlConnections_);
-    nextAvail_ = other.nextAvail_;
-    queue_ = move(other.queue_);
-
-    return *this;
 }
 
 void
