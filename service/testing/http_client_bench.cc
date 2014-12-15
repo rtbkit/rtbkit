@@ -15,6 +15,7 @@
 #include "soa/service/http_client.h"
 #include "soa/service/http_endpoint.h"
 #include "soa/service/named_endpoint.h"
+#include "soa/service/message_loop.h"
 #include "soa/service/rest_proxy.h"
 #include "soa/service/rest_service_endpoint.h"
 #include "soa/service/runner.h"
@@ -38,8 +39,13 @@ AsyncModelBench(HttpMethod method,
                 int maxReqs, int concurrency)
 {
     int numReqs, numResponses(0), numMissed(0);
+    MessageLoop loop(1, 0, -1);
+
+    loop.start();
 
     auto client = make_shared<HttpClient>(baseUrl, concurrency);
+    loop.addSource("httpClient", client);
+
     auto onResponse = [&] (const HttpRequest & rq, HttpClientError errorCode_,
                            int status, string && headers, string && body) {
         numResponses++;
@@ -90,6 +96,9 @@ AsyncModelBench(HttpMethod method,
         ML::futex_wait(numResponses, old);
     }
     Date end = Date::now();
+
+    loop.removeSource(client.get());
+    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     cerr << "num misses: "  + to_string(numMissed) + "\n";
 

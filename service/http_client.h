@@ -21,11 +21,8 @@
 
 #pragma once
 
-#include <memory>
-#include <ostream>
-#include <string>
-
 #include "soa/jsoncpp/value.h"
+#include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
 
 
@@ -108,17 +105,17 @@ struct HttpRequest {
 /* HTTP CLIENT IMPL                                                         */
 /****************************************************************************/
 
-struct HttpClientImpl {
+struct HttpClientImpl : public AsyncEventSource {
     HttpClientImpl(const std::string & baseUrl,
                    int numParallel = 1024, int queueSize = 0)
+        : AsyncEventSource()
     {
     }
 
+    HttpClientImpl(HttpClientImpl && other) = default;
+
     virtual ~HttpClientImpl()
     {}
-
-    /** Enable debugging */
-    virtual void enableDebug(bool value) = 0;
 
     /** SSL checks */
     virtual void enableSSLChecks(bool value) = 0;
@@ -168,7 +165,7 @@ std::ostream & operator << (std::ostream & stream, HttpClientError error);
 /* HTTP CLIENT                                                              */
 /****************************************************************************/
 
-struct HttpClient {
+struct HttpClient : public AsyncEventSource {
     /* This sets the requested version of the underlying HttpClientImpl. By
      * default, this value is deduced from the "HTTP_CLIENT_VERSION"
      * environment variable. It not set, this falls back to 1. */
@@ -191,10 +188,15 @@ struct HttpClient {
     }
     HttpClient(const HttpClient & other) = delete;
 
-    /** Enable debugging */
-    void enableDebug(bool value)
+    virtual int selectFd()
+        const
     {
-        impl->enableDebug(value);
+        return impl->selectFd();
+    }
+
+    virtual bool processOne()
+    {
+        return impl->processOne();
     }
 
     /** SSL checks */
