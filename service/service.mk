@@ -28,7 +28,7 @@ LIBRECOSET_RUNNERCOMMON_SOURCES := \
 LIBRECOSET_RUNNERCOMMON_LINK :=
 
 $(eval $(call library,runner_common,$(LIBRECOSET_RUNNERCOMMON_SOURCES),$(LIBRECOSET_RUNNERCOMMON_LINK)))
-$(eval $(call program,runner_helper,runner_common))
+$(eval $(call program,runner_helper,runner_common arch))
 
 
 LIBSERVICES_SOURCES := \
