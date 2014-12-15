@@ -7,7 +7,8 @@ LIBARCH_SOURCES := \
 	exception.cc \
 	exception_handler.cc \
 	backtrace.cc \
-        format.cc \
+	format.cc \
+	fslock.cc \
 	gpgpu.cc \
 	environment_static.cc \
 	cpu_info.cc \
