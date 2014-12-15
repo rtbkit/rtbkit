@@ -4,6 +4,9 @@
 
    A temporary server for testing of mongo-based services.  Starts one up in a
    temporary directory and gives the uri to connect to.
+
+   NOTE: This is not a self-contained util. mongod need to be installed prior
+         to using mongo_temporary_server.
 */
 
 #include "jml/utils/environment.h"
