@@ -34,7 +34,6 @@ struct ILogger {
 
     virtual void publishMessage(const std::string & topic,
                                 const std::string & message) = 0;
-
 };
 
 } // namespace Datacratic
