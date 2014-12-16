@@ -686,7 +686,7 @@ std::shared_ptr<SlaveBanker>
 SlaveBankerArguments::
 makeBanker(std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const
 {
-    auto spendRate = CurrencyPool(Amount::parse(this->spendRate)) * syncRate;
+    auto spendRate = CurrencyPool(Amount::parse(this->spendRate));
     auto banker = std::make_shared<SlaveBanker>(accountSuffix, spendRate, syncRate, batched);
 
     banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
