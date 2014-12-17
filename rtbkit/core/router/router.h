@@ -107,6 +107,7 @@ struct Router : public ServiceBase,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
+           bool enableBidProbability = true,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
@@ -117,6 +118,7 @@ struct Router : public ServiceBase,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
+           bool enableBidProbability = true,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
@@ -527,6 +529,7 @@ public:
     double bidsErrorRate;
     double budgetErrorRate;
     bool connectPostAuctionLoop;
+    bool enableBidProbability;
 
 
     /*************************************************************************/

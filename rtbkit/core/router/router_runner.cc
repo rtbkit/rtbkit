@@ -48,6 +48,7 @@ RouterRunner() :
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     lossSeconds(15.0),
     noPostAuctionLoop(false),
+    noBidProb(false),
     logAuctions(false),
     logBids(false),
     maxBidPrice(40),
@@ -76,6 +77,8 @@ doOptions(int argc, char ** argv,
          "number of seconds allowed to bid normally since last successful monitor check") 
         ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
          "don't connect to the post auction loop")
+        ("no-bidprob", bool_switch(&noBidProb),
+         "don't use bid probability to sample the traffic")
         ("log-uri", value<vector<string> >(&logUris),
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
@@ -140,8 +143,10 @@ init()
     }
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
+    auto enableBidProbability = !noBidProb;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
+                                      enableBidProbability,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
                                       slowModeTimeout, amountSlowModeMoneyLimit);

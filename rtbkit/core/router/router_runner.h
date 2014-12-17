@@ -34,6 +34,7 @@ struct RouterRunner {
 
     float lossSeconds;
     bool noPostAuctionLoop;
+    bool noBidProb;
 
     bool logAuctions;
     bool logBids;

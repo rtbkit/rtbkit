@@ -112,6 +112,7 @@ Router(ServiceBase & parent,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
+       bool enableBidProbability,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
@@ -134,6 +135,7 @@ Router(ServiceBase & parent,
       bidsErrorRate(0.0),
       budgetErrorRate(0.0),
       connectPostAuctionLoop(connectPostAuctionLoop),
+      enableBidProbability(enableBidProbability),
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
@@ -162,6 +164,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
+       bool enableBidProbability,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
@@ -184,6 +187,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       bidsErrorRate(0.0),
       budgetErrorRate(0.0),
       connectPostAuctionLoop(connectPostAuctionLoop),
+      enableBidProbability(enableBidProbability),
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
@@ -1443,20 +1447,21 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     std::vector<GroupPotentialBidders> validGroups;
 
-    for (auto it = groupAgents.begin(), end = groupAgents.end();
-         it != end;  ++it) {
+    for(auto it = groupAgents.begin(), end = groupAgents.end(); it != end; ++it) {
         // Check for bid probability and skip if we don't bid
-        double bidProbability
-            = it->second.totalBidProbability
-            / it->second.size()
-            * globalBidProbability;
+        if(enableBidProbability) {
+            double bidProbability
+                = it->second.totalBidProbability
+                / it->second.size()
+                * globalBidProbability;
 
-        if (bidProbability < 1.0) {
-            float val = (random() % 1000000) / 1000000.0;
-            if (val > bidProbability) {
-                for (unsigned i = 0;  i < it->second.size();  ++i)
-                    ML::atomic_inc(it->second[i].stats->skippedBidProbability);
-                continue;
+            if (bidProbability < 1.0) {
+                float val = (random() % 1000000) / 1000000.0;
+                if (val > bidProbability) {
+                    for (unsigned i = 0;  i < it->second.size();  ++i)
+                        ML::atomic_inc(it->second[i].stats->skippedBidProbability);
+                    continue;
+                }
             }
         }
 
