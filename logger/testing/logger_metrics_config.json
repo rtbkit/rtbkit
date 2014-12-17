@@ -1,0 +1,10 @@
+{
+    "metricsLogger" : {
+        "type"        : "mongo",
+        "failSafe"    : true,
+        "hostAndPort" : "localhost:28356",
+        "database"    : "test",
+        "user"        : "testuser",
+        "pwd"         : "testpw"
+    }
+}

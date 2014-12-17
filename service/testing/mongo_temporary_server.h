@@ -9,6 +9,8 @@
          to using mongo_temporary_server.
 */
 
+#pragma once
+
 #include "jml/utils/environment.h"
 #include "jml/utils/file_functions.h"
 #include "jml/arch/timers.h"

@@ -30,6 +30,7 @@ class ILoggerMetrics{
         ILoggerMetrics(){};
 
     protected:
+        // ORDER OF VARIANT IMPORTANT!
         typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
         typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
 
