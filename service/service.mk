@@ -65,7 +65,11 @@ LIBSERVICES_SOURCES := \
 	http_rest_proxy.cc \
 	xml_helpers.cc \
 	nprobe.cc \
-	logs.cc
+	logs.cc \
+	nsq_event_handler.cc \
+    event_publisher.cc \
+	event_subscriber.cc \
+	nsq_client.cc 
 
 LIBSERVICES_LINK := opstats curl curlpp boost_regex runner_common zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description
 
@@ -85,7 +89,6 @@ $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
 
 LIBCLOUD_SOURCES := \
 	fs_utils.cc \
-	nsq_client.cc \
 	sftp.cc \
 	s3.cc \
 	sns.cc \
