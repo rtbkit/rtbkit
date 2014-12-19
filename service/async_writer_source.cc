@@ -262,8 +262,9 @@ processOne()
                 (*fn)(events[i]);
             }
 
-            for (int fd: delayedUnregistrations_) {
-                unregisterFdCallback(fd, false);
+            for (auto & unreg: delayedUnregistrations_) {
+                auto cb = move(unreg.second);
+                unregisterFdCallback(unreg.first, false, cb);
             }
         }
         catch (const std::exception & exc) {
@@ -428,18 +429,22 @@ registerFdCallback(int fd, const EpollCallback & cb)
 
 void
 AsyncWriterSource::
-unregisterFdCallback(int fd, bool delayed)
+unregisterFdCallback(int fd, bool delayed,
+                     const OnUnregistered & onUnregistered)
 {
     if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
         throw ML::Exception("callback not registered for fd");
     }
     if (delayed) {
         ExcAssert(delayedUnregistrations_.count(fd) == 0);
-        delayedUnregistrations_.insert(fd);
+        delayedUnregistrations_[fd] = onUnregistered;
     }
     else {
-        fdCallbacks_.erase(fd);
         delayedUnregistrations_.erase(fd);
+        fdCallbacks_.erase(fd);
+        if (onUnregistered) {
+            onUnregistered();
+        }
     }
 }
 

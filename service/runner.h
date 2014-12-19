@@ -21,6 +21,7 @@
 #include "soa/types/value_description.h"
 
 #include "epoller.h"
+#include "runner_common.h"
 #include "sink.h"
 
 /* value descriptions for "timeval" and "rusage" */
@@ -161,67 +162,13 @@ struct Runner: public Epoller {
 
 private:
     struct Task {
-        struct ChildFds {
-            ChildFds();
-
-            void closeRemainingFds();
-            void dupToStdStreams();
-            void close();
-
-            int stdIn;
-            int stdOut;
-            int stdErr;
-            int statusFd;
-        };
-
-        /** State of the process. */
-        enum StatusState {
-            ST_UNKNOWN,    ///< Unknown status
-            LAUNCHING,     ///< Being launched
-            RUNNING,       ///< Currently running
-            STOPPED,       ///< No longer running
-            DONE           ///< Completely stopped
-        };
-
-        /** Possible errors that could happen in launching.  These are
-            enumerated here so that they can be passed back as an int
-            rather than as a variable length string (or a const char *
-            to memory which we could have to ensure was available in
-            both the launcher process and the calling process).
-        */
-        enum LaunchErrorCode {
-            E_NONE,                     ///< No launch error
-            E_READ_STATUS_PIPE,         ///< Error reading status pipe
-            E_STATUS_PIPE_WRONG_LENGTH, ///< Status msg wrong length
-            E_SUBTASK_LAUNCH,           ///< Error launching subtask
-            E_SUBTASK_WAITPID,          ///< Error calling waitpid
-            E_WRONG_CHILD               ///< Wrong child was reaped
-        };
-
-        /** Turn a launch error code into a descriptive string. */
-        static std::string strLaunchError(LaunchErrorCode error);
-            
-        /** Structure passed back and forth between the launcher and the
-            monitor to know the current state of the running process.
-        */
-        struct ChildStatus {
-            ChildStatus();
-
-            StatusState state;
-            pid_t pid;
-            int childStatus;
-            int launchErrno;
-            LaunchErrorCode launchErrorCode;
-            rusage usage;
-        };
-
         Task();
 
         void setupInSink();
         void flushInSink();
         void flushStdInBuffer();
         void runWrapper(const std::vector<std::string> & command,
-                        ChildFds & fds);
+                        ProcessFds & fds);
                         
         void postTerminate(Runner & runner);
 
@@ -236,8 +183,7 @@ private:
         int stdErrFd;
         int statusFd;
 
-        StatusState statusState;
-        static std::string statusStateAsString(StatusState statusState);
+        ProcessState statusState;
     };
 
     void prepareChild();
@@ -268,7 +214,7 @@ private:
     std::shared_ptr<InputSink> stdErrSink_;
 
     Task task_;
-    char statusBuffer_[sizeof(Task::ChildStatus)];
+    char statusBuffer_[sizeof(ProcessStatus)];
     size_t statusRemaining_;
 };
 
