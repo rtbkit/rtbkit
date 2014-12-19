@@ -1,4 +1,4 @@
-/* logger.h
+/* event_handler.h
    Mathieu Vadnais, December 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
 
@@ -19,12 +19,12 @@ typedef std::function<void (Date, uint16_t,
 
 
 /****************************************************************************/
-/* ILOGGER                                                                  */
+/* EVENT HANDLER                                                            */
 /****************************************************************************/
 
-/* Interface for a logger. */
-struct ILogger {
-    virtual ~ILogger() {}
+/* Interface for an event handler. */
+struct EventHandler {
+    virtual ~EventHandler() {}
 
     virtual void init(const std::string & loggerUrl) = 0;
     virtual void subscribe(const std::string & topic,

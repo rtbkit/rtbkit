@@ -1,4 +1,4 @@
-/* nsq_logger.h   
+/* nsq_event_handler.h   
    Mathieu Vadnais, December 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
    
@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "soa/service/ilogger.h"
+#include "soa/service/event_handler.h"
 #include "soa/service/nsq_client.h"   
 #include "soa/service/message_loop.h"
 
@@ -18,19 +18,19 @@ namespace Datacratic {
 /****************************************************************************/
 
 /* Implementation of the ilogger interface using NSQ client*/
-struct NsqLogger : public ILogger {
+struct NsqEventHandler : public EventHandler {
 
-    NsqLogger(const std::string & loggerUrl,
+    NsqEventHandler(const std::string & loggerUrl,
               const OnMessageReceived & onMessageReceived = nullptr);
 
-    virtual ~NsqLogger();
+    virtual ~NsqEventHandler();
 
     virtual void init(const std::string & loggerUrl);
     virtual void subscribe(const std::string & topic, 
     					   const std::string & channel);
 
     virtual void consumeMessage(const std::string & messageId);
-	virtual void publishMessage(const std::string & topic,
+	  virtual void publishMessage(const std::string & topic,
                                 const std::string & message);
 
 private:
@@ -38,7 +38,7 @@ private:
     void onClosed(bool fromPeer, 
                   const std::vector<std::string> & msgs);
 
-    std::unique_ptr<NsqClient> client;
+    std::shared_ptr<NsqClient> client;
     MessageLoop loop;
     int closed_;
  
