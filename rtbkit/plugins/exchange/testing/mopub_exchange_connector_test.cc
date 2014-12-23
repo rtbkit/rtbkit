@@ -91,9 +91,20 @@ BOOST_AUTO_TEST_CASE( test_mopub )
     TestAgent agent(proxies, "BOB");
     agent.config.account = {"janCampaign", "janStrat"};
     agent.config.maxInFlight = 20000;
-    agent.config.creatives.push_back(RTBKIT::Creative::sampleLB);
-    agent.config.creatives.push_back(RTBKIT::Creative::sampleWS);
-    agent.config.creatives.push_back(RTBKIT::Creative::sampleBB);
+    {
+     Creative creative(728, 90, "LeaderBoard", 2);
+     agent.config.creatives.push_back(creative);
+    }
+    {
+     Creative creative(160, 600, "LeaderBoard", 0);
+     agent.config.creatives.push_back(creative);
+    }
+    {
+     Creative creative(300, 250, "BigBox", 1);
+     agent.config.creatives.push_back(creative);
+    }
+
+
     std::string portName = std::to_string(port);
     std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
@@ -164,7 +175,7 @@ BOOST_AUTO_TEST_CASE( test_mopub )
                                   "Content-Length: %zd\r\n"
                                   "Content-Type: application/json\r\n"
                                   "Connection: Keep-Alive\r\n"
-                                  "x-openrtb-version: 2.0\r\n"
+                                  "x-openrtb-version: 2.1\r\n"
                                   "\r\n"
                                   "%s",
                                   strJson.size(),
