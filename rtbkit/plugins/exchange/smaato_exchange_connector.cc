@@ -2,8 +2,6 @@
    Matthieu Labour, December 2014
    Copyright (c) 2014 Datacratic.  All rights reserved. */
 
-#include <thread>
-
 
 #include "smaato_exchange_connector.h"
 
@@ -131,7 +129,6 @@ parseBidRequest(HttpAuctionHandler & connection,
         if(verbose->second == "1") {
             if(!result->auctionId.notNull()) {
                 connection.sendErrorResponse("MISSING_ID", "The bid request requires the 'id' field");
-		std::cout << __FILE__ << ":" << __LINE__ << " missing id" << std::endl;
                 return none;
             }
         }
@@ -209,7 +206,6 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 ExchangeConnector::ExchangeCompatibility
   SmaatoExchangeConnector::
   getCreativeCompatibility(const Creative & creative, bool includeReasons) const {
-  std::cout << __FILE__ << ":" << __LINE__ << " getCreativeCompatibility includeReasons=" << includeReasons << std::endl;
     ExchangeCompatibility result;
     result.setCompatible();
     
@@ -236,7 +232,6 @@ ExchangeConnector::ExchangeCompatibility
       // now go through the spots.
       for (const auto& spot: request.imp) {
           //const auto& mime_types = spot.banner->mimes;
-	std::cout << __FILE__ << ":" << __LINE__ << " spot=" << spot.toJson() << std::endl;
 	for (const auto& mimeType : spot.banner->mimes) { 
               if (std::find(crinfo->mimeTypes.begin(), crinfo->mimeTypes.end(), mimeType.type)
                       != crinfo->mimeTypes.end()) {
