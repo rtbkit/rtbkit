@@ -353,14 +353,12 @@ public:
     static Logging::Category error;
 
     bool batched;
-
+    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
+            std::shared_ptr<ServiceProxies> proxies) const;
 private:
     bool useHttp;
     int httpConnections;
     bool tcpNoDelay;
-
-    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
-            std::shared_ptr<ServiceProxies> proxies) const;
 };
 
 } // namespace RTBKIT
