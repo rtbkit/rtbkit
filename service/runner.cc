@@ -596,6 +596,10 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     if (len == -1) {
         dieWithErrno("determining current program");
     }
+
+    /* Since readlink does not return a null-terminated string, we need to add
+       one by hand if we want to avoid buffer problems with strrchr. */
+    exeBuffer[len] = '\0';
     char * slash = ::strrchr(exeBuffer, '/');
     slash++;
     size_t appendSize = ::strlen(appendStr);
