@@ -17,6 +17,7 @@
 
 #include "rtbkit/core/banker/master_banker.h"
 #include "soa/service/service_utils.h"
+#include "soa/service/process_stats.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/futex.h"
@@ -128,7 +129,17 @@ int main(int argc, char ** argv)
     banker.start();
     proxies->config->dump(cerr);
 
+
+    ProcessStats lastStats;
+    auto onStat = [&] (std::string key, double val) {
+        banker.recordStableLevel(val, key);
+    };
+
     for (;;) {
-        ML::sleep(10);
+        ML::sleep(1.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(onStat, lastStats, curStats, "process");
+        lastStats = curStats;
     }
 }
