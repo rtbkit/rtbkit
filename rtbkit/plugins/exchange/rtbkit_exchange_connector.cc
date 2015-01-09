@@ -117,14 +117,14 @@ setSeatBid(const Auction & auction,
 
 namespace {
 
-struct Init
+struct AtInit
 { 
-    Init()
+    AtInit()
     {
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
     }
-} init;
+} atInit;
 
 }
 

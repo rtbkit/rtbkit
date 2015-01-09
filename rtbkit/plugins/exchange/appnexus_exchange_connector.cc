@@ -286,10 +286,10 @@ bidRequestCreativeFilter(const BidRequest & request,
 namespace {
 using namespace RTBKIT;
 
-struct Init {
-    Init() {
+struct AtInit {
+    AtInit() {
         ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
     }
-} init;
+} atInit;
 }
 

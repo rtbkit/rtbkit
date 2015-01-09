@@ -79,7 +79,8 @@ struct HttpBidderInterface : public BidderInterface
     static Logging::Category print;
     static Logging::Category error;
     static Logging::Category trace;
-    
+
+
 private:
 
     struct AgentBidsInfo {

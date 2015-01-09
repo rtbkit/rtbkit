@@ -300,10 +300,10 @@ setSeatBid(Auction const & auction,
 namespace {
     using namespace RTBKIT;
 
-    struct Init {
-        Init() {
+    struct AtInit {
+        AtInit() {
             ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();
         }
-    } init;
+    } atInit;
 }
 

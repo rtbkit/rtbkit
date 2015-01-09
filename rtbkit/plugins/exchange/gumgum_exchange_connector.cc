@@ -283,10 +283,10 @@ getErrorResponse(const HttpAuctionHandler & connection,
 namespace {
     using namespace RTBKIT;
 
-    struct Init {
-        Init() {
+    struct AtInit {
+        AtInit() {
             ExchangeConnector::registerFactory<GumgumExchangeConnector>();
         }
-    } init;
+    } atInit;
 }
 

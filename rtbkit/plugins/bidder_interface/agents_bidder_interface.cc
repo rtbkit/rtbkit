@@ -274,13 +274,13 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("agents",
-        [](std::string const &serviceName,
-           std::shared_ptr<ServiceProxies> const &proxies,
-           Json::Value const &json)
-        {
-            return new AgentsBidderInterface(serviceName, proxies, json);
-        });
+      PluginInterface<BidderInterface>::registerPlugin("agents",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new AgentsBidderInterface(serviceName, proxies, json);
+          });
     }
 } atInit;
 

@@ -578,13 +578,13 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("http",
-        [](std::string const & serviceName,
-           std::shared_ptr<ServiceProxies> const & proxies,
-           Json::Value const & json)
-        {
-            return new HttpBidderInterface(serviceName, proxies, json);
-        });
+      PluginInterface<BidderInterface>::registerPlugin("http",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new HttpBidderInterface(serviceName, proxies, json);
+          });
     }
 } atInit;
 

@@ -31,15 +31,12 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 namespace {
-
-__attribute__((constructor))
-void
-registerConnector() {
-    auto factory = [] (ServiceBase * owner, string const & name) {
-        return new AdXExchangeConnector(*owner, name);
-    };
-    ExchangeConnector::registerFactory("adx", factory);
-}
+struct AtInit {
+    AtInit()
+    {
+	ExchangeConnector::registerFactory<AdXExchangeConnector>();
+    }
+} atInit;
 
 } // anonymous namespace
 

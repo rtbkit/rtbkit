@@ -5,7 +5,7 @@ LIBBIDREQUEST_SOURCES := \
 	segments.cc \
 	json_holder.cc \
 	currency.cc \
-	expand_variable.cc
+	expand_variable.cc 
 
 LIBBIDREQUEST_LINK := \
 	types boost_regex db openrtb value_description
