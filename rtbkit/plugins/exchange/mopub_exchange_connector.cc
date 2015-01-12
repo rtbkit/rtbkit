@@ -194,6 +194,12 @@ getCreativeCompatibility(const Creative & creative,
         ("creative[].providerConfig.mopub.adomain is empty",
          includeReasons);
 
+    getAttr(result, pconf, "nurl", crinfo->nurl, includeReasons);
+    if (crinfo->nurl.empty())
+        result.setIncompatible
+        ("creative[].providerConfig.mopub.nurl is empty",
+         includeReasons);
+
     // Cache the information
     result.info = crinfo;
 
@@ -374,6 +380,7 @@ setSeatBid(Auction const & auction,
     b.adomain = crinfo->adomain;
     b.crid = crinfo->crid;
     b.iurl = cpinfo->iurl;
+    b.nurl = crinfo->nurl;
 }
 
 template <typename T>
