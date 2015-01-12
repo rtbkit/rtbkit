@@ -44,7 +44,8 @@ var pace = function(){
     budgetController.addAccount(accountParent, addAccountHandler);
     accountAdded = true;
   }
-  budgetController.topupTransferSync(accountFullName, "USD/1M", 1, topupErrorHandler);
+  // Transfer 10 cents every time we pace
+  budgetController.topupTransferSync(accountFullName, "USD/1M", 100000, topupErrorHandler);
 }
 
 var agent = new RTBkit.BiddingAgent("predicativeAgent", services);
