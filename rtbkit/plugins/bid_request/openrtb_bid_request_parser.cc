@@ -291,11 +291,18 @@ OpenRTBBidRequestParser::
 onBanner(OpenRTB::Banner & banner) {
 
     // RTBKit allows multiple banner sizes restrictions
+    if((banner.w.size() == 0) and (banner.h.size() == 1)) {
+        banner.w.push_back(0);
+    }
+    if((banner.w.size() == 1) and (banner.h.size() == 0)) {
+        banner.h.push_back(0);
+    }
+
     if(banner.w.size() != banner.h.size())
         LOG(OpenRTBBidRequestLogs::error) << "Mismatch between number of width and heights illegal." << endl;
 
     for(unsigned int i = 0; i < banner.w.size(); ++i) {
-        ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));    
+        ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));
     }
 
     // Add api to the segments in order to filter on it
