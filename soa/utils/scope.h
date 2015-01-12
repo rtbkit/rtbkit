@@ -35,6 +35,8 @@
 
 #pragma once
 
+#include <exception>
+
 namespace Datacratic {
 
 namespace Scope {
@@ -139,19 +141,19 @@ using Scope::fail;
 
 
 #define CAT(a, b) a##b
-#define LABEL_(a) CAT(prefix, a)
-#define UNIQUE_LABEL(prefix) LABEL_(__LINE__)
+#define LABEL_(prefix, a) CAT(prefix, a)
+#define UNIQUE_LABEL(prefix) LABEL_(CAT(__scope, prefix), __LINE__)
 
 #define Scope_Exit(func) \
-    auto UNIQUE_LABEL = ScopeExit([&]() noexcept(func()) { func }); \
+    auto UNIQUE_LABEL(exit) = ScopeExit([&]() noexcept { func; }); \
     (void) 0
 
 #define Scope_Success(func) \
-    auto UNIQUE_LABEL = ScopeSuccess([&]() noexcept(func()) { func }); \
+    auto UNIQUE_LABEL(success) = ScopeSuccess([&]() noexcept { func; }); \
     (void) 0
 
 #define Scope_Failure(func) \
-    auto UNIQUE_LABEL = ScopeFailure([&]() noexcept(func()) { func }); \
+    auto UNIQUE_LABEL(failure) = ScopeFailure([&]() noexcept { func; }); \
     (void) 0
 
 } // namespace Datacratic

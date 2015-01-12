@@ -432,7 +432,7 @@ std::string bootstrapConfigPath()
 static void
 checkSysLimits()
 {
-    enum { MinFds = 1 << 16 };
+    enum { MinFds = (1 << 16) - 1 };
 
     rlimit fdLimit;
     int ret = getrlimit(RLIMIT_NOFILE, &fdLimit);
@@ -450,7 +450,7 @@ checkSysLimits()
 
     std::cerr << "FD limit too low: "
         << fdLimit.rlim_cur << "/" << fdLimit.rlim_max
-        << " smaller then recomended " << MinFds
+        << " smaller than recommended " << MinFds
         << std::endl;
 
     fdLimit.rlim_cur = std::min<rlim_t>(MinFds, fdLimit.rlim_max);
