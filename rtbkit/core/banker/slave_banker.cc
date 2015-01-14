@@ -464,7 +464,7 @@ reauthorizeBudgetBatched(uint64_t numTimeoutsExpired)
 
     Json::Value request;
     auto onAccount = [&](const AccountKey& key, const ShadowAccount& Account) {
-        request[key.toString()] = body;
+        request[getShadowAccountStr(key)] = body;
     };
     accounts.forEachInitializedAndActiveAccount(onAccount);
 
@@ -497,7 +497,7 @@ onReauthorizeBudgetBatchedResponse(
     Json::Value response = Json::parse(payload);
     for (const auto& key : response.getMemberNames()) {
         auto account = Account::fromJson(response[key]);
-        accounts.syncFromMaster(AccountKey(key), account);
+        accounts.syncFromMaster(AccountKey(key).parent(), account);
     }
 
     lastReauthorize = Date::now();
