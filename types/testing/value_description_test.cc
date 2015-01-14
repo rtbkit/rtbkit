@@ -286,6 +286,7 @@ BOOST_AUTO_TEST_CASE( test_value_description_map )
 struct SomeTestStructure {
     Id someId;
     std::string someText;
+    std::vector<std::string> someStringVector;
 
     SomeTestStructure(Id id = Id(0), std::string text = "nothing") : someId(id), someText(text) {
     }
@@ -305,6 +306,7 @@ SomeTestStructureDescription::
 SomeTestStructureDescription() {
     addField("someId", &SomeTestStructure::someId, "");
     addField("someText", &SomeTestStructure::someText, "");
+    addField("someStringVector", &SomeTestStructure::someStringVector, "");
 }
 
 BOOST_AUTO_TEST_CASE( test_structure_description )
@@ -334,6 +336,16 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
         });
 
     BOOST_CHECK_EQUAL(result, data);
+
+    std::shared_ptr<const ValueDescription> vd =
+        ValueDescription::get("SomeTestStructure");
+    BOOST_CHECK_EQUAL(vd->kind, ValueKind::STRUCTURE);
+
+    ValueDescription::FieldDescription fd = vd->getField("someStringVector");
+    BOOST_CHECK_EQUAL(fd.description->kind, ValueKind::ARRAY);
+
+    const ValueDescription * subVdPtr = &(fd.description->contained());
+    BOOST_CHECK_EQUAL(subVdPtr->kind, ValueKind::STRING);
 }
 
 struct S1 {
