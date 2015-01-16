@@ -6,7 +6,6 @@
 */
 
 #include "exchange_connector.h"
-#include <dlfcn.h>
 
 using namespace std;
 
@@ -163,52 +162,11 @@ bidRequestCreativeFilter(const BidRequest & request,
     return true;
 }
 
-namespace {
-typedef std::lock_guard<ML::Spinlock> Guard;
-
-static ML::Spinlock lock;
-static std::unordered_map<std::string, ExchangeConnector::Factory> factories;
-} // file scope
-
-ExchangeConnector::Factory
-getFactory(std::string const & name) {
-    // see if it's already existing
-    {
-        Guard guard(lock);
-        auto i = factories.find(name);
-        if (i != factories.end()) return i->second;
-    }
-
-    // else, try to load the exchange library
-    std::string path = "lib" + name + "_exchange.so";
-    void * handle = dlopen(path.c_str(), RTLD_NOW);
-    if (!handle) {
-        std::cerr << dlerror() << std::endl;
-        throw ML::Exception("couldn't find exchange connector library " + path);
-    }
-
-    // if it went well, it should be registered now
-    Guard guard(lock);
-    auto i = factories.find(name);
-    if (i != factories.end()) return i->second;
-
-    throw ML::Exception("couldn't find exchange connector named " + name);
-}
-
-void
-ExchangeConnector::
-registerFactory(const std::string & exchange, Factory factory)
-{
-    Guard guard(lock);
-    if (!factories.insert(make_pair(exchange, factory)).second)
-        throw ML::Exception("already had a bid request factory registered");
-}
-
 std::unique_ptr<ExchangeConnector>
 ExchangeConnector::
 create(const std::string & exchange, ServiceBase & owner, const std::string & name)
 {
-    auto factory = getFactory(exchange);
+    auto factory = PluginInterface<ExchangeConnector>::getPlugin(exchange);
     return std::unique_ptr<ExchangeConnector>(factory(&owner, name));
 }
 

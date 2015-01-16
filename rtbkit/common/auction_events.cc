@@ -386,7 +386,7 @@ fromJson(const Json::Value& json)
             break;
 
         case 'b':
-            if (m == "bidData") bid.bids = Bids::fromJson(member.asString());
+            if (m == "bidData") bid.bids = Bids::fromJson(member.toStringNoNewLine());
             else invalid = true;
             break;
 

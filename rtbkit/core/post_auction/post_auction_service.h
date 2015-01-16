@@ -18,11 +18,13 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_named_pub_sub.h"
 #include "soa/service/zmq_message_router.h"
+#include "soa/service/rest_request_router.h"
 #include "rtbkit/common/analytics_publisher.h"
 
 namespace RTBKIT {
 
 struct BidderInterface;
+struct EventForwarder;
 
 /******************************************************************************/
 /* POST AUCTION SERVICE                                                       */
@@ -236,6 +238,12 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     static Logging::Category error;
     static Logging::Category trace;
 
+    /************************************************************************/
+    /* MISC                                                                 */
+    /************************************************************************/
+
+    void forwardAuctions(const std::string& uri);
+    
 private:
 
     std::string getProviderClass() const;
@@ -247,6 +255,7 @@ private:
     */
     void initConnections(size_t shard);
     void initMatcher(size_t shards);
+    void initRestEndpoint();
 
     void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);
     void doEvent(std::shared_ptr<PostAuctionEvent> event);
@@ -309,6 +318,11 @@ private:
     ZmqMessageRouter router;
 
     AnalyticsPublisher analytics;
+
+    std::unique_ptr<RestServiceEndpoint> restEndpoint;
+    std::unique_ptr<RestRequestRouter> restRouter;
+
+    std::shared_ptr<EventForwarder> forwarder;
 };
 
 } // namespace RTBKIT

@@ -153,6 +153,7 @@ struct MultiBidderInterface : public BidderInterface {
         return stats_;
     }
 
+
 private:
     std::map<std::string, std::shared_ptr<BidderInterface>> bidderInterfaces;
     std::shared_ptr<BidderInterface> findInterface(

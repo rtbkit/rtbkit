@@ -28,7 +28,6 @@ struct MonitorClient : public RestProxy
     MonitorClient(const std::shared_ptr<zmq::context_t> & context,
                   int checkTimeout = DefaultCheckTimeout)
         : RestProxy(context),
-          pendingRequest(false),
           checkTimeout_(checkTimeout),
           testMode(false), testResponse(false)
     {
@@ -55,18 +54,12 @@ struct MonitorClient : public RestProxy
     /** method invoked periodically to trigger a request to the Monitor */
     void checkStatus();
 
-    /** method invoked periodically to trigger a request to the Monitor */
-    void checkTimeout();
-
     /** method executed when we receive the response from the Monitor */
     void onResponseReceived(std::exception_ptr ext,
                             int responseCode, const std::string & body);
     
     /** bound instance of onResponseReceived */
     RestProxy::OnDone onDone;
-
-    /** whether a request roundtrip to the Monitor is currently active */
-    bool pendingRequest;
 
     /** the mutex used when pendingRequest is tested and modified */
     typedef std::unique_lock<std::mutex> Guard;

@@ -31,15 +31,12 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 namespace {
-
-__attribute__((constructor))
-void
-registerConnector() {
-    auto factory = [] (ServiceBase * owner, string const & name) {
-        return new AdXExchangeConnector(*owner, name);
-    };
-    ExchangeConnector::registerFactory("adx", factory);
-}
+struct AtInit {
+    AtInit()
+    {
+	ExchangeConnector::registerFactory<AdXExchangeConnector>();
+    }
+} atInit;
 
 } // anonymous namespace
 
@@ -783,7 +780,7 @@ getResponse(const HttpAuctionHandler & connection,
         const BidRequest & br = *auction.request;
 
         // handle macros.
-        AdxCreativeConfiguration::Context ctx { creative, resp, br };
+        AdxCreativeConfiguration::Context ctx { creative, resp, br, static_cast<int>(spotNum) };
 
         // populate, substituting whenever necessary
         ad->set_html_snippet(

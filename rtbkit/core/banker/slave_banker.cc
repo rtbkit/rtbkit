@@ -124,15 +124,22 @@ SlaveBanker::SlaveBanker()
 }
 
 SlaveBanker::
-SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpdates)
+SlaveBanker(
+        const std::string & accountSuffix,
+        CurrencyPool spendRate,
+        double syncRate,
+        bool batchedUpdates)
     : createdAccounts(128), reauthorizing(false), numReauthorized(0)
 {
-    init(accountSuffix, spendRate, batchedUpdates);
+    init(accountSuffix, spendRate, syncRate, batchedUpdates);
 }
 
 void
 SlaveBanker::
-init(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpdates)
+init(const std::string & accountSuffix,
+        CurrencyPool spendRate,
+        double syncRate,
+        bool batchedUpdates)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
@@ -179,11 +186,14 @@ init(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpda
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
     this->accountSuffix = accountSuffix;
-    this->spendRate = spendRate;
+    this->spendRate = spendRate * syncRate;
+
+    LOG(print) << "Sync Rate: " << syncRate << std::endl;
+    LOG(print) << "Spend Rate: " << spendRate.toJson().toString();
 
     lastSync = lastReauthorize = Date::now();
     
-    addPeriodic("SlaveBanker::reportSpend", 1.0,
+    addPeriodic("SlaveBanker::reportSpend", syncRate,
                 std::bind(&SlaveBanker::reportSpend,
                           this,
                           std::placeholders::_1),
@@ -193,7 +203,7 @@ init(const std::string & accountSuffix, CurrencyPool spendRate, bool batchedUpda
         &SlaveBanker::reauthorizeBudgetBatched :
         &SlaveBanker::reauthorizeBudget;
 
-    addPeriodic("SlaveBanker::reauthorizeBudget", 1.0,
+    addPeriodic("SlaveBanker::reauthorizeBudget", syncRate,
                 std::bind(authorizePtr,
                           this,
                           std::placeholders::_1),
@@ -618,9 +628,18 @@ getProviderIndicators() const
 /* SLAVE BANKER ARGUMENTS                                                    */
 /*****************************************************************************/
 
+constexpr bool SlaveBankerArguments::Defaults::UseHttp;
+constexpr bool SlaveBankerArguments::Defaults::Batched;
+constexpr int SlaveBankerArguments::Defaults::HttpConnections;
+constexpr bool SlaveBankerArguments::Defaults::TcpNoDelay;
+const std::string SlaveBankerArguments::Defaults::SpendRate{"100000USD/1M"};
+
 SlaveBankerArguments::SlaveBankerArguments()
-    : batched(Defaults::Batched)
+    : spendRate(Defaults::SpendRate)
+    , syncRate(Defaults::SyncRate)
+    , batched(Defaults::Batched)
     , useHttp(Defaults::UseHttp)
+    , httpTimeout(Defaults::HttpTimeout)
     , httpConnections(0)
     , tcpNoDelay(Defaults::TcpNoDelay)
 {
@@ -639,14 +658,19 @@ SlaveBankerArguments::makeProgramOptions(std::string title)
 
     po::options_description options(std::move(title));
     options.add_options()
-        ("use-http-banker", po::bool_switch(&useHttp),
-         "Communicate with the MasterBanker over http")
+        ("spend-rate", po::value<string>(&spendRate),
+         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
+        ("banker-sync-rate", po::value<double>(&syncRate),
+         "frequency at which the slave banker syncs itself with the master banker.")
         ("banker-batched", po::bool_switch(&batched),
          "slave banker now uses batched communication to sync with the master banker.")
-        ("http-connections", po::value<int>(&httpConnections)
-                             ->default_value(Defaults::HttpConnections),
+        ("use-http-banker", po::bool_switch(&useHttp),
+         "Communicate with the MasterBanker over http")
+        ("banker-http-timeouts", po::value<double>(&httpTimeout),
+         "banker sync request timeout over http.")
+        ("http-connections", po::value<int>(&httpConnections),
          "Number of active http connections to use when http is enabled")
-        ("tcp-nodelay", po::bool_switch(&tcpNoDelay),
+        ("banker-tcp-nodelay", po::bool_switch(&tcpNoDelay),
           "Enable the TCP_NODELAY option for the http banker interface (use with caution)");
 
     return options;
@@ -659,8 +683,19 @@ validate() const {
 }
 
 std::shared_ptr<SlaveBanker>
+SlaveBankerArguments::
+makeBanker(std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const
+{
+    auto spendRate = CurrencyPool(Amount::parse(this->spendRate));
+    auto banker = std::make_shared<SlaveBanker>(accountSuffix, spendRate, syncRate, batched);
+
+    banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
+    return banker;
+}
+
+std::shared_ptr<SlaveBanker>
 SlaveBankerArguments::makeBankerDefault(std::shared_ptr<ServiceProxies> proxies) const {
-    return makeBankerWithArgs(std::move(proxies));
+    return makeBanker(std::move(proxies), "");
 }
 
 std::shared_ptr<ApplicationLayer>
@@ -669,17 +704,23 @@ SlaveBankerArguments::makeApplicationLayer(std::shared_ptr<ServiceProxies> proxi
     std::shared_ptr<ApplicationLayer> layer;
     if (useHttp) {
         auto bankerUri = proxies->bankerUri;
+
         ExcCheck(!bankerUri.empty(),
                 "the banker-uri must be specified in the bootstrap.json");
         ExcCheck(httpConnections > 0,
                 "The number of active http connections must be > 0");
+
+        auto httpTimeout = this->httpTimeout * syncRate;
+
         std::stringstream ss;
         ss << "using http interface for the MasterBanker" << std::endl;
         ss << "url                = " << bankerUri << std::endl;
+        ss << "timeout            = " << httpTimeout << std::endl;
         ss << "active connections = " << httpConnections << std::endl;
         ss << "tcp no delay       = " << tcpNoDelay;
         LOG(print) << ss.str() << std::endl;
-        layer = make_application_layer<HttpLayer>(bankerUri, httpConnections, tcpNoDelay);
+
+        layer = make_application_layer<HttpLayer>(bankerUri, httpTimeout, httpConnections, tcpNoDelay);
     }
     else {
         layer = make_application_layer<ZmqLayer>(proxies);

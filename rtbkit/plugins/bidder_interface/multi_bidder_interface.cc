@@ -205,14 +205,15 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("multi",
-        [](std::string const & serviceName,
-           std::shared_ptr<ServiceProxies> const & proxies,
-           Json::Value const & json)
-        {
-            return new MultiBidderInterface(serviceName, proxies, json);
-        });
+      PluginInterface<BidderInterface>::registerPlugin("multi",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new MultiBidderInterface(serviceName, proxies, json);
+          });
     }
 } atInit;
 
 }
+  

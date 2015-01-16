@@ -9,12 +9,11 @@
 
 #include <sys/epoll.h>
 
-#include <set>
 #include <atomic>
-#include <queue>
-#include <vector>
-#include <string>
 #include <map>
+#include <queue>
+#include <string>
+#include <vector>
 #include <functional>
 #include <exception>
 
@@ -137,6 +136,8 @@ struct AsyncWriterSource : public AsyncEventSource
     { return msgsSent_; }
 
 protected:
+    typedef std::function<void()> OnUnregistered;
+
     /* set the "main" file descriptor, for which epoll events are monitored
      * and the onWriteResult, onReceivedData and onClosed callbacks are
      * invoked automatically */
@@ -193,7 +194,9 @@ protected:
     /* dissociate a callback and a file descriptor from the callback registry,
        with the "delayed" parameter indicating whether the operation must
        occur immediately or at the end of the epoll loop */
-    void unregisterFdCallback(int fd, bool delayed);
+    void unregisterFdCallback(int fd, bool delayed,
+                              const OnUnregistered & onUnregistered
+                              = nullptr);
 
     std::vector<std::string> emptyMessageQueue();
 
@@ -247,7 +250,7 @@ private:
     size_t numFds_;
 
     std::map<int, EpollCallback> fdCallbacks_;
-    std::set<int> delayedUnregistrations_;
+    std::map<int, OnUnregistered> delayedUnregistrations_;
 
     int fd_;
     std::atomic<bool> closing_;

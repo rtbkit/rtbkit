@@ -79,8 +79,9 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        EventSource::registerEventSourceFactory("standard", [](Json::Value const & json) {
-            return new StandardEventSource(json);
+        PluginInterface<EventSource>::registerPlugin("standard",
+						     [](Json::Value const & json) {
+	    return new StandardEventSource(json);
         });
     }
 } atInit;

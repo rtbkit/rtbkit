@@ -84,7 +84,7 @@ struct ApplicationLayer : public MessageLoop {
 
 struct HttpLayer : public ApplicationLayer {
 
-    void init(std::string bankerUri, int activeConnections = 4, bool tcpNoDelay = false);
+    void init(std::string bankerUri, double timeout = 1.0, int activeConnections = 4, bool tcpNoDelay = false);
 
     void addAccount(
                     const AccountKey &account,
@@ -125,6 +125,7 @@ struct HttpLayer : public ApplicationLayer {
                OnRequestResult onResult);
 private:
     std::shared_ptr<HttpClient> httpClient;
+    double timeout;
 
     static std::shared_ptr<HttpClientSimpleCallbacks>
     budgetResultCallback(const BudgetController::OnBudgetResult & onResult);
