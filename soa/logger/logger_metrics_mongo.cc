@@ -49,17 +49,10 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
 void LoggerMetricsMongo::logInCategory(const string& category,
     const Json::Value& json)
 {
+
     BSONObjBuilder bson;
     vector<string> stack;
     function<void(const Json::Value&)> doit;
-
-    auto format = [](const Json::Value& v) -> string{
-        string str = v.toString();
-        if(v.isInt() || v.isUInt() || v.isDouble() || v.isNumeric()){
-            return str.substr(0, str.length() - 1);
-        }
-        return str.substr(1, str.length() - 3);
-    };
 
     doit = [&](const Json::Value& v){
         for(auto it = v.begin(); it != v.end(); ++it){
@@ -78,11 +71,34 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                 if(current.isArray()){
                     BSONArrayBuilder arr;
                     for(const Json::Value el: current){
-                        arr.append(format(el));
+                        if (el.isInt()) {
+                            arr.append(el.asInt());
+                        }
+                        else if (el.isUInt()) {
+                            arr.append((uint32_t)el.asUInt());
+                        }
+                        else if (el.isDouble()) {
+                            arr.append(el.asDouble());
+                        }
+                        else {
+                            arr.append(el.asString());
+                        }
                     }
                     bson.append(key.str(), arr.arr());
-                }else{
-                    bson.append(key.str(), format(current));
+                }
+                else {
+                    if (current.isInt()) {
+                        bson.append(key.str(), current.asInt());
+                    }
+                    else if (current.isUInt()) {
+                        bson.append(key.str(), (uint32_t)current.asUInt());
+                    }
+                    else if (current.isDouble()) {
+                        bson.append(key.str(), current.asDouble());
+                    }
+                    else {
+                        bson.append(key.str(), current.asString());
+                    }
                 }
             }
         }
@@ -109,23 +125,47 @@ void LoggerMetricsMongo
         throw new ML::Exception(
             "You need to specify a path where to log the value");
     }
-    stringstream ss;
-    ss << val;
     stringstream newCat;
     newCat << category;
     for(string part: path){
         newCat << "." << part;
     }
     string newCatStr = newCat.str();
-    string str = ss.str();
     
+    BSONObj bsonObj;
+    //reference
+    //typedef boost::variant<int, float, double, size_t, uint32_t, String> NumOrStr;
+    int type = val.which();
+    if (type == 0) {
+        bsonObj = BSON(newCatStr << boost::get<int>(val));
+    }
+    else if (type == 1) {
+        bsonObj = BSON(newCatStr << boost::get<float>(val));
+    }
+    else if (type == 2) {
+        bsonObj = BSON(newCatStr << boost::get<double>(val));
+    }
+    else if (type == 3) {
+        bsonObj = BSON(newCatStr << (int)boost::get<size_t>(val));
+    }
+    else if (type == 4) {
+        bsonObj = BSON(newCatStr << boost::get<uint32_t>(val));
+    }
+    else {
+        stringstream ss;
+        ss << val;
+        string str = ss.str();
+        if (type != 5) {
+            cerr << "Unknown type of NumOrStr for value: " << str << endl;
+        }
+        bsonObj = BSON(newCatStr << str);
+    }
     if(logToTerm){
-        cout << newCatStr << ": " << str << endl;
+        cerr << bsonObj.toString() << endl;
     }
     conn->update(db + "." + coll,
                 BSON("_id" << objectId),
-                BSON("$set" 
-                    << BSON(newCatStr << str)),
+                BSON("$set" << bsonObj),
                 true);
 }
 

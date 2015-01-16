@@ -185,7 +185,6 @@ onBidRequest(OpenRTB::BidRequest & br) {
     if(br.at.val == 1 || br.at.val == 2)
         ctx.br->auctionType = AuctionType(br.at);
     else {
-        LOG(OpenRTBBidRequestLogs::trace) << "at :" << br.at.val << " is invalid, assuming second price auction." << endl;
         ctx.br->auctionType = AuctionType::SECOND_PRICE;
     }
 

@@ -156,52 +156,13 @@ publishUserEvent(const string & label,
     recordHit("event." + label);
 }
 
-namespace {
-    typedef std::lock_guard<ML::Spinlock> Guard;
-    static ML::Spinlock lock;
-    static std::unordered_map<std::string, AdServerConnector::Factory> factories;
-}
-
-
-AdServerConnector::Factory getFactory(std::string const & name) {
-    // see if it's already existing
-    {
-        Guard guard(lock);
-        auto i = factories.find(name);
-        if (i != factories.end()) return i->second;
-    }
-
-    // else, try to load the exchange library
-    std::string path = "lib" + name + "_adserver.so";
-    void * handle = dlopen(path.c_str(), RTLD_NOW);
-    if (!handle) {
-        std::cerr << dlerror() << std::endl;
-        throw ML::Exception("couldn't load adserver library " + path);
-    }
-
-    // if it went well, it should be registered now
-    Guard guard(lock);
-    auto i = factories.find(name);
-    if (i != factories.end()) return i->second;
-
-    throw ML::Exception("couldn't find adserver name " + name);
-}
-
-
-void AdServerConnector::registerFactory(std::string const & name, Factory callback) {
-    Guard guard(lock);
-    if (!factories.insert(std::make_pair(name, callback)).second)
-        throw ML::Exception("already had an adserver factory registered");
-}
-
-
 std::unique_ptr<AdServerConnector> AdServerConnector::create(
         std::string const & serviceName, 
         std::shared_ptr<ServiceProxies> const & proxies, 
         Json::Value const & json) {
     
     auto name = json.get("type", "unknown").asString();
-    auto factory = getFactory(name);
+    auto factory = PluginInterface<AdServerConnector>::getPlugin(name);
     
     auto nameService  = serviceName;
     if(nameService.empty()) {

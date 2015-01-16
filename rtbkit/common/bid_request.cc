@@ -7,9 +7,7 @@
 #include "rtbkit/common/bid_request.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
-#include "jml/arch/spinlock.h"
 
-#include <dlfcn.h>
 #include <boost/thread/locks.hpp>
 #include <boost/algorithm/string.hpp>
 #include <unordered_map>
@@ -1107,47 +1105,6 @@ createFromJson(const Json::Value & json)
 }
 
 namespace {
-typedef std::unordered_map<std::string, BidRequest::Parser> Parsers;
-static Parsers parsers;
-typedef boost::lock_guard<ML::Spinlock> Guard;
-static ML::Spinlock lock;
-
-BidRequest::Parser getParser(std::string const & source) {
-    // see if it's already existing
-    {
-        Guard guard(lock);
-        auto i = parsers.find(source);
-        if (i != parsers.end()) return i->second;
-    }
-
-    // else, try to load the parser library
-    std::string path = "lib" + source + "_bid_request.so";
-    void * handle = dlopen(path.c_str(), RTLD_NOW);
-    if (!handle) {
-        std::cerr << dlerror() << std::endl;
-        throw ML::Exception("couldn't find bid request parser library " + path);
-    }
-
-    // if it went well, it should be registered now
-    Guard guard(lock);
-    auto i = parsers.find(source);
-    if (i != parsers.end()) return i->second;
-
-    throw ML::Exception("couldn't find bid request parser for source " + source);
-}
-
-} // file scope
-
-void
-BidRequest::
-registerParser(const std::string & source, Parser parser)
-{
-    Guard guard(lock);
-    if (!parsers.insert(make_pair(source, parser)).second)
-        throw ML::Exception("already had a bid request parser registered");
-}
-
-namespace {
 
 static const DefaultDescription<BidRequest> BidRequestDesc;
 
@@ -1176,9 +1133,9 @@ struct CanonicalParser {
 struct AtInit {
     AtInit()
     {
-        BidRequest::registerParser("recoset", CanonicalParser::parse);
-        BidRequest::registerParser("datacratic", CanonicalParser::parse);
-        BidRequest::registerParser("rtbkit", CanonicalParser::parse);
+        PluginInterface<BidRequest>::registerPlugin("recoset", CanonicalParser::parse);
+        PluginInterface<BidRequest>::registerPlugin("datacratic", CanonicalParser::parse);
+        PluginInterface<BidRequest>::registerPlugin("rtbkit", CanonicalParser::parse);
     }
 } atInit;
 } // file scope
@@ -1195,7 +1152,7 @@ parse(const std::string & source, const std::string & bidRequest)
     {
         return CanonicalParser::parse(bidRequest);
     }
-    Parser parser = getParser(source);
+    Parser parser = PluginInterface<BidRequest>::getPlugin(source);
 
     //cerr << "got parser for source " << source << endl;
 

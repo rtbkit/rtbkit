@@ -1,7 +1,7 @@
 {
     "workers": [
         {
-            "thread": 1,
+            "threads": 1,
             "bids": {
                 "type": "mock",
                 "url": "localhost:12339"

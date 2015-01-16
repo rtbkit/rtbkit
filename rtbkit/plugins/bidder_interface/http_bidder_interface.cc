@@ -11,6 +11,7 @@
 #include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "rtbkit/core/router/router.h"
+#include "soa/utils/scope.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;
@@ -203,13 +204,26 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                  }
 
                  // Make sure to submit the bids no matter what
-                 ML::Call_Guard guard([&]() { submitBids(bidsToSubmit, openRtbRequest.imp.size()); });
+                 auto exit    = ScopeExit([&]() noexcept { submitBids(bidsToSubmit, openRtbRequest.imp.size()); });
+
+                 // On failure, we'll just send no bids
+                 auto failure = ScopeFailure([&]() noexcept {
+                     Bids nullBids;
+                     const size_t impSize = openRtbRequest.imp.size();
+                     nullBids.reserve(impSize);
+                     fill_n(back_inserter(nullBids), impSize, Bid());
+                     for (auto &bidsInfo: bidsToSubmit) {
+                         bidsInfo.second.bids = nullBids;
+                     }
+                 });
 
                  if (errorCode != HttpClientError::None) {
-                     LOG(error) << "Error requesting " << routerHost << " ("
-                                << httpErrorString(errorCode) << ")" << std::endl;
-                     recordError("network");
-                     goto error;
+                     fail(failure, [&] {
+                         LOG(error) << "Error requesting " << routerHost << " ("
+                                    << httpErrorString(errorCode) << ")" << std::endl;
+                         recordError("network");
+                         return;
+                     });
                  }
 
                  else if (statusCode == 200) {
@@ -224,17 +238,20 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                          for (const auto &bid: seatbid.bid) {
                              if (!bid.ext.isMember("external-id")) {
-                                 LOG(error) << "Missing external-id ext field in BidResponse: "
-                                            << body << std::endl;
-                                 recordError("response");
-                                 goto error;
+                                 fail(failure, [&] {
+                                     LOG(error) << "Missing external-id ext field in BidResponse: "
+                                                << body << std::endl;
+                                     recordError("response");
+                                 });
                              }
 
                              if (!bid.ext.isMember("priority")) {
-                                 LOG(error) << "Missing priority ext field in BidResponse: "
-                                            << body << std::endl;
-                                 recordError("response");
-                                 goto error;
+                                 fail(failure, [&] {
+                                     LOG(error) << "Missing priority ext field in BidResponse: "
+                                                << body << std::endl;
+                                     recordError("response");
+                                 });
+                                 return;
                              }
 
                              uint64_t externalId = bid.ext["external-id"].asUInt();
@@ -243,20 +260,24 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              shared_ptr<const AgentConfig> config;
                              tie(agent, config) = findAgent(externalId);
                              if (config == nullptr) {
-                                 LOG(error) << "Couldn't find config for externalId: "
-                                            << externalId << std::endl;
-                                 recordError("unknown");
-                                 goto error;
+                                 fail(failure, [&] {
+                                     LOG(error) << "Couldn't find config for externalId: "
+                                                << externalId << std::endl;
+                                     recordError("unknown");
+                                 });
+                                 return;
                              }
                              ExcCheck(!agent.empty(), "Invalid agent");
 
                              Bid theBid;
 
                              if (!bid.crid) {
-                                 LOG(error) << "crid not found in BidResponse: "
-                                            << body << std::endl;
-                                 recordError("unknown");
-                                 goto error;
+                                 fail(failure, [&] {
+                                     LOG(error) << "crid not found in BidResponse: "
+                                                << body << std::endl;
+                                     recordError("unknown");
+                                 });
+                                 return;
                              }
 
                              int crid = bid.crid.toInt();
@@ -264,9 +285,11 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                  &Creative::id, crid);
 
                              if (creativeIndex == -1) {
-                                  LOG(error) << "Unknown creative id: " << crid << std::endl;
-                                  recordError("unknown");
-                                  goto error;
+                                  fail(failure, [&] {
+                                      LOG(error) << "Unknown creative id: " << crid << std::endl;
+                                      recordError("unknown");
+                                  });
+                                  return;
                              }
 
                              theBid.creativeIndex = creativeIndex;
@@ -276,10 +299,12 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              int spotIndex = indexOf(openRtbRequest.imp,
                                                     &OpenRTB::Impression::id, bid.impid);
                              if (spotIndex == -1) {
-                                 LOG(error) <<"Unknown impression id: "
-                                            << bid.impid.toString() << std::endl;
-                                 recordError("unknown");
-                                 goto error;
+                                 fail(failure, [&] {
+                                     LOG(error) <<"Unknown impression id: "
+                                                << bid.impid.toString() << std::endl;
+                                     recordError("unknown");
+                                 });
+                                 return;
                              }
 
                              theBid.spotIndex = spotIndex;
@@ -290,24 +315,14 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                          }
                      }
 
-                     return;
-
                  }
                  else if (statusCode != 204) {
-                     LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl;
-                     recordError("response");
-                     goto error;
+                     fail(failure, [&] {
+                         LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl;
+                         recordError("response");
+                     });
                  }
 
-                 // If an error occurs, we will jump here and return "no-bid"
-                 error:
-                     Bids nullBids;
-                     const size_t impSize = openRtbRequest.imp.size();
-                     nullBids.reserve(impSize);
-                     fill_n(back_inserter(nullBids), impSize, Bid());
-                     for (auto &bidsInfo: bidsToSubmit) {
-                         bidsInfo.second.bids = nullBids;
-                     }
             }
     );
 
@@ -457,12 +472,20 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
 
         for (const auto &spot: spots) {
             const int adSpotIndex = spot.first;
+            const auto& creativeIndexes = spot.second;
             ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
                      "adSpotIndex out of range");
             auto &imp = request.imp[adSpotIndex];
-            auto &ext = imp.ext;
+            auto &externalIds = imp.ext["external-ids"];
+            externalIds.append(agentConfig->externalId);
 
-            ext["external-ids"].append(agentConfig->externalId);
+            auto& creativesExtField = imp.ext["creative-indexes"];
+
+
+            auto &creativesList = creativesExtField[std::to_string(agentConfig->externalId)];
+            for (int index: creativeIndexes) {
+                creativesList.append(index);
+            }
         }
 
     }
@@ -555,13 +578,13 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("http",
-        [](std::string const & serviceName,
-           std::shared_ptr<ServiceProxies> const & proxies,
-           Json::Value const & json)
-        {
-            return new HttpBidderInterface(serviceName, proxies, json);
-        });
+      PluginInterface<BidderInterface>::registerPlugin("http",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new HttpBidderInterface(serviceName, proxies, json);
+          });
     }
 } atInit;
 

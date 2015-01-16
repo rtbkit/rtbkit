@@ -17,6 +17,13 @@ const string ILoggerMetrics::PROCESS = "process";
 const string ILoggerMetrics::META = "meta";
 bool ILoggerMetrics::failSafe;
 
+// getenv that sanely deals with empty strings
+static std::string getEnv(const char * variable)
+{
+    const char * c = getenv(variable);
+    return c ? c : "";
+}
+
 shared_ptr<ILoggerMetrics> ILoggerMetrics
 ::setup(const string& configKey, const string& coll,
     const string& appName)
@@ -24,12 +31,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     std::lock_guard<std::mutex> lock(m);
     if(mustSetup){
         mustSetup = false;
-        char* tmpMetricsParentId = getenv("METRICS_PARENT_ID");
-        if(tmpMetricsParentId){
-            parentObjectId = string(tmpMetricsParentId);
-        }else{
-            parentObjectId = "";
-        }
+        parentObjectId = getEnv("METRICS_PARENT_ID");
         if(!getenv("CONFIG") || configKey == ""){
             cerr << "Logger Metrics Setup: either CONFIG is not defined "
                     "or configKey empty. "
@@ -38,7 +40,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
             logger = shared_ptr<ILoggerMetrics>(
                 new LoggerMetricsVoid(fooConfig, coll, appName));
         }else{
-            Json::Value config = Json::parseFromFile(getenv("CONFIG"));
+            Json::Value config = Json::parseFromFile(getEnv("CONFIG"));
             config = config[configKey];
             if(config.isNull()){
                 throw ML::Exception("Your configKey [" + configKey + "] is invalid or your "
@@ -101,19 +103,17 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     Json::Value v;
     v["startTime"] = now;
     v["appName"] = appName;
-    char* metricsParentId = getenv("METRICS_PARENT_ID");
-    v["parent_id"] = string(metricsParentId ?: "");
-    v["user"] = string(getenv("LOGNAME"));
+    v["parent_id"] = getEnv("METRICS_PARENT_ID");
+    v["user"] = string(getEnv("LOGNAME"));
     char hostname[128];
     int hostnameOk = !gethostname(hostname, 128);
     v["hostname"] = string(hostnameOk ? hostname : "");
-    v["workingDirectory"] = string(getenv("PWD"));
+    v["workingDirectory"] = string(getEnv("PWD"));
     v["gitBranch"] = getCmdResult("git rev-parse --abbrev-ref HEAD");
     v["gitHash"] = getCmdResult("git rev-parse HEAD");
     // Log environment variable RUNID. Useful to give a name to an
     // experiment.
-    char* runid = getenv("RUNID");
-    v["runid"] = string(runid ?: "");
+    v["runid"] = getEnv("RUNID");
     logger->logProcess(v);
     setenv("METRICS_PARENT_ID", logger->getProcessId().c_str(), 1);
 

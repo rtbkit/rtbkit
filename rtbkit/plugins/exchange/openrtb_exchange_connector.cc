@@ -243,7 +243,7 @@ OpenRTBExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
                           const std::string & reason) const
 {
-    return HttpResponse(204, "application/json", "{}");
+    return HttpResponse(204, "none", "");
 }
 
 HttpResponse
@@ -300,10 +300,10 @@ setSeatBid(Auction const & auction,
 namespace {
     using namespace RTBKIT;
 
-    struct Init {
-        Init() {
+    struct AtInit {
+        AtInit() {
             ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();
         }
-    } init;
+    } atInit;
 }
 

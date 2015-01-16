@@ -6,6 +6,7 @@
 
 #include "rtbkit_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
+#include "soa/utils/scope.h"
 
 using namespace Datacratic;
 
@@ -39,21 +40,25 @@ parseBidRequest(HttpAuctionHandler &connection,
 
 
     if (request != nullptr) {
+        auto failure = ScopeFailure([&]() noexcept { request.reset(); });
+
         for (const auto &imp: request->imp) {
+            if (!failure.ok()) break;
+
             if (!imp.ext.isMember("external-ids")) {
-                connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
-                    ML::format("The impression '%s' requires the 'external-ids' extension field",
-                               imp.id.toString()));  
-                request.reset();
-                break;
+                fail(failure, [&] {
+                    connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
+                        ML::format("The impression '%s' requires the 'external-ids' extension field",
+                                   imp.id.toString()));
+                });
             }
             else {
                 if(!imp.ext["external-ids"].isArray()) {
-                    connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
-                        ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
-                               imp.id.toString()));
-                    request.reset();
-                    break;
+                    fail(failure, [&] {
+                        connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                            ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
+                                   imp.id.toString()));
+                    });
                 }
             }
         }
@@ -112,14 +117,14 @@ setSeatBid(const Auction & auction,
 
 namespace {
 
-struct Init
+struct AtInit
 { 
-    Init()
+    AtInit()
     {
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
     }
-} init;
+} atInit;
 
 }
 

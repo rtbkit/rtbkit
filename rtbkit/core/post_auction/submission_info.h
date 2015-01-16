@@ -30,8 +30,12 @@ struct SubmissionInfo {
     }
 
     std::shared_ptr<BidRequest> bidRequest;
-    Datacratic::UnicodeString bidRequestStr;
     std::string bidRequestStrFormat;
+
+    Datacratic::UnicodeString bidRequestStr() const {
+        return Datacratic::UnicodeString(bidRequest->toJsonStr());
+    }
+
     JsonHolder augmentations;
     Auction::Response  bid;               ///< Bid we passed on
     bool fromOldRouter;                   ///< Was reconstituted
@@ -44,9 +48,6 @@ struct SubmissionInfo {
     */
     std::vector<std::shared_ptr<PostAuctionEvent> > pendingWinEvents;
     std::vector<std::shared_ptr<PostAuctionEvent> > earlyCampaignEvents;
-
-    std::string serializeToString() const;
-    void reconstituteFromString(const std::string & str);
 };
 
 

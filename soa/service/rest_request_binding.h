@@ -17,6 +17,7 @@
 #include "soa/types/value_description.h"
 #include "soa/types/json_printing.h"
 #include "rest_request_params.h"
+#include "rest_request_params_types.h"
 
 namespace Datacratic {
 

@@ -243,7 +243,8 @@ setSeatBid(Auction const & auction,
     RubiconCreativeConfiguration::Context ctx = {
         creative,
         resp,
-        *auction.request
+        *auction.request,
+        spotNum
     };
 
     b.adm = configuration_.expand(crinfo->adm, ctx);
@@ -256,10 +257,10 @@ setSeatBid(Auction const & auction,
 namespace {
     using namespace RTBKIT;
 
-    struct Init {
-        Init() {
+    struct AtInit {
+        AtInit() {
             ExchangeConnector::registerFactory<RubiconExchangeConnector>();
         }
-    } init;
+    } atInit;
 }
 

@@ -31,7 +31,14 @@ Exchange_parsing_from_file(const std::string config) :
     configurationFile(config), 
     error(0)
 {
+    std::ostringstream stream;
 
+    // Set default Header
+    stream << "Content-Type: application/json\r\n"
+           << "x-openrtb-version: 2.1\r\n"
+           << "x-openrtb-verbose: 1\r\n";
+
+    header = stream.str();
 }
 
 
@@ -107,9 +114,7 @@ run()
                     std::ostringstream stream;
                     stream << "POST /auctions HTTP/1.1\r\n"
                            << "Content-Length: " << utf8String.size() << "\r\n"
-                           << "Content-Type: application/json\r\n"
-                           << "x-openrtb-version: 2.1\r\n"
-                           << "x-openrtb-verbose: 1\r\n"
+                           << header
                            << "\r\n"
                            << utf8String;
 
@@ -169,9 +174,10 @@ getNumError()
     return error;
 }
 
-
-
-
-
-
+void
+Exchange_parsing_from_file ::
+resetNumError()
+{
+    error = 0;
+}
 

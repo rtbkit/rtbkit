@@ -147,9 +147,10 @@ struct TestAgent : public BiddingAgent {
     void doBid(const Id & id,
                const Bids & bids,
                const Json::Value & metadata,
-               const WinCostModel & wcm)
+               const WinCostModel & wcm,
+               bool record = true)
     {
-        if (bids.size() != 0)
+        if (record && bids.size() != 0)
             recordBid(id);
         RTBKIT::BiddingAgent::doBid(id, bids, metadata, wcm);
     }
@@ -178,6 +179,7 @@ struct TestAgent : public BiddingAgent {
                                        const WinCostModel & wcm)
         {
             //std::cerr << amount.toString() << std::endl;
+            __sync_fetch_and_add(&numBidRequests, 1);
             Bid & bid = bids[0];
             bid.bid(bid.availableCreatives[0], amount);
             doBid(id, bids, Json::Value(), wcm);

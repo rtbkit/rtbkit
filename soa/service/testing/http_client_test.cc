@@ -6,6 +6,8 @@
 #include <tuple>
 #include <boost/test/unit_test.hpp>
 
+#include "jml/arch/futex.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/testing/watchdog.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/rest_proxy.h"
