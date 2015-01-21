@@ -303,7 +303,16 @@ void Logging::Category::writeTo(std::shared_ptr<Writer> output, bool recurse) {
     data->writeTo(output, recurse);
 }
 
+// This lock is a quick-fix for the case where a category is used by multiple
+// threads. Note that this lock should either eventually be removed or replaced
+// by a per category lock. Unfortunately the current setup makes it very
+// difficult to pass the header information to the operator& so that everything
+// can be dumped in the stream in one go.
+namespace { std::mutex loggingMutex; }
+
 std::ostream & Logging::Category::beginWrite(char const * fct, char const * file, int line) {
+    loggingMutex.lock();
+
     timeval now;
     gettimeofday(&now, 0);
     char text[64];
@@ -318,12 +327,16 @@ void Logging::Printer::operator&(std::ostream & stream) {
     std::stringstream & text = (std::stringstream &) stream;
     category.getWriter()->body(text.str());
     text.str("");
+
+    loggingMutex.unlock();
 }
 
 void Logging::Thrower::operator&(std::ostream & stream) {
     std::stringstream & text = (std::stringstream &) stream;
     std::string message(text.str());
     text.str("");
+    loggingMutex.unlock();
+
     throw ML::Exception(message);
 }
 
