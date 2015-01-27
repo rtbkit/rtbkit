@@ -19,18 +19,36 @@ GoAccount::GoAccount(AccountKey &key, GoAccountType type)
     };
 }
 
+GoAccount::GoAccount(Json::Value &json)
+{
+    AccountKey key(json["name"].asString());
+    string accType = json["type"].asString();
+
+    if (accType == "Router") {
+        type = ROUTER;
+        router = make_shared<GoRouterAccount>(json);
+    } else if (accType == "PostAuction") {
+        type = POST_AUCTION;
+        pal = make_shared<GoPostAuctionAccount>(json);
+    } else {
+        cout << "Go account type error." << endl;
+    }
+}
+
 bool
 GoAccount::bid(Amount bidPrice)
 {
     if (type == ROUTER) return router->bid(bidPrice);
-    else return false;
+    else throw ML::Exception("GoAccounts::bid: attempt bid on non ROUTER account");
+    return false;
 }
 
 bool
 GoAccount::win(Amount winPrice)
 {
     if (type == POST_AUCTION) return pal->win(winPrice);
-    else return false;
+    else throw ML::Exception("GoAccounts::updateBalance: attempt update on non ROUTER account");
+    return false;
 }
 
 Json::Value
@@ -50,11 +68,6 @@ GoAccount::toJson()
     return account;
 }
 
-void
-GoAccount::fromJson(Json::Value &jsonAccount)
-{
-}
-
 // Router Account
 GoRouterAccount::GoRouterAccount(AccountKey &key)
     : GoBaseAccount(key)
@@ -63,9 +76,23 @@ GoRouterAccount::GoRouterAccount(AccountKey &key)
     balance = 0;
 }
 
+GoRouterAccount::GoRouterAccount(Json::Value &json)
+    : GoBaseAccount(json)
+{
+    if (json.isMember("rate")) rate = json["rate"].asInt();
+    else rate = 0;
+
+    if (json.isMember("balance")) balance = json["balance"].asInt();
+    else balance = 0;
+}
+
 bool
 GoRouterAccount::bid(Amount bidPrice)
 {
+    if (balance >= bidPrice.value) {
+        balance -= bidPrice.value;
+        return true;
+    }
     return false;
 }
 
@@ -77,12 +104,6 @@ GoRouterAccount::toJson(Json::Value &account)
     GoBaseAccount::toJson(account);
 }
 
-void
-GoRouterAccount::fromJson(Json::Value &jsonAccount)
-{
-
-}
-
 // Post Auction Account
 GoPostAuctionAccount::GoPostAuctionAccount(AccountKey &key)
     : GoBaseAccount(key)
@@ -91,9 +112,21 @@ GoPostAuctionAccount::GoPostAuctionAccount(AccountKey &key)
     spend = 0;
 }
 
+GoPostAuctionAccount::GoPostAuctionAccount(Json::Value &json)
+    : GoBaseAccount(json)
+{
+    if (json.isMember("imp")) imp = json["imp"].asInt();
+    else imp = 0;
+
+    if (json.isMember("spend")) spend = json["spend"].asInt();
+    else spend = 0;
+}
+
 bool
 GoPostAuctionAccount::win(Amount winPrice)
 {
+    spend += winPrice.value;
+    imp += 1;
     return false;
 }
 
@@ -105,13 +138,6 @@ GoPostAuctionAccount::toJson(Json::Value &account)
     GoBaseAccount::toJson(account);
 }
 
-void
-GoPostAuctionAccount::fromJson(Json::Value &jsonAccount)
-{
-
-
-}
-
 //Account Base
 
 GoBaseAccount::GoBaseAccount(AccountKey &key)
@@ -119,16 +145,20 @@ GoBaseAccount::GoBaseAccount(AccountKey &key)
 {
 }
 
+GoBaseAccount::GoBaseAccount(Json::Value &json)
+{
+    if (json.isMember("name")) name = json["name"].asString();
+    else name = ""; // TODO: throw error instead?
+
+    if (json.isMember("parent")) parent = json["parent"].asString();
+    else parent = "";
+}
+
 void
 GoBaseAccount::toJson(Json::Value &account)
 {
     account["name"] = name;
     account["parent"] = parent;
-}
-
-void
-GoBaseAccount::fromJson(Json::Value &jsonAccount)
-{
 }
 
 // Accounts
@@ -145,23 +175,60 @@ GoAccounts::add(AccountKey &key, GoAccountType type)
         return;
     }
 
+    std::lock_guard<std::mutex> guard(this->mutex);
     accounts[key] = GoAccount(key, type);
 }
 
 void
-GoAccounts::addFromJson(std::string jsonAccount)
+GoAccounts::addFromJsonString(std::string jsonAccount)
 {
-        Json::Value json = Json::parse(jsonAccount);
-        cout << "j type: " << json.type() << endl;
-        cout << "string: " << json.asString() << endl;
-        Json::Value jAcc = Json::parse(json.asString());
-        if (jAcc.isMember("type")) {
-            cout << "type was parsed" << endl;
-            cout << "type: " << jAcc["type"].asString() << endl;
-        } else {
-            cout << "type not parsed" << endl;
+    Json::Value json = Json::parse(jsonAccount);
+    if (json.isMember("type") && json.isMember("name")) {
+        string name = json["name"].asString();
+        auto account = GoAccount(json);
+        {
+            std::lock_guard<std::mutex> guard(this->mutex);
+            accounts[name] = account;
         }
-        // TODO: CONTINUE HERE
+        cout << "account in map: " << accounts[name].toJson() << endl;
+    } else {
+        cout << "error: type or name not parsed" << endl;
+    }
+    // TODO: CONTINUE HERE
+}
+
+void
+GoAccounts::updateBalance(AccountKey &key, int64_t newBalance)
+{
+    auto account = get(key);
+
+    
+    std::lock_guard<std::mutex> guard(this->mutex);
+    account.router->balance = newBalance;
+}
+
+bool
+GoAccounts::bid(AccountKey &key, Amount bidPrice)
+{
+    auto account = get(key);
+
+    std::lock_guard<std::mutex> guard(this->mutex);
+    account.bid(bidPrice);
+    return false;
+}
+
+bool
+GoAccounts::win(AccountKey &key, Amount winPrice)
+{
+    auto account = get(key);
+
+    if (account.type != POST_AUCTION) {
+        throw ML::Exception("GoAccounts::win: attempt win on non POST_AUCTION account");
+    }
+
+    std::lock_guard<std::mutex> guard(this->mutex);
+    account.win(winPrice);
+    return true;
 }
 
 GoAccount&

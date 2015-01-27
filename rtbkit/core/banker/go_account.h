@@ -3,6 +3,7 @@
 
 #include <string>
 #include <atomic>
+#include <mutex>
 #include <unordered_map>
 
 #include "soa/jsoncpp/json.h"
@@ -16,8 +17,8 @@ struct GoBaseAccount {
     std::string parent;
 
     GoBaseAccount(AccountKey &key);
+    GoBaseAccount(Json::Value &jsonAccount);
     virtual void toJson(Json::Value &account);
-    virtual void fromJson(Json::Value &jsonAccount);
 };
 
 struct GoRouterAccount : public GoBaseAccount {
@@ -25,10 +26,10 @@ struct GoRouterAccount : public GoBaseAccount {
     std::atomic<int64_t> balance;
 
     GoRouterAccount(AccountKey &key);
+    GoRouterAccount(Json::Value &json);
     bool bid(Amount bidPrice);
     bool win(Amount winPrice) { return false; }
     void toJson(Json::Value &account);
-    void fromJson(Json::Value &jsonAccount);
 };
 
 struct GoPostAuctionAccount : public GoBaseAccount {
@@ -36,10 +37,10 @@ struct GoPostAuctionAccount : public GoBaseAccount {
     std::atomic<int64_t> spend;
 
     GoPostAuctionAccount(AccountKey &key);
+    GoPostAuctionAccount(Json::Value &jsonAccount);
     bool bid(Amount bidPrice) { return false; }
     bool win(Amount winPrice);
     void toJson(Json::Value &account);
-    void fromJson(Json::Value &jsonAccount);
 };
 
 enum GoAccountType {
@@ -54,18 +55,22 @@ struct GoAccount {
 
     GoAccount(){}
     GoAccount(AccountKey &key, GoAccountType type);
+    GoAccount(Json::Value &jsonAccount);
     bool bid(Amount bidPrice);
     bool win(Amount winPrice);
     Json::Value toJson();
-    void fromJson(Json::Value &jsonAccount);
 };
 
 struct GoAccounts {
+    std::mutex mutex;
     std::unordered_map<AccountKey, GoAccount> accounts;
 
     GoAccounts();
     void add(AccountKey&, GoAccountType type);
-    void addFromJson(std::string json);
+    void addFromJsonString(std::string json);
+    void updateBalance(AccountKey &key, int64_t newBalance);
+    bool bid(AccountKey &key, Amount bidPrice);
+    bool win(AccountKey &key, Amount winPrice);
     GoAccount& get(AccountKey&);
     Json::Value toJson();
 };

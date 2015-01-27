@@ -29,7 +29,6 @@ struct LocalBanker : public Datacratic::MessageLoop {
 
     bool win(AccountKey &key, Amount winPrice);
 
-private:
     GoAccountType type;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
