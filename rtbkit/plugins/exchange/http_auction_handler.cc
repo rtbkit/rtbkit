@@ -581,6 +581,7 @@ sendErrorResponse(const std::string & error,
                   const std::string & details)
 {
     putResponseOnWire(endpoint->getErrorResponse(*this,  error + ": " + details));
+    endpoint->onAuctionError("EXCHANGE_ERROR", auction, error + ": " + details);
 }
 
 std::string

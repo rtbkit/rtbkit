@@ -21,10 +21,12 @@ int main(int argc, char ** argv) {
 
     ChannelFilter channels(
                 { {"AUCTION",       false},
+                  {"ADSERVER_ERROR",false},
                   {"BID",           false},
                   {"CLICK",         false},
                   {"CONFIG",        false},
                   {"ERROR",         false},
+                  {"EXCHANGE_ERROR",false},
                   {"MATCHEDCLICK",  false},
                   {"MATCHEDLOSS",   false},
                   {"MATCHEDWIN",    false},

@@ -2431,6 +2431,22 @@ onAuctionDone(std::shared_ptr<Auction> auction)
 
 void
 Router::
+onAuctionError(const std::string & channel,
+               std::shared_ptr<Auction> auction,
+               const std::string & message)
+{
+    if (auction) {
+//         cout << channel << " " << auction->requestStr << " " << message << endl;
+        logMessageToAnalytics(channel, auction->requestStr, message);
+    }
+    else {
+//         cout << channel << " " << message << endl;
+        logMessageToAnalytics(channel, message);
+    }
+}
+
+void
+Router::
 updateAllAgents()
 {
     for (;;) {
