@@ -20,6 +20,7 @@
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/rest_request_router.h"
 #include "rtbkit/common/analytics_publisher.h"
+#include "rtbkit/core/banker/local_banker.h"
 
 namespace RTBKIT {
 
@@ -76,6 +77,11 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     {
         matcher->setBanker(banker = newBanker);
         monitorProviderClient.addProvider(banker.get());
+    }
+
+    void setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
+    {
+        matcher->setLocalBanker(localBanker = newBanker);
     }
 
 
@@ -303,6 +309,7 @@ private:
 
     std::unique_ptr<EventMatcher> matcher;
     std::shared_ptr<Banker> banker;
+    std::shared_ptr<LocalBanker> localBanker;
     AgentConfigurationListener configListener;
     MonitorProviderClient monitorProviderClient;
 

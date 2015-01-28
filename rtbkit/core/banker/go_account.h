@@ -69,9 +69,9 @@ struct GoAccounts {
     void add(AccountKey&, GoAccountType type);
     void addFromJsonString(std::string json);
     void updateBalance(AccountKey &key, int64_t newBalance);
-    bool bid(AccountKey &key, Amount bidPrice);
-    bool win(AccountKey &key, Amount winPrice);
-    GoAccount& get(AccountKey&);
+    bool bid(const AccountKey &key, Amount bidPrice);
+    bool win(const AccountKey &key, Amount winPrice);
+    GoAccount& get(const AccountKey&);
     Json::Value toJson();
 };
 

@@ -325,6 +325,13 @@ setBanker(const std::shared_ptr<Banker> & newBanker)
 
 void
 Router::
+setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
+{
+    localBanker = newBanker;
+}
+
+void
+Router::
 bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
@@ -2059,6 +2066,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             continue;
         }
         
+        if (localBanker) localBanker->bid(config.account, price);
+        
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
 
@@ -2575,6 +2584,7 @@ configure(const std::string & agent, AgentConfig & config)
         };
 
     banker->addSpendAccount(config.account, Amount(), onDone);
+    if (localBanker) localBanker->addAccount(config.account);
 }
 
 Json::Value

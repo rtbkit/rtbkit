@@ -11,6 +11,7 @@
 #include "events.h"
 #include "submission_info.h"
 #include "rtbkit/core/banker/banker.h"
+#include "rtbkit/core/banker/local_banker.h"
 #include "rtbkit/common/auction_events.h"
 #include "soa/service/service_base.h"
 
@@ -69,6 +70,11 @@ struct EventMatcher : public EventRecorder
     virtual void setBanker(const std::shared_ptr<Banker> & newBanker)
     {
         banker = newBanker;
+    }
+
+    virtual void setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
+    {
+        localBanker = newBanker;
     }
 
 
@@ -148,6 +154,7 @@ protected:
     float winTimeout;
 
     std::shared_ptr<Banker> banker;
+    std::shared_ptr<LocalBanker> localBanker;
 
 };
 

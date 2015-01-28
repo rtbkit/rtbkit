@@ -127,7 +127,7 @@ GoPostAuctionAccount::win(Amount winPrice)
 {
     spend += winPrice.value;
     imp += 1;
-    return false;
+    return true;
 }
 
 void
@@ -208,7 +208,7 @@ GoAccounts::updateBalance(AccountKey &key, int64_t newBalance)
 }
 
 bool
-GoAccounts::bid(AccountKey &key, Amount bidPrice)
+GoAccounts::bid(const AccountKey &key, Amount bidPrice)
 {
     auto account = get(key);
 
@@ -218,7 +218,7 @@ GoAccounts::bid(AccountKey &key, Amount bidPrice)
 }
 
 bool
-GoAccounts::win(AccountKey &key, Amount winPrice)
+GoAccounts::win(const AccountKey &key, Amount winPrice)
 {
     auto account = get(key);
 
@@ -232,7 +232,7 @@ GoAccounts::win(AccountKey &key, Amount winPrice)
 }
 
 GoAccount&
-GoAccounts::get(AccountKey &key)
+GoAccounts::get(const AccountKey &key)
 {
     auto account = accounts.find(key);
     if (account == accounts.end()) {

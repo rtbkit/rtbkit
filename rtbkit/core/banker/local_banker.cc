@@ -7,7 +7,8 @@ using namespace Datacratic;
 
 namespace RTBKIT {
 
-LocalBanker::LocalBanker(GoAccountType type) : type(type)
+LocalBanker::LocalBanker(GoAccountType type, string accountSuffix)
+    : type(type), accountSuffix(accountSuffix)
 {
 }
 
@@ -20,6 +21,19 @@ LocalBanker::init(std::string bankerUrl,
     httpClient = std::make_shared<HttpClient>(bankerUrl, numConnections);
     httpClient->sendExpect100Continue(false);
     addSource("LocalBanker:HttpClient", httpClient);
+
+    auto reauthorizePeriodic = [&] (uint64_t wakeups) {
+        reauthorize();
+    };
+    auto spendUpdatePeriodic = [&] (uint64_t wakeups) {
+        spendUpdate();
+    };
+
+    if (type == ROUTER)
+        addPeriodic("localBanker::reauthorize", 1.0, reauthorizePeriodic);
+
+    if (type == POST_AUCTION)
+        addPeriodic("localBanker::spendUpdate", 0.5, spendUpdatePeriodic);
 }
 
 void
@@ -35,7 +49,7 @@ LocalBanker::shutdown()
 }
 
 void
-LocalBanker::addAccount(AccountKey &key)
+LocalBanker::addAccount(const AccountKey &key)
 {
     auto onResponse = [&] (const HttpRequest &req,
             HttpClientError error,
@@ -55,7 +69,7 @@ LocalBanker::addAccount(AccountKey &key)
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::objectValue);
-    payload["name"] = key.toString();
+    payload["name"] = key.toString() + ":" + accountSuffix;
     switch (type) {
         case ROUTER:
             payload["type"] = "Router";
@@ -110,7 +124,10 @@ LocalBanker::reauthorize()
         if (status != 200) {
             cout << "status: " << status << endl
                  << "error:  " << error << endl
-                 << "body:   " << body << endl;
+                 << "body:   " << body << endl
+                 << "url:    " << req.url_ << endl
+                 << "cont_str: " << req.content_.str << endl
+                 ;
         } else {
             Json::Value jsonAccounts = Json::parse(body);
             for ( auto jsonAccount : jsonAccounts ) {
@@ -132,19 +149,19 @@ LocalBanker::reauthorize()
 //              << "info: " << it.second.toJson() << endl;
         payload.append(it.first.toString());
     }
-    httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 1);
+    httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 2);
 }
 
 bool
-LocalBanker::bid(AccountKey &key, Amount bidPrice)
+LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
-    return accounts.bid(key, bidPrice);
+    return accounts.bid(AccountKey(key.toString() + ":" + accountSuffix), bidPrice);
 }
 
 bool
-LocalBanker::win(AccountKey &key, Amount winPrice)
+LocalBanker::win(const AccountKey &key, Amount winPrice)
 {
-    return accounts.win(key, winPrice);
+    return accounts.win(AccountKey(key.toString() + ":" + accountSuffix), winPrice);
 }
 
 } // namespace RTBKIT

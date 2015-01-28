@@ -13,23 +13,24 @@ namespace RTBKIT {
 
 struct LocalBanker : public Datacratic::MessageLoop {
     
-    LocalBanker(GoAccountType type);
+    LocalBanker(GoAccountType type, std::string accountSuffix);
     
     void init(std::string bankerUrl, double timeout = 1.0, int numConnections = 4, bool tcpNoDelay = false);
     void start();
     void shutdown();
 
-    void addAccount(AccountKey &account);
+    void addAccount(const AccountKey &account);
 
     void spendUpdate();
 
     void reauthorize();
 
-    bool bid(AccountKey &key, Amount bidPrice);
+    bool bid(const AccountKey &key, Amount bidPrice);
 
-    bool win(AccountKey &key, Amount winPrice);
+    bool win(const AccountKey &key, Amount winPrice);
 
     GoAccountType type;
+    std::string accountSuffix;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
 };
