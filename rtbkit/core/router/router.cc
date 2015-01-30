@@ -2054,8 +2054,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
-            this->logMessageToAnalytics("NOBUDGET", agent, auctionId,
-                    bidsString, message.meta);
+            this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
             continue;
         }
         
@@ -2142,7 +2141,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
 
             this->logMessage(msg, agent, auctionId, bidsString, message.meta);
-            this->logMessageToAnalytics(msg, agent, auctionId, bidsString, message.meta);
+            this->logMessageToAnalytics(msg, agent, auctionId, bidsString);
             continue;
         }
         case Auction::WinLoss::WIN:
@@ -2162,7 +2161,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         if (logBids)
             // Send BID to logger
             logMessage("BID", agent, auctionId, bidsString, message.meta);
-        logMessageToAnalytics("BID", agent, auctionId, bidsString, message.meta);
+        logMessageToAnalytics("BID", agent, auctionId, bidsString);
         ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
@@ -2336,6 +2335,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
         ML::atomic_add(numAuctionsWithBid, 1);
         //cerr << fName << "injecting submitted auction " << endl;
 
+        logMessageToAnalytics("SUBMITTED", auction->id, responses[0].agent, responses[0].price.toJsonStr());
         onSubmittedAuction(auction, spotId, responses[0]);
         //postAuctionLoop.injectSubmittedAuction(auction, spotId, responses[0]);
     }
@@ -2392,7 +2392,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (logAuctions)
         // Send AUCTION to logger
         logMessage("AUCTION", auction->id, auction->requestStr);
-    logMessageToAnalytics("AUCTION", auction->id, auction->requestStr);
+    logMessageToAnalytics("AUCTION", auction->id);
 
     const BidRequest & request = *auction->request;
     int numFields = 0;
@@ -2437,7 +2437,7 @@ onAuctionError(const std::string & channel,
 {
     if (auction) {
 //         cout << channel << " " << auction->requestStr << " " << message << endl;
-        logMessageToAnalytics(channel, auction->requestStr, message);
+        logMessageToAnalytics(channel, auction->id, message);
     }
     else {
 //         cout << channel << " " << message << endl;
