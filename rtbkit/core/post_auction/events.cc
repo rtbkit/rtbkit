@@ -170,25 +170,11 @@ publish(AnalyticsPublisher & logger) const
     logger.publish(
             "MATCHED" + typeString(),
             publishTimestamp(),
-
             auctionId.toString(),
-            impId.toString(),
-            response.agent,
             response.account.toString(),
-
             winPrice.toString(),
             rawWinPrice.toString(),
-
-            requestStrFormat,
-            requestStr,
-            std::to_string(response.creativeId),
-            response.creativeName,
-            response.bidData.toJsonStr(),
-            augmentations.toString(),
-            response.meta,
-
-            uids.toJsonStr(),
-            meta
+            uids.toJsonStr()
         );
 }
 
@@ -253,16 +239,7 @@ publish(AnalyticsPublisher & logger) const
             "MATCHED" + label,
             publishTimestamp(),
             auctionId.toString(),
-            impId.toString(),
-            requestStr,
-
-            bid.toStringNoNewLine(),
-            win.toStringNoNewLine(),
-            campaignEvents.toStringNoNewLine(),
-            visits.toStringNoNewLine(),
-
-            account.toString(),
-            requestStrFormat
+            account.toString()
     );
 }
 
@@ -302,13 +279,9 @@ publish(AnalyticsPublisher & logger) const
     logger.publish(
             "UNMATCHED" + string(print(event.type)),
             publishTimestamp(),
-
             reason,
             event.auctionId.toString(),
-            event.adSpotId.toString(),
-
-            std::to_string(event.timestamp.secondsSinceEpoch()),
-            event.metadata.toJson()
+            std::to_string(event.timestamp.secondsSinceEpoch())
         );
 }
 
