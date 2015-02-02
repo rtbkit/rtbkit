@@ -400,7 +400,7 @@ doStat(const std::vector<StatReading> & values) const
     std::string message;
 
     for (unsigned i = 0;  i < values.size();  ++i) {
-        message += ML::format("%s%s %.5f %lld\n",
+        message += ML::format("%s%s %g %lld\n",
                               prefix.c_str(), values[i].name.c_str(),
                               values[i].value,
                               (unsigned long long)
