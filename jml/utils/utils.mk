@@ -26,6 +26,8 @@ $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
 $(eval $(call program,lz4cli,,lz4cli.c lz4.c lz4hc.c xxhash.c))
 
+# gcc 4.7
+$(eval $(call set_compile_option,hash.cc,-fpermissive))
 
 LIBWORKER_TASK_SOURCES := worker_task.cc
 LIBWORKER_TASK_LINK    := ACE arch pthread

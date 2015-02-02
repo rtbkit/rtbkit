@@ -25,6 +25,7 @@ LIBJUDY_SOURCES := \
 
 LIBJUDY_LINK :=
 
-$(eval $(call set_compile_option,$(LIBJUDY_SOURCES),-fno-strict-aliasing))
+# gcc 4.9 compilation requirements
+$(eval $(call set_compile_option,$(LIBJUDY_SOURCES),-fno-strict-aliasing -Wno-array-bounds))
 
 $(eval $(call library,judy,$(LIBJUDY_SOURCES),$(LIBJUDY_LINK)))

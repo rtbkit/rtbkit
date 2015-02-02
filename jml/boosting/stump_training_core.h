@@ -719,10 +719,10 @@ struct Stump_Trainer {
 
         double missing;
         if (!results.start(feature, w, missing)) return Z::worst;
-        float Z = results.add(feature, w, 0.5, missing);
+        float Zvalue = results.add(feature, w, 0.5, missing);
         results.finish(feature);
         
-        return Z;
+        return Zvalue;
     }
 
     /** Test a presence variable. */
@@ -751,10 +751,10 @@ struct Stump_Trainer {
         double missing;
 
         if (!results.start(feature, w, missing)) return Z::worst;
-        float Z = results.add_presence(feature, w, 0.5, missing);
+        float Zvalue = results.add_presence(feature, w, 0.5, missing);
         results.finish(feature);
         
-        return Z;
+        return Zvalue;
     }
 
     template<class Results, class Weights, class ExampleWeights>
@@ -815,14 +815,14 @@ struct Stump_Trainer {
 
         /* One candidate split point is -INF, which lets us split only based
            upon missing or not. */
-        float Z = Z::worst;
+        float Zvalue = Z::worst;
 
         if (i != 0) {
-            Z = results.add(feature, w, -INFINITY, missing);
+            Zvalue = results.add(feature, w, -INFINITY, missing);
         
             if (debug)
                 cerr << "added split " << -INFINITY << " with " << missing
-                     << " missing and score " << Z << endl;
+                     << " missing and score " << Zvalue << endl;
         }
 
         float prev = index[i].value();
@@ -853,15 +853,15 @@ struct Stump_Trainer {
             /* Add this split point. */
             float arg = prev;
             float new_Z = results.add(feature, w, arg, missing);
-            Z = std::min(Z, new_Z);
+            Zvalue = std::min(Zvalue, new_Z);
             
-            if (debug && new_Z == Z) {
+            if (debug && new_Z == Zvalue) {
                 cerr << "i = " << i << endl;
                 cerr << "added split "
                      << data.feature_space()->print(feature, arg)
                      << " with " << missing
                      << " missing and score " << new_Z
-                     << (new_Z == Z ? " *** BEST ***" : "")
+                     << (new_Z == Zvalue ? " *** BEST ***" : "")
                      << endl;
 
                 cerr << "nex = " << nex << endl;
@@ -878,7 +878,7 @@ struct Stump_Trainer {
         
         results.finish(feature);
 
-        return Z;
+        return Zvalue;
     }
 
     template<class Results, class Weights, class ExampleWeights>
@@ -953,11 +953,11 @@ struct Stump_Trainer {
         }
 
         // TODO: not missing
-        float Z = Z::worst;
+        float Zvalue = Z::worst;
 #if 0
         /* One candidate split point is -INF, which lets us split only based
            upon missing or not. */
-        float Z = results.add(feature, w, -INFINITY, missing);
+        float Zvalue = results.add(feature, w, -INFINITY, missing);
 #endif
         
         float prev = index[i].value();
@@ -1020,14 +1020,14 @@ struct Stump_Trainer {
                                prev, i1, index[i].value(), i2, dist)
                      << endl;
             }
-            Z = std::min(Z, new_Z);
+            Zvalue = std::min(Zvalue, new_Z);
             
             prev = index[i].value();
         }
         
         results.finish(feature);
 
-        return Z;
+        return Zvalue;
     }
 
     template<class Results, class Weights, class ExampleWeights>
@@ -1103,7 +1103,7 @@ struct Stump_Trainer {
 
         /* One candidate split point is -INF, which lets us split only based
            upon missing or not. */
-        float Z = Z::worst;
+        float Zvalue = Z::worst;
 
         if (missing > 0.0)
             results.add(feature, w, -INFINITY, missing);
@@ -1113,7 +1113,7 @@ struct Stump_Trainer {
             cerr << "missing = " << missing << endl;
             cerr << "nb = " << nb << endl;
             cerr << "added default split " << -INFINITY << " with "
-                 << missing << " missing and score " << Z
+                 << missing << " missing and score " << Zvalue
                  << endl;
         }
 
@@ -1151,12 +1151,12 @@ struct Stump_Trainer {
                 cerr << "i = " << i << endl;
                 cerr << "added split " << arg << " with " << missing
                      << " missing and score " << new_Z
-                     << (new_Z < Z ? " *** BEST ***" : "")
+                     << (new_Z < Zvalue ? " *** BEST ***" : "")
                      << endl;
-                if (new_Z < Z) best_arg = arg;
+                if (new_Z < Zvalue) best_arg = arg;
             }
             
-            Z = std::min(Z, new_Z);
+            Zvalue = std::min(Zvalue, new_Z);
 
         }
         
@@ -1165,7 +1165,7 @@ struct Stump_Trainer {
         }
 
         results.finish(feature);
-        return Z;
+        return Zvalue;
     }
 };
 
