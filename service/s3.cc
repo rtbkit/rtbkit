@@ -271,6 +271,7 @@ performSync() const
     bool useRange = (params.verb == "GET" && currentRange != Range::Full);
 
     string body;
+
     for (int i = 0; i < numRetries; ++i) {
         if (i > 0) {
             /* allow a maximum of 384 seconds for retry delays (1 << 7 * 3) */
@@ -290,7 +291,7 @@ performSync() const
 
         string responseHeaders;
         string responseBody;
-        int responseCode(0);
+        long int responseCode(0);
         size_t received(0);
 
         auto connection = owner->proxy.getConnection();
@@ -431,6 +432,7 @@ performSync() const
                 message += (string("body (") + to_string(responseBody.size())
                             + " bytes):\n" + responseBody + "\n");
             }
+
 
             /* log so-called "REST error"
                (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
