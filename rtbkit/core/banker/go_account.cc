@@ -236,7 +236,7 @@ GoAccounts::get(const AccountKey &key)
 {
     auto account = accounts.find(key);
     if (account == accounts.end()) {
-        throw ML::Exception("GoAccounts::get: attepted to get account that does not exist");
+        throw ML::Exception("GoAccounts::get: attepted to get account that does not exist " + key.toString());
     } else {
         return account->second;
     }

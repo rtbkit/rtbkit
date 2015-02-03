@@ -60,7 +60,9 @@ LocalBanker::addAccount(const AccountKey &key)
         if (status != 200) {
             cout << "status: " << status << endl
                  << "error:  " << error << endl
-                 << "body:   " << body << endl;
+                 << "body:   " << body << endl
+                 << "url:    " << req.url_ << endl
+                 << "cont_str: " << req.content_.str << endl;
         } else {
             cout << "returned account: " << endl;
             cout << body << endl;
@@ -69,16 +71,16 @@ LocalBanker::addAccount(const AccountKey &key)
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::objectValue);
-    payload["name"] = key.toString() + ":" + accountSuffix;
+    payload["accountName"] = key.toString() + ":" + accountSuffix;
     switch (type) {
         case ROUTER:
-            payload["type"] = "Router";
+            payload["accountType"] = "Router";
             break;
         case POST_AUCTION:
-            payload["type"] = "PostAuction";
+            payload["accountType"] = "PostAuction";
             break;
     };
-    httpClient->post("/account", cbs, payload, {}, {}, 1);
+    httpClient->post("/accounts", cbs, payload, {}, {}, 1);
 }
 
 void
