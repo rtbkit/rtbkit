@@ -323,6 +323,11 @@ private:
     std::unique_ptr<RestRequestRouter> restRouter;
 
     std::shared_ptr<EventForwarder> forwarder;
+
+    size_t totalEvents;
+    size_t orphanEvents;
+    std::vector<double> orphanRatios;
+
 };
 
 } // namespace RTBKIT

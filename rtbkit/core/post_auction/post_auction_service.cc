@@ -50,7 +50,11 @@ PostAuctionService(
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+
+      totalEvents(0),
+      orphanEvents(0),
+      orphanRatios(30, 0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -72,7 +76,11 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+
+      totalEvents(0),
+      orphanEvents(0),
+      orphanRatios(30, 0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -114,6 +122,21 @@ init(size_t externalShard, size_t internalShards)
     initConnections(externalShard);
     initRestEndpoint();
     monitorProviderClient.init(getServices()->config);
+
+    auto checkOrphans = [=] (double) {
+        double ratio = 0;
+        if (totalEvents > 0) ratio = double(orphanEvents) / double(totalEvents);
+        orphanEvents = totalEvents = 0;
+
+        orphanRatios.pop_back();
+        orphanRatios.insert(orphanRatios.begin(), ratio);
+
+        ratio = accumulate(orphanRatios.begin(), orphanRatios.end(), 0);
+        ratio /= orphanRatios.size();
+
+        ExcCheckLess(ratio, 0.1, "Excessive orphaned events detected");
+    };
+    loop.addPeriodic("PostAuctionService::checkOrphans", 60.0, checkOrphans);
 }
 
 void
@@ -541,7 +564,11 @@ deliverEvent(const std::string& label, const std::string& eventType,
     };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
+
+    totalEvents++;
+
     if (!sent) {
+        orphanEvents++;
         recordHit("%s.orphaned", label);
         logPAError(ML::format("%s.noListeners%s", eventType, label),
                    "nothing listening for account " + account.toString());
