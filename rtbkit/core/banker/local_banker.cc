@@ -71,9 +71,6 @@ LocalBanker::addAccount(const AccountKey &key)
             cout << "returned account: " << endl;
             cout << body << endl;
             accounts.addFromJsonString(body);
-
-            ML::sleep(1);
-            addAccount(key);
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
