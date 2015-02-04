@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_set>
 
 #include "soa/service/http_client.h"
 #include "soa/service/message_loop.h"
@@ -33,6 +34,7 @@ struct LocalBanker : public Datacratic::MessageLoop {
     std::string accountSuffix;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
+    std::unordered_set<AccountKey> uninitializedAccounts;
 };
 
 } // namespace RTBKIT

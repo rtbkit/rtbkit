@@ -29,12 +29,19 @@ LocalBanker::init(std::string bankerUrl,
     auto spendUpdatePeriodic = [&] (uint64_t wakeups) {
         spendUpdate();
     };
+    auto initializeAccountsPeriodic = [&] (uint64_t wakeups) {
+        for (auto key : uninitializedAccounts) {
+            addAccount(key);
+        }
+    };
 
     if (type == ROUTER)
         addPeriodic("localBanker::reauthorize", 1.0, reauthorizePeriodic);
 
     if (type == POST_AUCTION)
         addPeriodic("localBanker::spendUpdate", 0.5, spendUpdatePeriodic);
+
+    addPeriodic("uninitializedAccounts", 1.0, initializeAccountsPeriodic);
 }
 
 void
@@ -64,13 +71,12 @@ LocalBanker::addAccount(const AccountKey &key)
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
-            ML::sleep(1);
-            cout << "retry to create account: " << key.toString() << endl;
-            addAccount(key);
+            uninitializedAccounts.insert(key);
         } else {
             cout << "returned account: " << endl;
             cout << body << endl;
             accounts.addFromJsonString(body);
+            uninitializedAccounts.erase(key);
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -115,9 +121,8 @@ LocalBanker::spendUpdate()
         payload.append(it.second.toJson());
     }
     httpClient->post("/spendupdate", cbs, payload, {}, {}, 1);
-
-
 }
+
 void
 LocalBanker::reauthorize()
 {
@@ -132,8 +137,7 @@ LocalBanker::reauthorize()
                  << "error:  " << error << endl
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
-                 << "cont_str: " << req.content_.str << endl
-                 ;
+                 << "cont_str: " << req.content_.str << endl;
         } else {
             Json::Value jsonAccounts = Json::parse(body);
             for ( auto jsonAccount : jsonAccounts ) {

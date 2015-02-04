@@ -185,6 +185,9 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
     Json::Value json = Json::parse(jsonAccount);
     if (json.isMember("type") && json.isMember("name")) {
         string name = json["name"].asString();
+
+        if (!get(AccountKey(name))) return;
+
         auto account = GoAccount(json);
         {
             std::lock_guard<std::mutex> guard(this->mutex);
@@ -194,7 +197,6 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
     } else {
         cout << "error: type or name not parsed" << endl;
     }
-    // TODO: CONTINUE HERE
 }
 
 void
