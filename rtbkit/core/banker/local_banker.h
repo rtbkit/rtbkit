@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <mutex>
 #include <unordered_set>
 
 #include "soa/service/http_client.h"
@@ -34,6 +35,7 @@ struct LocalBanker : public Datacratic::MessageLoop {
     std::string accountSuffix;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
+    std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
 };
 
