@@ -1,6 +1,7 @@
 
 #include "local_banker.h"
 #include "soa/service/http_header.h"
+#include "jml/arch/timers.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -63,10 +64,16 @@ LocalBanker::addAccount(const AccountKey &key)
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
+            ML::sleep(1);
+            cout << "retry to create account: " << key.toString() << endl;
+            addAccount(key);
         } else {
             cout << "returned account: " << endl;
             cout << body << endl;
             accounts.addFromJsonString(body);
+
+            ML::sleep(1);
+            addAccount(key);
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);

@@ -202,9 +202,10 @@ GoAccounts::updateBalance(AccountKey &key, int64_t newBalance)
 {
     auto account = get(key);
 
+    if (!account) return;
     
     std::lock_guard<std::mutex> guard(this->mutex);
-    account.router->balance = newBalance;
+    account->router->balance = newBalance;
 }
 
 bool
@@ -212,8 +213,10 @@ GoAccounts::bid(const AccountKey &key, Amount bidPrice)
 {
     auto account = get(key);
 
+    if (!account) return false;
+
     std::lock_guard<std::mutex> guard(this->mutex);
-    account.bid(bidPrice);
+    account->bid(bidPrice);
     return false;
 }
 
@@ -222,23 +225,26 @@ GoAccounts::win(const AccountKey &key, Amount winPrice)
 {
     auto account = get(key);
 
-    if (account.type != POST_AUCTION) {
+    if (!account) return false;
+
+    if (account->type != POST_AUCTION) {
         throw ML::Exception("GoAccounts::win: attempt win on non POST_AUCTION account");
     }
 
     std::lock_guard<std::mutex> guard(this->mutex);
-    account.win(winPrice);
+    account->win(winPrice);
     return true;
 }
 
-GoAccount&
+GoAccount*
 GoAccounts::get(const AccountKey &key)
 {
     auto account = accounts.find(key);
     if (account == accounts.end()) {
-        throw ML::Exception("GoAccounts::get: attepted to get account that does not exist " + key.toString());
+        cout << "can't find account: " << key.toString() << endl;
+        return nullptr;
     } else {
-        return account->second;
+        return &account->second;
     }
 }
 

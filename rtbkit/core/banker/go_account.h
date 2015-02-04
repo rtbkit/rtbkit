@@ -71,7 +71,7 @@ struct GoAccounts {
     void updateBalance(AccountKey &key, int64_t newBalance);
     bool bid(const AccountKey &key, Amount bidPrice);
     bool win(const AccountKey &key, Amount winPrice);
-    GoAccount& get(const AccountKey&);
+    GoAccount* get(const AccountKey&);
     Json::Value toJson();
 };
 
