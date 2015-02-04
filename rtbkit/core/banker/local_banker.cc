@@ -75,8 +75,8 @@ LocalBanker::addAccount(const AccountKey &key)
             std::lock_guard<std::mutex> guard(this->mutex);
             uninitializedAccounts.insert(key);
         } else {
-            cout << "returned account: " << endl;
-            cout << body << endl;
+            //cout << "returned account: " << endl;
+            //cout << body << endl;
             accounts.addFromJsonString(body);
             std::lock_guard<std::mutex> guard(this->mutex);
             uninitializedAccounts.erase(key);
@@ -147,8 +147,8 @@ LocalBanker::reauthorize()
             for ( auto jsonAccount : jsonAccounts ) {
                 auto key = AccountKey(jsonAccount["name"].asString());
                 int64_t newBalance = jsonAccount["balance"].asInt();
-                cout << "account: " << key.toString() << "\n"
-                     << "new bal: " << newBalance << endl;
+                //cout << "account: " << key.toString() << "\n"
+                //     << "new bal: " << newBalance << endl;
                 accounts.updateBalance(key, newBalance);
             }
         }

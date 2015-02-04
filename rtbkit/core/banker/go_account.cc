@@ -193,7 +193,7 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
             std::lock_guard<std::mutex> guard(this->mutex);
             accounts[name] = account;
         }
-        cout << "account in map: " << accounts[name].toJson() << endl;
+        //cout << "account in map: " << accounts[name].toJson() << endl;
     } else {
         cout << "error: type or name not parsed" << endl;
     }
