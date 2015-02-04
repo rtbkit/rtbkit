@@ -186,7 +186,7 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
     if (json.isMember("type") && json.isMember("name")) {
         string name = json["name"].asString();
 
-        if (!get(AccountKey(name))) return;
+        if (get(AccountKey(name))) return;
 
         auto account = GoAccount(json);
         {

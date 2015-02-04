@@ -31,7 +31,7 @@ LocalBanker::init(std::string bankerUrl,
     };
     auto initializeAccountsPeriodic = [&] (uint64_t wakeups) {
         std::lock_guard<std::mutex> guard(this->mutex);
-        for (auto key : uninitializedAccounts) {
+        for (auto &key : uninitializedAccounts) {
             addAccount(key);
         }
     };
@@ -93,7 +93,7 @@ LocalBanker::addAccount(const AccountKey &key)
             payload["accountType"] = "PostAuction";
             break;
     };
-    cout << "adding go banker account: " << key.toString() << endl;
+    cout << "calling add go banker account: " << key.toString() << endl;
     httpClient->post("/accounts", cbs, payload, {}, {}, 1);
 }
 
