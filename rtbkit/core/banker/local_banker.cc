@@ -111,8 +111,8 @@ LocalBanker::spendUpdate()
                  << "error:  " << error << endl
                  << "body:   " << body << endl;
         } else {
-            cout << "status: " << status << endl
-                 << "body:   " << body << endl;
+            //cout << "status: " << status << endl
+            //     << "body:   " << body << endl;
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
