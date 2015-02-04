@@ -210,6 +210,8 @@ CasaleExchangeConnector::setSeatBid(
     bid.impid = auction.request->imp[spotNum].id;
     bid.id = Id(auction.id, auction.request->imp[0].id);
     bid.price.val = USD_CPM(resp.price.maxPrice);
+    /* Prices are in Cents CPM */
+    bid.price.val *= 100;
 
     if (!creativeInfo->adomain.empty()) bid.adomain = creativeInfo->adomain;
     bid.adm = creativeConfig.expand(creativeInfo->adm, context);
