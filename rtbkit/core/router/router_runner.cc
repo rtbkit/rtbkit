@@ -97,7 +97,7 @@ doOptions(int argc, char ** argv,
          "Send data to analytics logger.")
         ("analytics-connections", value<int>(&analyticsConnections),
          "Number of connections for the analytics publisher.")
-        ("localBanker", value<string>(&localBankerUri),
+        ("local-banker", value<string>(&localBankerUri),
          "address of where the local banker can be found.");
 
     options_description all_opt = opts;

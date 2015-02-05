@@ -75,7 +75,7 @@ doOptions(int argc, char ** argv,
          "Number of connections for the analytics publisher.")
         ("forward-auctions", value<std::string>(&forwardAuctionsUri),
          "When provided the PAL will forward all auctions to the given URI.")
-        ("localBanker", value<string>(&localBankerUri),
+        ("local-banker", value<string>(&localBankerUri),
          "address of where the local banker can be found.");
 
     options_description all_opt = opts;

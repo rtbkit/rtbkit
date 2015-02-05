@@ -227,7 +227,11 @@ GoAccounts::win(const AccountKey &key, Amount winPrice)
 {
     auto account = get(key);
 
-    if (!account) return false;
+    if (!account) {
+        cout << "account not found, unaccounted win: " << key.toString()
+             << " " << winPrice.toString() << endl;
+        return false;
+    }
 
     if (account->type != POST_AUCTION) {
         throw ML::Exception("GoAccounts::win: attempt win on non POST_AUCTION account");
@@ -243,7 +247,6 @@ GoAccounts::get(const AccountKey &key)
 {
     auto account = accounts.find(key);
     if (account == accounts.end()) {
-        cout << "can't find account: " << key.toString() << endl;
         return nullptr;
     } else {
         return &account->second;
