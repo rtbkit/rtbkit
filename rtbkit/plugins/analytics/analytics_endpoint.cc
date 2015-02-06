@@ -173,7 +173,7 @@ listChannels() const
     Json::Value response(Json::objectValue);
     for (const auto & channel : channelFilter) {
         response[channel.first] = channel.second;
-        cout << channel.first << " " << channel.second << endl;
+        //cout << channel.first << " " << channel.second << endl;
     }
     return response;
 }
