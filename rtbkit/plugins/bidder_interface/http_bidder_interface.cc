@@ -63,7 +63,7 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
         routerPath
             = router["path"].asString();
         routerHttpActiveConnections
-            = router.get("httpActiveConnections", 4).asInt();
+            = router.get("httpActiveConnections", 1024).asInt();
 
         adserverHost
             = adserver["host"].asString();
@@ -72,7 +72,7 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
         adserverEventPort
             = adserver["eventPort"].asInt();
         adserverHttpActiveConnections
-            = adserver.get("httpActiveConnections", 4).asInt();
+            = adserver.get("httpActiveConnections", 128).asInt();
     } catch (const std::exception & e) {
         THROW(error) << "configuration file is invalid" << std::endl
                    << "usage : " << std::endl
