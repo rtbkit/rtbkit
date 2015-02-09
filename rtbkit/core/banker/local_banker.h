@@ -1,3 +1,10 @@
+/* local_banker.h
+   Michael Burkat, 9 February 2015
+   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   Local banker simple spend tracking and budget reauthorization.
+*/
+
 #pragma once
 
 #include <string>

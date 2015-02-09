@@ -1,3 +1,9 @@
+/* local_banker.cc
+   Michael Burkat, 9 February 2015
+   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   Local banker implementation.
+*/
 
 #include "local_banker.h"
 #include "soa/service/http_header.h"

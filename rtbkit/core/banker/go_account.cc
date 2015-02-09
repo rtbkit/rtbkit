@@ -1,3 +1,9 @@
+/* go_account.cc
+   Michael Burkat, 9 February 2015
+   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   Go account implementation.
+*/
 
 #include "go_account.h"
 

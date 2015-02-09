@@ -1,3 +1,9 @@
+/* go_account.h
+   Michael Burkat, 9 February 2015
+   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   Go account structures.
+*/
 
 #pragma once
 
