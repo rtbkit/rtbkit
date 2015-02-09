@@ -8,13 +8,13 @@ using namespace Datacratic;
 
 namespace RTBKIT {
 
-LocalBanker::LocalBanker(GoAccountType type, string accountSuffix)
+LocalBanker::LocalBanker(GoAccountType type, const string & accountSuffix)
     : type(type), accountSuffix(accountSuffix)
 {
 }
 
 void
-LocalBanker::init(std::string bankerUrl,
+LocalBanker::init(const string & bankerUrl,
                   double timeout,
                   int numConnections,
                   bool tcpNoDelay)

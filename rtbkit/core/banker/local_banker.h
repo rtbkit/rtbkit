@@ -15,9 +15,9 @@ namespace RTBKIT {
 
 struct LocalBanker : public Datacratic::MessageLoop {
     
-    LocalBanker(GoAccountType type, std::string accountSuffix);
+    LocalBanker(GoAccountType type, const std::string & accountSuffix);
     
-    void init(std::string bankerUrl, double timeout = 1.0, int numConnections = 4, bool tcpNoDelay = false);
+    void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 4, bool tcpNoDelay = false);
     void start();
     void shutdown();
 
