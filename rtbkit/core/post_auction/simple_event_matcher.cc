@@ -298,6 +298,7 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         if (event->type == PAE_WIN) {
             // Late win with auction still around
             banker->forceWinBid(info.bid.account, winPrice, LineItems());
+            if (localBanker) localBanker->win(info.bid.account, winPrice);
 
             info.forceWin(timestamp, winPrice, winPrice, meta.toString());
 
@@ -379,6 +380,7 @@ doReallyLateWin(const std::shared_ptr<PostAuctionEvent>& event)
 {
     if (!event->account.empty()) {
         banker->forceWinBid(event->account, event->winPrice, LineItems());
+        if (localBanker) localBanker->win(event->account, event->winPrice);
     }
 
     recordHit("bidResult.%s.unmatched", RTBKIT::print(event->type));
@@ -563,6 +565,7 @@ doBidResult(
 
         auto transId = makeBidId(auctionId, adSpotId, agent);
         banker->winBid(account, transId, price, LineItems());
+        if (localBanker) localBanker->win(account, price);
 
         auto winLatency = Date::now().secondsSince(submission.bidRequest->timestamp);
         recordOutcome(winLatency * 1000.0, "winLatencyMs");

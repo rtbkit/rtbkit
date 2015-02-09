@@ -337,6 +337,7 @@ doConfigChange(
             [=] (std::exception_ptr error, ShadowAccount && acount) {
                 if(error) logException(error, "Banker addSpendAccount");
             });
+    if (localBanker) localBanker->addAccount(config->account);
 }
 
 void

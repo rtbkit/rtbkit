@@ -74,7 +74,9 @@ doOptions(int argc, char ** argv,
         ("analytics-connections", value<int>(&analyticsConnections),
          "Number of connections for the analytics publisher.")
         ("forward-auctions", value<std::string>(&forwardAuctionsUri),
-         "When provided the PAL will forward all auctions to the given URI.");
+         "When provided the PAL will forward all auctions to the given URI.")
+        ("local-banker", value<string>(&localBankerUri),
+         "address of where the local banker can be found.");
 
     options_description all_opt = opts;
     all_opt
@@ -122,6 +124,11 @@ init()
     LOG(print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
     banker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
+    if (localBankerUri != "") {
+        localBanker = make_shared<LocalBanker>(POST_AUCTION, postAuctionLoop->serviceName());
+        localBanker->init(localBankerUri);
+        postAuctionLoop->setLocalBanker(localBanker);
+    }
 
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
@@ -145,6 +152,7 @@ PostAuctionRunner::
 start()
 {
     postAuctionLoop->start();
+    if (localBanker) localBanker->start();
 }
 
 void
@@ -153,6 +161,7 @@ shutdown()
 {
     postAuctionLoop->shutdown();
     banker->shutdown();
+    if (localBanker) localBanker->shutdown();
 }
 
 
