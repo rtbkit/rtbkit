@@ -55,7 +55,7 @@ void AgentsBidderInterface::sendWinLossMessage(
                               event.confidenceString(),
 
                               event.auctionId.toString(),
-                              std::to_string(event.impIndex()),
+                              std::to_string(event.impIndex),
                               event.winPrice.toString(),
 
                               event.requestStrFormat,
@@ -88,7 +88,7 @@ void AgentsBidderInterface::sendCampaignEventMessage(
 
                              event.auctionId.toString(),
                              event.impId.toString(),
-                             std::to_string(event.impIndex()),
+                             std::to_string(event.impIndex),
 
                              event.requestStrFormat,
                              event.requestStr,
@@ -274,13 +274,13 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("agents",
-        [](std::string const &serviceName,
-           std::shared_ptr<ServiceProxies> const &proxies,
-           Json::Value const &json)
-        {
-            return new AgentsBidderInterface(serviceName, proxies, json);
-        });
+      PluginInterface<BidderInterface>::registerPlugin("agents",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new AgentsBidderInterface(serviceName, proxies, json);
+          });
     }
 } atInit;
 

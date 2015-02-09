@@ -13,6 +13,7 @@
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/common/currency.h"
 #include "rtbkit/common/bid_request.h"
+#include "rtbkit/common/plugin_interface.h"
 
 #include <netdb.h>
 
@@ -60,6 +61,8 @@ struct ExchangeSource {
     addrinfo * addr;
     int fd;
     ML::RNG rng;
+
+
 };
 
 struct BidSource : public ExchangeSource {
@@ -81,7 +84,20 @@ struct BidSource : public ExchangeSource {
     }
 
     typedef std::function<BidSource * (Json::Value const &)> Factory;
-    static void registerBidSourceFactory(std::string const & name, Factory callback);
+
+    // FIXME: this is being kept just for compatibility reasons.
+    // we don't want to break compatibility now, although this interface does not make
+    // sense any longer  
+    // so any use of it should be considered deprecated
+    static void registerBidSourceFactory(std::string const & name, Factory callback)
+    {
+      PluginInterface<BidSource>::registerPlugin(name, callback);
+    }
+
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "bid_request";};
+
+  
     static std::unique_ptr<BidSource> createBidSource(Json::Value const & json);
 
     bool bidForever;
@@ -100,7 +116,19 @@ struct WinSource : public ExchangeSource {
                          const Amount& winPrice);
 
     typedef std::function<WinSource * (Json::Value const &)> Factory;
-    static void registerWinSourceFactory(std::string const & name, Factory callback);
+  
+    // FIXME: this is being kept just for backwards compatibility reasons.
+    // we don't want to break compatibility now, although this interface does not make
+    // sense any longer
+    // so any use of it should be considered deprecated
+    static void registerWinSourceFactory(std::string const & name, Factory callback)
+    {
+      PluginInterface<WinSource>::registerPlugin(name, callback);
+    }
+  
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "adserver";};  
+  
     static std::unique_ptr<WinSource> createWinSource(Json::Value const & json);
 };
 
@@ -112,7 +140,21 @@ struct EventSource : public ExchangeSource {
     virtual void sendClick(const BidRequest& br, const Bid& bid);
 
     typedef std::function<EventSource * (Json::Value const &)> Factory;
-    static void registerEventSourceFactory(std::string const & name, Factory callback);
+  
+    // FIXME: this is being kept just for compatibility reasons.
+    // we don't want to break compatibility now, although this interface does not make
+    // sense any longer
+    // so any use of it should be considered deprecated 
+    static void registerEventSourceFactory(std::string const & name, Factory callback)
+    {
+      PluginInterface<EventSource>::registerPlugin(name, callback);
+    }
+
+
+  
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "adserver";};
+
     static std::unique_ptr<EventSource> createEventSource(Json::Value const & json);
 };
 

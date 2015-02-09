@@ -349,7 +349,7 @@ setSeatBid(Auction const & auction,
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);
-    b.nurl = configuration_.expand(crinfo->nurl, {creative, resp, *auction.request});
+    b.nurl = configuration_.expand(crinfo->nurl, {creative, resp, *auction.request, spotNum});
     b.adid = crinfo->adid;
     b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;
@@ -410,11 +410,11 @@ bidRequestCreativeFilter(const BidRequest & request,
 namespace {
 using namespace RTBKIT;
 
-struct Init {
-    Init() {
+struct AtInit {
+    AtInit() {
         ExchangeConnector::registerFactory<BidSwitchExchangeConnector>();
         FilterRegistry::registerFilter<BidSwitchWSeatFilter>();
     }
-} init;
+} atInit;
 }
 

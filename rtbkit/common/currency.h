@@ -436,6 +436,12 @@ struct CurrencyPool {
         return *this;
     }
 
+    CurrencyPool operator *= (double factor)
+    {
+        for (auto & am: currencyAmounts) am = am * factor;
+        return *this;
+    }
+
     CurrencyPool operator + (const CurrencyPool & spend) const
     {
         CurrencyPool result = *this;
@@ -447,6 +453,13 @@ struct CurrencyPool {
     {
         CurrencyPool result = *this;
         result -= spend;
+        return result;
+    }
+
+    CurrencyPool operator * (double factor) const
+    {
+        CurrencyPool result = *this;
+        result *= factor;
         return result;
     }
 

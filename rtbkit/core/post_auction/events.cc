@@ -40,12 +40,12 @@ initFinishedInfo(const FinishedInfo& info)
 {
     auctionId = info.auctionId;
     impId = info.adSpotId;
+    impIndex = info.spotIndex;
     winPrice = info.winPrice;
     rawWinPrice = info.rawWinPrice;
     response = info.bid;
     requestStr = info.bidRequestStr;
     requestStrFormat = info.bidRequestStrFormat;
-    request = info.bidRequest;
     meta = info.winMeta;
     augmentations = info.augmentations;
 }
@@ -119,14 +119,6 @@ confidenceString() const
     ExcAssert(false);
 }
 
-size_t
-MatchedWinLoss::
-impIndex() const
-{
-    return request->findAdSpotIndex(impId);
-}
-
-
 void
 MatchedWinLoss::
 publish(ZmqNamedPublisher& logger) const
@@ -136,7 +128,7 @@ publish(ZmqNamedPublisher& logger) const
             publishTimestamp(),                      // 1
 
             auctionId.toString(),                    // 2
-            std::to_string(impIndex()),              // 3
+            std::to_string(impIndex),                // 3
             response.agent,                          // 4
             response.account.at(1, ""),              // 5
 
@@ -145,7 +137,7 @@ publish(ZmqNamedPublisher& logger) const
             std::to_string(response.price.priority), // 8
 
             requestStr,                              // 9
-            response.bidData.toJsonStr(),                        // 10
+            response.bidData.toJsonStr(),            // 10
             response.meta,                           // 11
 
             // This is where things start to get weird.
@@ -209,9 +201,9 @@ MatchedCampaignEvent(std::string label, const FinishedInfo& info) :
     label(std::move(label)),
     auctionId(info.auctionId),
     impId(info.adSpotId),
+    impIndex(info.spotIndex),
     account(info.bid.account),
     requestStr(info.bidRequestStr),
-    request(info.bidRequest),
     requestStrFormat(info.bidRequestStrFormat),
     bid(info.bidToJson()),
     win(info.winToJson()),
@@ -228,13 +220,6 @@ MatchedCampaignEvent(std::string label, const FinishedInfo& info) :
     if(it != info.campaignEvents.end())
         timestamp = it->time_;
 }
-size_t
-MatchedCampaignEvent::
-impIndex() const
-{
-    return request->findAdSpotIndex(impId);
-}
-
 void
 MatchedCampaignEvent::
 publish(ZmqNamedPublisher& logger) const

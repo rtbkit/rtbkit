@@ -47,7 +47,7 @@ struct FixedPriceBiddingAgent :
     {}
 
 
-    void init(const std::string &bankerUri)
+    void init(const std::shared_ptr<ApplicationLayer> appLayer)
     {
         // We only want to specify a subset of the callbacks so turn the
         // annoying safety belt off.
@@ -58,7 +58,7 @@ struct FixedPriceBiddingAgent :
 
         // This component is used to speak with the master banker and pace the
         // rate at which we spend our budget.
-        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
+        budgetController.setApplicationLayer(appLayer);
         budgetController.start();
 
         // Update our pacer every 10 seconds. Note that since this interacts
@@ -207,14 +207,12 @@ int main(int argc, char** argv)
     using namespace boost::program_options;
 
     Datacratic::ServiceProxyArguments args;
-
-    std::string bankerUri;
+    RTBKIT::SlaveBankerArguments bankerArgs;
 
     options_description options = args.makeProgramOptions();
     options.add_options()
-        ("help,h", "Print this message")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)");
+        ("help,h", "Print this message");
+    options.add(bankerArgs.makeProgramOptions());
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(options).run(), vm);
@@ -227,7 +225,7 @@ int main(int argc, char** argv)
 
     auto serviceProxies = args.makeServiceProxies();
     RTBKIT::FixedPriceBiddingAgent agent(serviceProxies, "fixed-price-agent-ex");
-    agent.init(bankerUri);
+    agent.init(bankerArgs.makeApplicationLayer(serviceProxies));
     agent.start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));

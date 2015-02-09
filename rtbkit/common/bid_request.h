@@ -22,7 +22,7 @@
 #include "rtbkit/common/currency.h"
 #include "tags.h"
 #include "rtbkit/openrtb/openrtb.h"
-
+#include "rtbkit/common/plugin_interface.h"
 
 namespace RTBKIT {
 
@@ -396,15 +396,25 @@ struct BidRequest {
 
     typedef boost::function<BidRequest * (const std::string)> Parser;
 
-    /** Register the given parser for the bid request.  Should be done
-        in a static initilalizer on shared library load.
-    */
+    // FIXME: this is being kept just for compatibility reasons.
+    // we don't want to break compatibility now, although this interface does not make
+    // sense any longer  
+    // so any use of it should be considered deprecated
     static void registerParser(const std::string & source,
-                               Parser parser);
+			       Parser parser)
+    {
+        PluginInterface<BidRequest>::registerPlugin(source, parser);
+    }
+  
+    /** plugin interface requirements */
+    typedef Parser Factory; // plugin interface expects this tipe to be called Factory
+  
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "bid_request";};
 
+  
     /** Parse the given bid request from the given source.  The correct
-        parser will be looked up in a registry based upon the source.
-    */
+        parser will be looked up in a registry based upon the source.*/
     static BidRequest *
     parse(const std::string & source, const std::string & bidRequest);
 

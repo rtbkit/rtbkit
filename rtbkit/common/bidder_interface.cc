@@ -46,50 +46,16 @@ void BidderInterface::shutdown()
 {
 }
 
-namespace {
-    typedef std::lock_guard<ML::Spinlock> Guard;
-    static ML::Spinlock lock;
-    static std::unordered_map<std::string, BidderInterface::Factory> factories;
-}
-
-
-BidderInterface::Factory getFactory(std::string const & name) {
-    // see if it's already existing
-    {
-        Guard guard(lock);
-        auto i = factories.find(name);
-        if (i != factories.end()) return i->second;
-    }
-
-    // else, try to load the bidder library
-    std::string path = "lib" + name + "_bidder.so";
-    void * handle = dlopen(path.c_str(), RTLD_NOW);
-    if (!handle) {
-        std::cerr << dlerror() << std::endl;
-        throw ML::Exception("couldn't load bidder library " + path);
-    }
-
-    // if it went well, it should be registered now
-    Guard guard(lock);
-    auto i = factories.find(name);
-    if (i != factories.end()) return i->second;
-
-    throw ML::Exception("couldn't find bidder name " + name);
-}
-
-void BidderInterface::registerFactory(std::string const & name, Factory callback) {
-    Guard guard(lock);
-    if (!factories.insert(std::make_pair(name, callback)).second)
-        throw ML::Exception("already had a bidder factory registered");
-}
-
-
 std::shared_ptr<BidderInterface> BidderInterface::create(
         std::string serviceName,
         std::shared_ptr<ServiceProxies> const & proxies,
         Json::Value const & json) {
+
     auto type = json.get("type", "unknown").asString();
-    auto factory = getFactory(type);
+
+    //auto factory = getFactory(type);
+    auto factory = PluginInterface<BidderInterface>::getPlugin(type);
+    
     if(serviceName.empty()) {
         serviceName = json.get("serviceName", "bidder").asString();
     }

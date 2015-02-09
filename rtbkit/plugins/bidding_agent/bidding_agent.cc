@@ -331,7 +331,7 @@ eventName(const string& name)
         case hash_compile_time("CLICK") : return "clicks"; break;
         case hash_compile_time("DROPPEDBID") : return "droppedbids"; break;
         case hash_compile_time("ERROR") : return "errors"; break;
-        case hash_compile_time("INVALIDBID") : return "invalidbids"; break;
+        case hash_compile_time("INVALID") : return "invalidbids"; break;
         case hash_compile_time("IMPRESSION") : return "impressions"; break;
         case hash_compile_time("LOSS") : return "losses"; break;
         case hash_compile_time("NOBUDGET") : return "nobudgets"; break;

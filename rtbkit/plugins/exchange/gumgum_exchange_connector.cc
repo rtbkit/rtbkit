@@ -245,7 +245,7 @@ getResponse(const HttpAuctionHandler & connection,
     }
 
     if (seatToBid.empty())
-        return HttpResponse(204, "none", "{}");
+        return HttpResponse(204, "none", "");
 
     static Datacratic::DefaultDescription<OpenRTB::BidResponse> desc;
     std::ostringstream stream;
@@ -283,10 +283,10 @@ getErrorResponse(const HttpAuctionHandler & connection,
 namespace {
     using namespace RTBKIT;
 
-    struct Init {
-        Init() {
+    struct AtInit {
+        AtInit() {
             ExchangeConnector::registerFactory<GumgumExchangeConnector>();
         }
-    } init;
+    } atInit;
 }
 
