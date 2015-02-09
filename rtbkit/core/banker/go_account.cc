@@ -176,12 +176,11 @@ GoAccounts::GoAccounts() : accounts{}
 void
 GoAccounts::add(AccountKey &key, GoAccountType type)
 {
+    std::lock_guard<std::mutex> guard(this->mutex);
     auto account = accounts.find(key);
     if (account == accounts.end()) {
         return;
     }
-
-    std::lock_guard<std::mutex> guard(this->mutex);
     accounts[key] = GoAccount(key, type);
 }
 
@@ -192,13 +191,11 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
     if (json.isMember("type") && json.isMember("name")) {
         string name = json["name"].asString();
 
+        std::lock_guard<std::mutex> guard(this->mutex);
         if (get(AccountKey(name))) return;
 
         auto account = GoAccount(json);
-        {
-            std::lock_guard<std::mutex> guard(this->mutex);
-            accounts[name] = account;
-        }
+        accounts[name] = account;
         //cout << "account in map: " << accounts[name].toJson() << endl;
     } else {
         cout << "error: type or name not parsed" << endl;
@@ -208,29 +205,33 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
 void
 GoAccounts::updateBalance(AccountKey &key, int64_t newBalance)
 {
+    std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
 
     if (!account) return;
     
-    std::lock_guard<std::mutex> guard(this->mutex);
     account->router->balance = newBalance;
 }
 
 bool
 GoAccounts::bid(const AccountKey &key, Amount bidPrice)
 {
+    std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
 
     if (!account) return false;
+    
+    if (account->type != ROUTER) {
+        throw ML::Exception("GoAccounts::bid: attempt bid on non ROUTER account");
+    }
 
-    std::lock_guard<std::mutex> guard(this->mutex);
-    account->bid(bidPrice);
-    return false;
+    return account->bid(bidPrice);
 }
 
 bool
 GoAccounts::win(const AccountKey &key, Amount winPrice)
 {
+    std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
 
     if (!account) {
@@ -243,9 +244,7 @@ GoAccounts::win(const AccountKey &key, Amount winPrice)
         throw ML::Exception("GoAccounts::win: attempt win on non POST_AUCTION account");
     }
 
-    std::lock_guard<std::mutex> guard(this->mutex);
-    account->win(winPrice);
-    return true;
+    return account->win(winPrice);
 }
 
 GoAccount*
