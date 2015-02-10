@@ -1,7 +1,7 @@
 CXX ?= g++
 CC ?= gcc
 FC := gfortran
-NODEJS_ENABLED:=1
+NODEJS_ENABLED:=0
 PYTHON_ENABLED:=0
 
 LOCAL_DIR?=$(HOME)/local
