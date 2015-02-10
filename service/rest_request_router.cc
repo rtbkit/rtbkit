@@ -8,6 +8,7 @@
 #include "jml/utils/vector_utils.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/set_utils.h"
+#include "jml/utils/file_functions.h"
 
 
 using namespace std;
@@ -375,7 +376,7 @@ RestRequestRouter::OnProcessRequest
 RestRequestRouter::
 getStaticRouteHandler(const string dir) const {
     RestRequestRouter::OnProcessRequest staticRoute
-        = [dir] (RestConnection & connection,
+        = [dir] (const RestServiceEndpoint::ConnectionId & connection,
                  const RestRequest & request,
                  const RestRequestParsingContext & context) {
 
@@ -383,11 +384,9 @@ getStaticRouteHandler(const string dir) const {
 
         cerr << "static content for " << path << endl;
 
-        if (path.find("..") != string::npos)
+        if (path.find("..") != string::npos) {
             throw ML::Exception("not dealing with path with .. in it");
-
-        //if (path.find("/static/") != 0)
-        //    throw ML::Exception("not serving file not under static");
+        }
 
         string filename = dir + "/" + path;
 
@@ -395,12 +394,15 @@ getStaticRouteHandler(const string dir) const {
         ML::File_Read_Buffer buf(filename);
 
         string mimeType = "text/plain";
-        if (filename.find(".html") != string::npos)
+        if (filename.find(".html") != string::npos) {
             mimeType = "text/html";
-        else if (filename.find(".js") != string::npos)
+        }
+        else if (filename.find(".js") != string::npos) {
             mimeType = "application/javascript";
-        else if (filename.find(".css") != string::npos)
+        }
+        else if (filename.find(".css") != string::npos) {
             mimeType = "text/css";
+        }
 
         string result(buf.start(), buf.end());
         connection.sendResponse(200, result, mimeType);
