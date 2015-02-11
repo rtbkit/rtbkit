@@ -8,5 +8,5 @@ FC := ccache gfortran
 # CC := colorccache gcc
 # FC := colorccache gfortran
 
-BOOST_VERSION := 52
+BOOST_VERSION := 57
 TCMALLOC_ENABLED := 1
