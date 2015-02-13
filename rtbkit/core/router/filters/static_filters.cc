@@ -82,6 +82,23 @@ applyExchangeFilter(FilterState& state, const ConfigSet& result) const
 
 void
 SegmentsFilter::
+fillFilterReasons(FilterState& state, ConfigSet& beforeFilt,
+                  ConfigSet& afterFilt, const std::string & segment) const {
+
+    // Some Magic to get all the filtered out configs by this segment.
+    ConfigSet affected = beforeFilt ^ (beforeFilt & afterFilt);
+
+    // Now fill the reasons map with the filtered configs ids.
+    for (std::size_t id = affected.next();
+         id < affected.size(); id = affected.next(id + 1))
+    {
+         FilterState::FilterReasons& reasons = state.getFilterReasons();
+         reasons[segment].push_back(id);
+    }
+}
+
+void
+SegmentsFilter::
 filter(FilterState& state) const
 {
     unordered_set<string> toCheck = excludeIfNotPresent;
@@ -92,8 +109,14 @@ filter(FilterState& state) const
         auto it = data.find(segment.first);
         if (it == data.end()) continue;
 
+        ConfigSet beforeFilt = state.configs();
         ConfigSet result = it->second.ie.filter(*segment.second);
-        state.narrowConfigs(it->second.applyExchangeFilter(state, result));
+
+        ConfigSet result2 = it->second.applyExchangeFilter(state, result);
+        state.narrowConfigs(result2);
+
+        fillFilterReasons(state, beforeFilt, result2, segment.first);
+
         if (state.configs().empty()) return;
     }
 
@@ -102,7 +125,10 @@ filter(FilterState& state) const
         if (it == data.end()) continue;
 
         ConfigSet result = it->second.excludeIfNotPresent.negate();
-        state.narrowConfigs(it->second.applyExchangeFilter(state, result));
+        ConfigSet result2 = it->second.applyExchangeFilter(state, result);
+        ConfigSet beforeFilt = state.configs();
+        state.narrowConfigs(result2);
+        fillFilterReasons(state, beforeFilt, result2, segment);
         if (state.configs().empty()) return;
     }
 }
