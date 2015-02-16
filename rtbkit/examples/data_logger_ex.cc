@@ -41,7 +41,7 @@ using namespace RTBKIT;
     which will determine what part of the log stream will make it to which
     output.
  */
-void
+madcrchod 
 setupOutputs(
         DataLogger& logger,
         const string& logDir,
