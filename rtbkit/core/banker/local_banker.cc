@@ -36,8 +36,12 @@ LocalBanker::init(const string & bankerUrl,
         spendUpdate();
     };
     auto initializeAccountsPeriodic = [&] (uint64_t wakeups) {
-        std::lock_guard<std::mutex> guard(this->mutex);
-        for (auto &key : uninitializedAccounts) {
+        unordered_set<AccountKey> tempUninitialized;
+        {
+            std::lock_guard<std::mutex> guard(this->mutex);
+            swap(uninitializedAccounts, tempUninitialized);
+        }
+        for (auto &key : tempUninitialized) {
             addAccount(key);
         }
     };
@@ -67,10 +71,13 @@ void
 LocalBanker::addAccount(const AccountKey &key)
 {
     if (accounts.exists(key)) {
+        std::lock_guard<std::mutex> guard(this->mutex);
         uninitializedAccounts.erase(key);
         return;
+    } else {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        uninitializedAccounts.insert(key);
     }
-    uninitializedAccounts.insert(key);
 
     auto onResponse = [&] (const HttpRequest &req,
             HttpClientError error,
@@ -84,12 +91,11 @@ LocalBanker::addAccount(const AccountKey &key)
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
-            std::lock_guard<std::mutex> guard(this->mutex);
         } else {
             //cout << "returned account: " << endl;
             //cout << body << endl;
-            accounts.addFromJsonString(body);
             std::lock_guard<std::mutex> guard(this->mutex);
+            accounts.addFromJsonString(body);
             uninitializedAccounts.erase(key);
         }
     };
