@@ -12,7 +12,7 @@ using namespace std;
 namespace RTBKIT {
 
 // Go Account
-GoAccount::GoAccount(AccountKey &key, GoAccountType type)
+GoAccount::GoAccount(const AccountKey &key, GoAccountType type)
     :type(type)
 {
     switch (type) {
@@ -75,7 +75,7 @@ GoAccount::toJson()
 }
 
 // Router Account
-GoRouterAccount::GoRouterAccount(AccountKey &key)
+GoRouterAccount::GoRouterAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
     rate = 100;
@@ -111,7 +111,7 @@ GoRouterAccount::toJson(Json::Value &account)
 }
 
 // Post Auction Account
-GoPostAuctionAccount::GoPostAuctionAccount(AccountKey &key)
+GoPostAuctionAccount::GoPostAuctionAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
     imp = 0;
@@ -146,7 +146,7 @@ GoPostAuctionAccount::toJson(Json::Value &account)
 
 //Account Base
 
-GoBaseAccount::GoBaseAccount(AccountKey &key)
+GoBaseAccount::GoBaseAccount(const AccountKey &key)
     : name(key.toString()), parent(key.parent().toString())
 {
 }
@@ -174,7 +174,7 @@ GoAccounts::GoAccounts() : accounts{}
 }
 
 void
-GoAccounts::add(AccountKey &key, GoAccountType type)
+GoAccounts::add(const AccountKey &key, GoAccountType type)
 {
     std::lock_guard<std::mutex> guard(this->mutex);
     auto account = accounts.find(key);
@@ -203,7 +203,7 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
 }
 
 void
-GoAccounts::updateBalance(AccountKey &key, int64_t newBalance)
+GoAccounts::updateBalance(const AccountKey &key, int64_t newBalance)
 {
     std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
@@ -245,6 +245,14 @@ GoAccounts::win(const AccountKey &key, Amount winPrice)
     }
 
     return account->win(winPrice);
+}
+
+bool
+GoAccounts::exists(const AccountKey &key)
+{
+    std::lock_guard<std::mutex> guard(this->mutex);
+    auto account = get(key);
+    return account;
 }
 
 GoAccount*

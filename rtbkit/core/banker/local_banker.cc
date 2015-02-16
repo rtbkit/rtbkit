@@ -66,6 +66,12 @@ LocalBanker::shutdown()
 void
 LocalBanker::addAccount(const AccountKey &key)
 {
+    if (accounts.exists(key)) {
+        uninitializedAccounts.erase(key);
+        return;
+    }
+    uninitializedAccounts.insert(key);
+
     auto onResponse = [&] (const HttpRequest &req,
             HttpClientError error,
             int status,
@@ -79,7 +85,6 @@ LocalBanker::addAccount(const AccountKey &key)
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
             std::lock_guard<std::mutex> guard(this->mutex);
-            uninitializedAccounts.insert(key);
         } else {
             //cout << "returned account: " << endl;
             //cout << body << endl;
