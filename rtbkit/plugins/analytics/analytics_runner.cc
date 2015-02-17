@@ -33,6 +33,7 @@ int main(int argc, char ** argv) {
                   {"MATCHEDWIN",    false},
                   {"NOBUDGET",      false},
                   {"PAERROR",       false},
+                  {"SUBMITTED",     false},
                   {"TOOLATE",       false},
                   {"UNMATCHEDWIN",  false},
                   {"UNMATCHEDLOSS", false},
