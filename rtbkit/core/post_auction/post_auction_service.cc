@@ -278,6 +278,15 @@ initRestEndpoint()
             this,
             JsonParam< std::shared_ptr< SubmittedAuctionEvent> >("", "auction to submit"));
 
+    addRouteSync(
+            versionNode,
+            "/events",
+            {"POST"},
+            "Submit and auction to the PAL",
+            &PostAuctionService::doEvent,
+            this,
+            JsonParam< std::shared_ptr< PostAuctionEvent> >("", "event to submit"));
+
     addSource("PostAuctionService::restEndpoint", *restEndpoint);
 }
 
@@ -289,7 +298,7 @@ forwardAuctions(const std::string& uri)
     ExcCheck(!uri.empty(), "empty forwarding uri");
 
     LOG(print) << "forwarding all bids to: " << uri << endl;
-    forwarder.reset(new EventForwarder(*this, uri));
+    forwarder.reset(new EventForwarder(*this, uri, "forwarder"));
 }
 
 

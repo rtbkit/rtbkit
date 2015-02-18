@@ -2764,15 +2764,15 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     banker->detachBid(bid.account, auctionKey);
 
     if (connectPostAuctionLoop) {
-        SubmittedAuctionEvent event;
-        event.auctionId = auction->id;
-        event.adSpotId = adSpotId;
-        event.lossTimeout = auction->lossAssumed;
-        event.augmentations = auction->agentAugmentations[bid.agent];
-        event.bidRequest(auction->request);
-        event.bidRequestStr = auction->requestStr;
-        event.bidRequestStrFormat = auction->requestStrFormat ;
-        event.bidResponse = bid;
+        auto event = std::make_shared<SubmittedAuctionEvent>();
+        event->auctionId = auction->id;
+        event->adSpotId = adSpotId;
+        event->lossTimeout = auction->lossAssumed;
+        event->augmentations = auction->agentAugmentations[bid.agent];
+        event->bidRequest(auction->request);
+        event->bidRequestStr = auction->requestStr;
+        event->bidRequestStrFormat = auction->requestStrFormat ;
+        event->bidResponse = bid;
 
         postAuctionEndpoint.sendAuction(event);
     }
