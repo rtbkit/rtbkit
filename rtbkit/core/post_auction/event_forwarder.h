@@ -24,13 +24,19 @@ struct EventForwarder :
         public Datacratic::ServiceBase,
         public Datacratic::MessageLoop
 {
+    enum {
+        ConnectionCount = 1 << 10,
+        AuctionQueueSize = 1 << 6,
+        EventQueueSize = 1 << 8,
+    };
+
     EventForwarder(
             Datacratic::ServiceBase & parent,
             std::string uri, std::string name) :
         ServiceBase(std::move(name), parent),
-        client(std::move(uri), 1024),
-        auctionQueue(8),
-        eventQueue(8)
+        client(std::move(uri), ConnectionCount),
+        auctionQueue(AuctionQueueSize),
+        eventQueue(EventQueueSize)
     {
         init();
     }
@@ -39,9 +45,9 @@ struct EventForwarder :
             std::shared_ptr<Datacratic::ServiceProxies>& proxies,
             std::string uri, std::string name) :
         ServiceBase(std::move(name), proxies),
-        client(std::move(uri), 1024),
-        auctionQueue(8),
-        eventQueue(8)
+        client(std::move(uri), ConnectionCount),
+        auctionQueue(AuctionQueueSize),
+        eventQueue(EventQueueSize)
     {
         init();
     }
@@ -89,7 +95,7 @@ private:
     {
         recordHit("%s.send", endpoint);
         Date start = Date::now();
-        
+
         static auto desc = getDefaultDescriptionShared((T*) 0);
 
         std::stringstream stream;
@@ -110,7 +116,7 @@ private:
 
         auto cb = std::make_shared<HttpClientCallbacks>(nullptr, nullptr, nullptr, onDone);
 
-        client.post("/" + endpoint, cb, body, RestParams(), RestParams(), 1000);
+        client.post("/v1/" + endpoint, cb, body, RestParams(), RestParams(), 1000);
     }
 
     void sendAuction(std::shared_ptr<SubmittedAuctionEvent> auction)

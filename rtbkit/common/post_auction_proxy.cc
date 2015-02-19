@@ -21,7 +21,14 @@ namespace RTBKIT {
 /******************************************************************************/
 
 PostAuctionProxy::
-PostAuctionProxy(shared_ptr<ServiceProxies> proxies) :
+PostAuctionProxy(ServiceBase& parent) :
+    parent(&parent),
+    proxies(parent.getServices())
+{}
+
+PostAuctionProxy::
+PostAuctionProxy(std::shared_ptr<Datacratic::ServiceProxies> proxies) :
+    parent(nullptr),
     proxies(proxies)
 {}
 
@@ -57,7 +64,11 @@ initHTTP()
 
     for (size_t i = 0; i < uris.size(); ++i) {
         std::string name = "postAuctionProxy" + std::to_string(i);
-        http[i] = std::make_shared<EventForwarder>(proxies, uris[i].asString(), name);
+
+        if (parent)
+            http[i] = std::make_shared<EventForwarder>(*parent, uris[i].asString(), name);
+        else
+            http[i] = std::make_shared<EventForwarder>(proxies, uris[i].asString(), name);
     }
 }
 

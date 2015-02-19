@@ -329,7 +329,7 @@ parseJsonTyped(Bids *val, JsonParsingContext &context) const{
 void
 DefaultDescription<Bids>::
 printJsonTyped(const Bids *val, JsonPrintingContext &context) const{
-  context.writeString(val->toJsonStr());
+  context.writeJson(val->toJson());
 }
 
 bool

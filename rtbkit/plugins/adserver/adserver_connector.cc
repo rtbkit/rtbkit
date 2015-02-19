@@ -25,7 +25,7 @@ AdServerConnector::
 AdServerConnector(const string & serviceName,
                   const shared_ptr<Datacratic::ServiceProxies> & proxy)
     : ServiceBase(serviceName, proxy),
-      toPostAuctionService_(proxy)
+      toPostAuctionService_(*this)
 {
 }
 

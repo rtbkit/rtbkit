@@ -34,6 +34,7 @@ struct EventForwarder;
  */
 struct PostAuctionProxy
 {
+    PostAuctionProxy(Datacratic::ServiceBase& parent);
     PostAuctionProxy(std::shared_ptr<Datacratic::ServiceProxies> proxies);
 
     void init();
@@ -51,8 +52,10 @@ private:
     void initZMQ();
     void initHTTP();
 
-    size_t shards;
+    Datacratic::ServiceBase* parent;
     std::shared_ptr<Datacratic::ServiceProxies> proxies;
+
+    size_t shards;
     std::unique_ptr<Datacratic::ZmqMultipleNamedClientBusProxy> zmq;
     std::vector< std::shared_ptr<EventForwarder> > http;
 };

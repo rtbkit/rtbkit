@@ -251,9 +251,9 @@ PostAuctionService::
 initRestEndpoint()
 {
     const auto& params = getServices()->params;
-    if (!params.isMember("ports") ||
-            !params["ports"].isMember("postAuctionLoopREST.zmq") ||
-            !params["ports"].isMember("postAuctionLoopREST.http"))
+    if (!params.isMember("portRanges") ||
+            !params["portRanges"].isMember("postAuctionREST.zmq") ||
+            !params["portRanges"].isMember("postAuctionREST.http"))
     {
         return;
     }
