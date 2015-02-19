@@ -79,6 +79,8 @@ private:
     {
         MessageLoop::init();
 
+        client.sendExpect100Continue(false);
+
         using std::placeholders::_1;
         auctionQueue.onEvent = std::bind(&EventForwarder::sendAuction, this, _1);
         eventQueue.onEvent = std::bind(&EventForwarder::sendEvent, this, _1);
