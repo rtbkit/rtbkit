@@ -15,7 +15,7 @@ using namespace Datacratic;
 namespace RTBKIT {
 
 LocalBanker::LocalBanker(GoAccountType type, const string & accountSuffix)
-    : type(type), accountSuffix(accountSuffix)
+    : type(type), accountSuffix(accountSuffix), accounts()
 {
 }
 
@@ -36,9 +36,13 @@ LocalBanker::init(const string & bankerUrl,
         spendUpdate();
     };
     auto initializeAccountsPeriodic = [&] (uint64_t wakeups) {
-        std::lock_guard<std::mutex> guard(this->mutex);
-        for (auto &key : uninitializedAccounts) {
-            addAccount(key);
+        unordered_set<AccountKey> tempUninitialized;
+        {
+            std::lock_guard<std::mutex> guard(this->mutex);
+            swap(uninitializedAccounts, tempUninitialized);
+        }
+        for (auto &key : tempUninitialized) {
+            addAccountImpl(key);
         }
     };
 
@@ -66,7 +70,24 @@ LocalBanker::shutdown()
 void
 LocalBanker::addAccount(const AccountKey &key)
 {
-    auto onResponse = [&] (const HttpRequest &req,
+    const AccountKey fullKey(key.toString() + ":" + accountSuffix);
+    addAccountImpl(fullKey);
+}
+
+void
+LocalBanker::addAccountImpl(const AccountKey &key)
+{
+    if (accounts.exists(key)) {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        if (uninitializedAccounts.find(key) != uninitializedAccounts.end())
+            uninitializedAccounts.erase(key);
+        return;
+    } else {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        uninitializedAccounts.insert(key);
+    }
+
+    auto onResponse = [&, key] (const HttpRequest &req,
             HttpClientError error,
             int status,
             string && headers,
@@ -78,19 +99,17 @@ LocalBanker::addAccount(const AccountKey &key)
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
-            std::lock_guard<std::mutex> guard(this->mutex);
-            uninitializedAccounts.insert(key);
         } else {
-            //cout << "returned account: " << endl;
-            //cout << body << endl;
-            accounts.addFromJsonString(body);
+            cout << body << endl;
             std::lock_guard<std::mutex> guard(this->mutex);
-            uninitializedAccounts.erase(key);
+            accounts.addFromJsonString(body);
+            if (uninitializedAccounts.find(key) != uninitializedAccounts.end())
+                uninitializedAccounts.erase(key);
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::objectValue);
-    payload["accountName"] = key.toString() + ":" + accountSuffix;
+    payload["accountName"] = key.toString();
     switch (type) {
         case ROUTER:
             payload["accountType"] = "Router";
@@ -124,13 +143,16 @@ LocalBanker::spendUpdate()
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::arrayValue);
 //    int i = 0;
-    for (auto it : accounts.accounts) {
+    {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        for (auto it : accounts.accounts) {
 //         cout << "i: " << i++ << "\n"
 //              << "name: " << it.first.toString() << "\n"
 //              << "info: " << it.second.toJson() << endl;
-        payload.append(it.second.toJson());
+            payload.append(it.second.toJson());
+        }
     }
-    httpClient->post("/spendupdate", cbs, payload, {}, {}, 1);
+    httpClient->post("/spendupdate", cbs, payload, {}, {}, 0.5);
 }
 
 void
@@ -163,11 +185,14 @@ LocalBanker::reauthorize()
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::arrayValue);
 //    int i = 0;
-    for (auto it : accounts.accounts) {
+    {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        for (auto it : accounts.accounts) {
 //         cout << "i: " << i++ << "\n"
 //              << "name: " << it.first.toString() << "\n"
 //              << "info: " << it.second.toJson() << endl;
-        payload.append(it.first.toString());
+            payload.append(it.first.toString());
+        }
     }
     httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 2);
 }

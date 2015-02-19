@@ -22,7 +22,7 @@ struct GoBaseAccount {
     std::string name;
     std::string parent;
 
-    GoBaseAccount(AccountKey &key);
+    GoBaseAccount(const AccountKey &key);
     GoBaseAccount(Json::Value &jsonAccount);
     virtual void toJson(Json::Value &account);
 };
@@ -31,7 +31,7 @@ struct GoRouterAccount : public GoBaseAccount {
     std::atomic<int64_t> rate;
     std::atomic<int64_t> balance;
 
-    GoRouterAccount(AccountKey &key);
+    GoRouterAccount(const AccountKey &key);
     GoRouterAccount(Json::Value &json);
     bool bid(Amount bidPrice);
     bool win(Amount winPrice) { return false; }
@@ -42,7 +42,7 @@ struct GoPostAuctionAccount : public GoBaseAccount {
     std::atomic<int64_t> imp;
     std::atomic<int64_t> spend;
 
-    GoPostAuctionAccount(AccountKey &key);
+    GoPostAuctionAccount(const AccountKey &key);
     GoPostAuctionAccount(Json::Value &jsonAccount);
     bool bid(Amount bidPrice) { return false; }
     bool win(Amount winPrice);
@@ -60,7 +60,7 @@ struct GoAccount {
     std::shared_ptr<GoPostAuctionAccount> pal;
 
     GoAccount(){}
-    GoAccount(AccountKey &key, GoAccountType type);
+    GoAccount(const AccountKey &key, GoAccountType type);
     GoAccount(Json::Value &jsonAccount);
     bool bid(Amount bidPrice);
     bool win(Amount winPrice);
@@ -72,9 +72,10 @@ struct GoAccounts {
     std::unordered_map<AccountKey, GoAccount> accounts;
 
     GoAccounts();
-    void add(AccountKey&, GoAccountType type);
+    bool exists(const AccountKey& key);
+    void add(const AccountKey&, GoAccountType type);
     void addFromJsonString(std::string json);
-    void updateBalance(AccountKey &key, int64_t newBalance);
+    void updateBalance(const AccountKey &key, int64_t newBalance);
     bool bid(const AccountKey &key, Amount bidPrice);
     bool win(const AccountKey &key, Amount winPrice);
     Json::Value toJson();

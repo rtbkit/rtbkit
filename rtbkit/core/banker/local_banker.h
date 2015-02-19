@@ -24,7 +24,7 @@ struct LocalBanker : public Datacratic::MessageLoop {
     
     LocalBanker(GoAccountType type, const std::string & accountSuffix);
     
-    void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 4, bool tcpNoDelay = false);
+    void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 128, bool tcpNoDelay = false);
     void start();
     void shutdown();
 
@@ -44,6 +44,9 @@ struct LocalBanker : public Datacratic::MessageLoop {
     std::shared_ptr<Datacratic::HttpClient> httpClient;
     std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
+
+private:
+    void addAccountImpl(const AccountKey &account);
 };
 
 } // namespace RTBKIT
