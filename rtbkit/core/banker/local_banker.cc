@@ -16,7 +16,7 @@ using namespace Datacratic;
 namespace RTBKIT {
 
 LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type, const string & accountSuffix)
-        : ServiceBase("localBanker." + accountSuffix, services),
+        : ServiceBase(accountSuffix + ".localBanker", services),
           type(type),
           accountSuffix(accountSuffix),
           accountSuffixNoDot(accountSuffix),
