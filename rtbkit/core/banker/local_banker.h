@@ -11,6 +11,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include "soa/service/service_base.h"
 #include "soa/service/http_client.h"
 #include "soa/service/message_loop.h"
 #include "rtbkit/common/currency.h"
@@ -20,9 +21,11 @@
 
 namespace RTBKIT {
 
-struct LocalBanker : public Datacratic::MessageLoop {
+struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     
-    LocalBanker(GoAccountType type, const std::string & accountSuffix);
+    LocalBanker(std::shared_ptr<Datacratic::ServiceProxies> services,
+            GoAccountType type,
+            const std::string & accountSuffix);
     
     void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 128, bool tcpNoDelay = false);
     void start();

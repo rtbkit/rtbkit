@@ -166,7 +166,7 @@ init()
 
     banker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
-        localBanker = make_shared<LocalBanker>(ROUTER, router->serviceName());
+        localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
         router->setLocalBanker(localBanker);
     }

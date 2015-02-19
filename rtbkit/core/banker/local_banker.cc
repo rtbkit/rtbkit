@@ -7,15 +7,18 @@
 
 #include "local_banker.h"
 #include "soa/service/http_header.h"
-#include "jml/arch/timers.h"
+#include "soa/types/date.h"
 
 using namespace std;
 using namespace Datacratic;
 
 namespace RTBKIT {
 
-LocalBanker::LocalBanker(GoAccountType type, const string & accountSuffix)
-    : type(type), accountSuffix(accountSuffix), accounts()
+LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type, const string & accountSuffix)
+        : ServiceBase("localBanker." + accountSuffix, services),
+          type(type),
+          accountSuffix(accountSuffix),
+          accounts()
 {
 }
 
@@ -40,6 +43,7 @@ LocalBanker::init(const string & bankerUrl,
         {
             std::lock_guard<std::mutex> guard(this->mutex);
             swap(uninitializedAccounts, tempUninitialized);
+            this->recordLevel(accounts.accounts.size(), "accounts");
         }
         for (auto &key : tempUninitialized) {
             addAccountImpl(key);
@@ -87,24 +91,33 @@ LocalBanker::addAccountImpl(const AccountKey &key)
         uninitializedAccounts.insert(key);
     }
 
-    auto onResponse = [&, key] (const HttpRequest &req,
+    this->recordHit("addAccount.attempts");
+    const Date sentTime = Date::now();
+
+    auto onResponse = [&, key, sentTime] (const HttpRequest &req,
             HttpClientError error,
             int status,
             string && headers,
             string && body)
     {
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime);
+        this->recordLevel(latencyMs, "addAccountLatencyMs");
+
         if (status != 200) {
             cout << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
+            this->recordHit("addAccount.failure");
         } else {
             cout << body << endl;
             std::lock_guard<std::mutex> guard(this->mutex);
             accounts.addFromJsonString(body);
             if (uninitializedAccounts.find(key) != uninitializedAccounts.end())
                 uninitializedAccounts.erase(key);
+            this->recordHit("addAccount.success");
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -125,17 +138,26 @@ LocalBanker::addAccountImpl(const AccountKey &key)
 void
 LocalBanker::spendUpdate()
 {
-    auto onResponse = [] (const HttpRequest &req,
+    const Date sentTime = Date::now();
+    this->recordHit("spendUpdate.attempt");
+
+    auto onResponse = [&, sentTime] (const HttpRequest &req,
             HttpClientError error,
             int status,
             string && headers,
             string && body)
     {
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime);
+        this->recordLevel(latencyMs, "spendUpdateLatencyMs");
+
         if (status != 200) {
             cout << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl;
+            this->recordHit("spendUpdate.failure");
         } else {
+            this->recordHit("spendUpdate.success");
             //cout << "status: " << status << endl
             //     << "body:   " << body << endl;
         }
@@ -158,18 +180,26 @@ LocalBanker::spendUpdate()
 void
 LocalBanker::reauthorize()
 {
-    auto onResponse = [&] (const HttpRequest &req,
+    const Date sentTime = Date::now();
+    this->recordHit("reauthorize.attempt");
+
+    auto onResponse = [&, sentTime] (const HttpRequest &req,
             HttpClientError error,
             int status,
             string && headers,
             string && body)
     {
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime);
+        this->recordLevel(latencyMs, "reauthorizeLatencyMs");
+
         if (status != 200) {
             cout << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
                  << "cont_str: " << req.content_.str << endl;
+            this->recordHit("reauthorize.failure");
         } else {
             Json::Value jsonAccounts = Json::parse(body);
             for ( auto jsonAccount : jsonAccounts ) {
@@ -179,6 +209,7 @@ LocalBanker::reauthorize()
                 //     << "new bal: " << newBalance << endl;
                 accounts.updateBalance(key, newBalance);
             }
+            this->recordHit("reauthorize.success");
         }
     };
 
@@ -200,13 +231,26 @@ LocalBanker::reauthorize()
 bool
 LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
-    return accounts.bid(AccountKey(key.toString() + ":" + accountSuffix), bidPrice);
+    AccountKey fullKey(key.toString() + ":" + accountSuffix);
+    bool canBid = accounts.bid(fullKey, bidPrice);
+    if (canBid)
+        this->recordHit(fullKey.toString() + ".Bid");
+    else
+        this->recordHit(fullKey.toString() + ".noBid");
+    return canBid;
 }
 
 bool
 LocalBanker::win(const AccountKey &key, Amount winPrice)
 {
-    return accounts.win(AccountKey(key.toString() + ":" + accountSuffix), winPrice);
+    AccountKey fullKey(key.toString() + ":" + accountSuffix);
+    bool canBid = accounts.win(fullKey, winPrice);
+    if (canBid)
+        this->recordHit(fullKey.toString() + ".Win");
+    else
+        this->recordHit(fullKey.toString() + ".noWin");
+    return canBid;
+
 }
 
 } // namespace RTBKIT

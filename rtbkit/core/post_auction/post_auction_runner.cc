@@ -125,7 +125,7 @@ init()
 
     banker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
-        localBanker = make_shared<LocalBanker>(POST_AUCTION, postAuctionLoop->serviceName());
+        localBanker = make_shared<LocalBanker>(proxies, POST_AUCTION, postAuctionLoop->serviceName());
         localBanker->init(localBankerUri);
         postAuctionLoop->setLocalBanker(localBanker);
     }
