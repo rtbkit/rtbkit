@@ -22,7 +22,7 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
           accountSuffixNoDot(accountSuffix),
           accounts()
 {
-    replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', ',');
+    replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', '_');
 }
 
 void
@@ -46,7 +46,7 @@ LocalBanker::init(const string & bankerUrl,
         {
             std::lock_guard<std::mutex> guard(this->mutex);
             swap(uninitializedAccounts, tempUninitialized);
-            this->recordLevel(accounts.accounts.size(), "accounts");
+            this->recordCount(accounts.accounts.size(), "accounts");
         }
         for (auto &key : tempUninitialized) {
             addAccountImpl(key);
