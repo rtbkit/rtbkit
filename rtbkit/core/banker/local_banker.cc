@@ -5,6 +5,7 @@
    Local banker implementation.
 */
 
+#include <algorithm>
 #include "local_banker.h"
 #include "soa/service/http_header.h"
 #include "soa/types/date.h"
@@ -18,8 +19,10 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
         : ServiceBase("localBanker." + accountSuffix, services),
           type(type),
           accountSuffix(accountSuffix),
+          accountSuffixNoDot(accountSuffix),
           accounts()
 {
+    replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', ',');
 }
 
 void
@@ -101,7 +104,7 @@ LocalBanker::addAccountImpl(const AccountKey &key)
             string && body)
     {
         const Date recieveTime = Date::now();
-        double latencyMs = recieveTime.secondsSince(sentTime);
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
         this->recordLevel(latencyMs, "addAccountLatencyMs");
 
         if (status != 200) {
@@ -148,7 +151,7 @@ LocalBanker::spendUpdate()
             string && body)
     {
         const Date recieveTime = Date::now();
-        double latencyMs = recieveTime.secondsSince(sentTime);
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
         this->recordLevel(latencyMs, "spendUpdateLatencyMs");
 
         if (status != 200) {
@@ -190,7 +193,7 @@ LocalBanker::reauthorize()
             string && body)
     {
         const Date recieveTime = Date::now();
-        double latencyMs = recieveTime.secondsSince(sentTime);
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
         this->recordLevel(latencyMs, "reauthorizeLatencyMs");
 
         if (status != 200) {
@@ -231,25 +234,24 @@ LocalBanker::reauthorize()
 bool
 LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
-    AccountKey fullKey(key.toString() + ":" + accountSuffix);
-    bool canBid = accounts.bid(fullKey, bidPrice);
+    bool canBid = accounts.bid(key.toString() + ":" + accountSuffix, bidPrice);
+
     if (canBid)
-        this->recordHit(fullKey.toString() + ".Bid");
+        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".Bid");
     else
-        this->recordHit(fullKey.toString() + ".noBid");
+        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".noBid");
     return canBid;
 }
 
 bool
 LocalBanker::win(const AccountKey &key, Amount winPrice)
 {
-    AccountKey fullKey(key.toString() + ":" + accountSuffix);
-    bool canBid = accounts.win(fullKey, winPrice);
-    if (canBid)
-        this->recordHit(fullKey.toString() + ".Win");
+    bool winAccounted = accounts.win(key.toString() + ":" + accountSuffix, winPrice);
+    if (winAccounted)
+        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".Win");
     else
-        this->recordHit(fullKey.toString() + ".noWin");
-    return canBid;
+        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".noWin");
+    return winAccounted;
 
 }
 

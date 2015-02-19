@@ -43,6 +43,7 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
 
     GoAccountType type;
     std::string accountSuffix;
+    std::string accountSuffixNoDot;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
     std::mutex mutex;
