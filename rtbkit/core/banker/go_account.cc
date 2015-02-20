@@ -208,6 +208,15 @@ GoAccounts::updateBalance(const AccountKey &key, int64_t newBalance)
     account->router->balance = newBalance;
 }
 
+int64_t
+GoAccounts::getBalance(const AccountKey &key)
+{
+    if (!exists(key)) return 0;
+    std::lock_guard<std::mutex> guard(this->mutex);
+    auto account = get(key);
+    return account->router->balance;
+}
+
 bool
 GoAccounts::bid(const AccountKey &key, Amount bidPrice)
 {
