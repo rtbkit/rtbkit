@@ -240,7 +240,7 @@ LocalBanker::reauthorize()
             payload.append(it.first.toString());
         }
     }
-    httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 2);
+    httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 1.0);
 }
 
 void
@@ -271,7 +271,7 @@ LocalBanker::setRate(const AccountKey &key)
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::objectValue);
     payload["USD/1M"] = spendRate.value;
-    httpClient->post("/accounts/" + key.toString() + "/rate", cbs, payload, {}, {}, 0.5);
+    httpClient->post("/accounts/" + key.toString() + "/rate", cbs, payload, {}, {}, 1.0);
 }
 
 bool

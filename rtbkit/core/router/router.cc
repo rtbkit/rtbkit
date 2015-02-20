@@ -2052,8 +2052,15 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             slowModePeriodicSpentReached = false;
         }
 
-        if (!banker->authorizeBid(config.account, auctionKey, price)
-                || failBid(budgetErrorRate))
+        bool authorized = banker->authorizeBid(config.account, auctionKey, price);
+        if (localBanker) {
+            bool goAuthorized = localBanker->bid(config.account, price);
+            if (authorized != goAuthorized) {
+                recordHit("localBanker.differentBidOutcome");
+            }
+        }
+
+        if (!authorized || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
 
@@ -2065,8 +2072,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     bidsString, message.meta);
             continue;
         }
-        
-        if (localBanker) localBanker->bid(config.account, price);
         
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
