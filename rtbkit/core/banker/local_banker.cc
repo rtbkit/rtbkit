@@ -283,7 +283,7 @@ LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
     bool canBid = accounts.bid(key.toString() + ":" + accountSuffix, bidPrice);
 
-    this->recordLevel(accounts.getBalance(key),
+    this->recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
             "account." + key.toString() + ":" + accountSuffixNoDot + ".balance");
 
     if (canBid)
