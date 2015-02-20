@@ -168,6 +168,8 @@ init()
     if (localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
+        auto spendRate = Amount::parse(bankerArgs.spendRate);
+        localBanker->setSpendRate(spendRate);
         router->setLocalBanker(localBanker);
     }
 

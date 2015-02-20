@@ -15,12 +15,14 @@ using namespace Datacratic;
 
 namespace RTBKIT {
 
-LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type, const string & accountSuffix)
+LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type,
+        const string & accountSuffix)
         : ServiceBase(accountSuffix + ".localBanker", services),
           type(type),
           accountSuffix(accountSuffix),
           accountSuffixNoDot(accountSuffix),
-          accounts()
+          accounts(),
+          spendRate(MicroUSD(100000))
 {
     replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', '_');
 }
@@ -60,6 +62,12 @@ LocalBanker::init(const string & bankerUrl,
         addPeriodic("localBanker::spendUpdate", 0.5, spendUpdatePeriodic);
 
     addPeriodic("uninitializedAccounts", 1.0, initializeAccountsPeriodic);
+}
+
+void
+LocalBanker::setSpendRate(Amount newSpendRate)
+{
+    spendRate = newSpendRate;
 }
 
 void
@@ -211,6 +219,10 @@ LocalBanker::reauthorize()
                 //cout << "account: " << key.toString() << "\n"
                 //     << "new bal: " << newBalance << endl;
                 accounts.updateBalance(key, newBalance);
+                int64_t rate = jsonAccount["rate"].asInt();
+                if (rate != spendRate.value) {
+                    setRate(key);
+                }
             }
             this->recordHit("reauthorize.success");
         }
@@ -229,6 +241,37 @@ LocalBanker::reauthorize()
         }
     }
     httpClient->post("/reauthorize/1", cbs, payload, {}, {}, 2);
+}
+
+void
+LocalBanker::setRate(const AccountKey &key)
+{
+    const Date sentTime = Date::now();
+    this->recordHit("setRate.attempt");
+
+    auto onResponse = [&, sentTime] (const HttpRequest &req,
+            HttpClientError error,
+            int status,
+            string && headers,
+            string && body)
+    {
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
+        this->recordLevel(latencyMs, "setRateLatencyMs");
+
+        if (status != 200) {
+            cout << "status: " << status << endl
+                 << "error:  " << error << endl
+                 << "body:   " << body << endl;
+            this->recordHit("setRate.failure");
+        } else {
+            this->recordHit("setRate.success");
+        }
+    };
+    auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    Json::Value payload(Json::objectValue);
+    payload["USD/1M"] = spendRate.value;
+    httpClient->post("/accounts/" + key.toString() + "/rate", cbs, payload, {}, {}, 0.5);
 }
 
 bool
