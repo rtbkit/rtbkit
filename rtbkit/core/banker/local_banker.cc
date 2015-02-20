@@ -116,7 +116,8 @@ LocalBanker::addAccountImpl(const AccountKey &key)
         this->recordLevel(latencyMs, "addAccountLatencyMs");
 
         if (status != 200) {
-            cout << "status: " << status << endl
+            cout << "addAccount::" << endl
+                 << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
@@ -163,7 +164,8 @@ LocalBanker::spendUpdate()
         this->recordLevel(latencyMs, "spendUpdateLatencyMs");
 
         if (status != 200) {
-            cout << "status: " << status << endl
+            cout << "spendUpdate::" << endl
+                 << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl;
             this->recordHit("spendUpdate.failure");
@@ -205,7 +207,8 @@ LocalBanker::reauthorize()
         this->recordLevel(latencyMs, "reauthorizeLatencyMs");
 
         if (status != 200) {
-            cout << "status: " << status << endl
+            cout << "reauthorize::" << endl
+                 << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl
                  << "url:    " << req.url_ << endl
@@ -260,7 +263,8 @@ LocalBanker::setRate(const AccountKey &key)
         this->recordLevel(latencyMs, "setRateLatencyMs");
 
         if (status != 200) {
-            cout << "status: " << status << endl
+            cout << "setRate::" << endl
+                 << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl;
             this->recordHit("setRate.failure");
