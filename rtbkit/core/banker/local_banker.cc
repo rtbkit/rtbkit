@@ -237,9 +237,9 @@ LocalBanker::bid(const AccountKey &key, Amount bidPrice)
     bool canBid = accounts.bid(key.toString() + ":" + accountSuffix, bidPrice);
 
     if (canBid)
-        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".Bid");
+        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Bid");
     else
-        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".noBid");
+        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noBid");
     return canBid;
 }
 
@@ -248,9 +248,9 @@ LocalBanker::win(const AccountKey &key, Amount winPrice)
 {
     bool winAccounted = accounts.win(key.toString() + ":" + accountSuffix, winPrice);
     if (winAccounted)
-        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".Win");
+        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Win");
     else
-        this->recordHit(key.toString() + ":" + accountSuffixNoDot + ".noWin");
+        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noWin");
     return winAccounted;
 
 }
