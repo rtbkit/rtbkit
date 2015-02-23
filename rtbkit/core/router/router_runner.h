@@ -43,6 +43,7 @@ struct RouterRunner {
     float maxBidPrice;
     std::string bankerUri;
     std::string localBankerUri;
+    bool localBankerDebug;
 
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
     int slowModeTolerance;

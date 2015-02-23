@@ -28,7 +28,10 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
             const std::string & accountSuffix);
     
     void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 128, bool tcpNoDelay = false);
+
     void setSpendRate(Amount spendRate);
+    void setDebug(bool debugSetting);
+
     void start();
     void shutdown();
 
@@ -52,6 +55,7 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
     Amount spendRate;
+    bool debug;
 
 private:
     void addAccountImpl(const AccountKey &account);

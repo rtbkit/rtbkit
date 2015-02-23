@@ -22,7 +22,8 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
           accountSuffix(accountSuffix),
           accountSuffixNoDot(accountSuffix),
           accounts(),
-          spendRate(MicroUSD(100000))
+          spendRate(MicroUSD(100000)),
+          debug(false)
 {
     replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', '_');
 }
@@ -68,6 +69,12 @@ void
 LocalBanker::setSpendRate(Amount newSpendRate)
 {
     spendRate = newSpendRate;
+}
+
+void
+LocalBanker::setDebug(bool debugSetting)
+{
+    debug = debugSetting;
 }
 
 void
@@ -283,13 +290,17 @@ LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
     bool canBid = accounts.bid(key.toString() + ":" + accountSuffix, bidPrice);
 
-    this->recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
+    recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
             "account." + key.toString() + ":" + accountSuffixNoDot + ".balance");
 
-    if (canBid)
-        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Bid");
-    else
-        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noBid");
+    (canBid) ? recordHit("Bid") : recordHit("noBid");
+
+    if (debug) {
+        if (canBid)
+            recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Bid");
+        else
+            recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noBid");
+    }
     return canBid;
 }
 
@@ -297,12 +308,16 @@ bool
 LocalBanker::win(const AccountKey &key, Amount winPrice)
 {
     bool winAccounted = accounts.win(key.toString() + ":" + accountSuffix, winPrice);
-    if (winAccounted)
-        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Win");
-    else
-        this->recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noWin");
-    return winAccounted;
 
+    (winAccounted) ? recordHit("Win") : recordHit("noWin");
+
+    if (debug) {
+        if (winAccounted)
+            recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".Win");
+        else
+            recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noWin");
+    }
+    return winAccounted;
 }
 
 } // namespace RTBKIT
