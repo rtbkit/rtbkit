@@ -97,7 +97,8 @@ struct GaugeAggregator : public StatAggregator {
         Outcome      ///< mean, min, max, percentiles, count
     };
 
-    GaugeAggregator(Verbosity  verbosity = Outcome);
+    GaugeAggregator(Verbosity  verbosity = Outcome,
+            std::vector<int> extra = std::vector<int>());
 
     virtual ~GaugeAggregator();
 
@@ -116,6 +117,7 @@ private:
     Verbosity verbosity;
     Date start;  //< Date at which we last cleared the counter
     ML::distribution<float> * volatile values;  //< List of added values
+    std::vector<int> extra;
 };
 
 
