@@ -118,7 +118,7 @@ StatAggregator * createNewLevel()
 
 StatAggregator * createNewOutcome(std::vector<int> percentiles)
 {
-    return new GaugeAggregator(GaugeAggregator::Outcome, percentiles);
+    return new GaugeAggregator(GaugeAggregator::Outcome, std::move(percentiles));
 }
 
 void
