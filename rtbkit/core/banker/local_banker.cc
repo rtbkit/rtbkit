@@ -178,19 +178,13 @@ LocalBanker::spendUpdate()
             this->recordHit("spendUpdate.failure");
         } else {
             this->recordHit("spendUpdate.success");
-            //cout << "status: " << status << endl
-            //     << "body:   " << body << endl;
         }
     };
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::arrayValue);
-//    int i = 0;
     {
         std::lock_guard<std::mutex> guard(this->mutex);
         for (auto it : accounts.accounts) {
-//         cout << "i: " << i++ << "\n"
-//              << "name: " << it.first.toString() << "\n"
-//              << "info: " << it.second.toJson() << endl;
             payload.append(it.second.toJson());
         }
     }
@@ -226,8 +220,15 @@ LocalBanker::reauthorize()
             for ( auto jsonAccount : jsonAccounts ) {
                 auto key = AccountKey(jsonAccount["name"].asString());
                 int64_t newBalance = jsonAccount["balance"].asInt();
-                //cout << "account: " << key.toString() << "\n"
-                //     << "new bal: " << newBalance << endl;
+
+                if (debug) {
+                    string gKey = "account." + key.toString() + ":" + accountSuffixNoDot; 
+                    recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
+                            gKey + ".oldBalance");
+                    recordLevel(newBalance,
+                            gKey + ".newBalance");
+                }
+
                 accounts.updateBalance(key, newBalance);
                 int64_t rate = jsonAccount["rate"].asInt();
                 if (rate != spendRate.value) {
@@ -240,13 +241,9 @@ LocalBanker::reauthorize()
 
     auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     Json::Value payload(Json::arrayValue);
-//    int i = 0;
     {
         std::lock_guard<std::mutex> guard(this->mutex);
         for (auto it : accounts.accounts) {
-//         cout << "i: " << i++ << "\n"
-//              << "name: " << it.first.toString() << "\n"
-//              << "info: " << it.second.toJson() << endl;
             payload.append(it.first.toString());
         }
     }
@@ -289,9 +286,6 @@ bool
 LocalBanker::bid(const AccountKey &key, Amount bidPrice)
 {
     bool canBid = accounts.bid(key.toString() + ":" + accountSuffix, bidPrice);
-
-    recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
-            "account." + key.toString() + ":" + accountSuffixNoDot + ".balance");
 
     (canBid) ? recordHit("Bid") : recordHit("noBid");
 
