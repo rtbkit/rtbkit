@@ -78,18 +78,18 @@ GoAccount::toJson()
 GoRouterAccount::GoRouterAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
-    rate = Amount(MicroUSD(0));
-    balance = Amount(MicroUSD(0));
+    rate = MicroUSD(0);
+    balance = MicroUSD(0);
 }
 
 GoRouterAccount::GoRouterAccount(Json::Value &json)
     : GoBaseAccount(json)
 {
-    if (json.isMember("rate")) rate = Amount(MicroUSD(json["rate"].asInt()));
-    else rate = Amount(MicroUSD(0));
+    if (json.isMember("rate")) rate = MicroUSD(json["rate"].asInt());
+    else rate = MicroUSD(0);
 
-    if (json.isMember("balance")) balance = Amount(MicroUSD(json["balance"].asInt()));
-    else balance = Amount(MicroUSD(0));
+    if (json.isMember("balance")) balance = MicroUSD(json["balance"].asInt());
+    else balance = MicroUSD(0);
 }
 
 bool
@@ -115,7 +115,7 @@ GoPostAuctionAccount::GoPostAuctionAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
     imp = 0;
-    spend = Amount(MicroUSD(0));
+    spend = MicroUSD(0);
 }
 
 GoPostAuctionAccount::GoPostAuctionAccount(Json::Value &json)
@@ -124,8 +124,8 @@ GoPostAuctionAccount::GoPostAuctionAccount(Json::Value &json)
     if (json.isMember("imp")) imp = json["imp"].asInt();
     else imp = 0;
 
-    if (json.isMember("spend")) spend = Amount(MicroUSD(json["spend"].asInt()));
-    else spend = Amount(MicroUSD(0));
+    if (json.isMember("spend")) spend = MicroUSD(json["spend"].asInt());
+    else spend = MicroUSD(0);
 }
 
 bool
@@ -211,7 +211,7 @@ GoAccounts::updateBalance(const AccountKey &key, Amount newBalance)
 Amount
 GoAccounts::getBalance(const AccountKey &key)
 {
-    if (!exists(key)) return Amount(MicroUSD(0));
+    if (!exists(key)) return MicroUSD(0);
     std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
     return account->router->balance;
