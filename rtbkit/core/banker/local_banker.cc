@@ -219,13 +219,13 @@ LocalBanker::reauthorize()
             Json::Value jsonAccounts = Json::parse(body);
             for ( auto jsonAccount : jsonAccounts ) {
                 auto key = AccountKey(jsonAccount["name"].asString());
-                int64_t newBalance = jsonAccount["balance"].asInt();
+                Amount newBalance(MicroUSD(jsonAccount["balance"].asInt()));
 
                 if (debug) {
                     string gKey = "account." + key.toString() + ":" + accountSuffixNoDot; 
-                    recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix),
+                    recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix).value,
                             gKey + ".oldBalance");
-                    recordLevel(newBalance,
+                    recordLevel(newBalance.value,
                             gKey + ".newBalance");
                 }
 

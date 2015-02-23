@@ -28,8 +28,8 @@ struct GoBaseAccount {
 };
 
 struct GoRouterAccount : public GoBaseAccount {
-    std::atomic<int64_t> rate;
-    std::atomic<int64_t> balance;
+    Amount rate;
+    Amount balance;
 
     GoRouterAccount(const AccountKey &key);
     GoRouterAccount(Json::Value &json);
@@ -40,7 +40,7 @@ struct GoRouterAccount : public GoBaseAccount {
 
 struct GoPostAuctionAccount : public GoBaseAccount {
     std::atomic<int64_t> imp;
-    std::atomic<int64_t> spend;
+    Amount spend;
 
     GoPostAuctionAccount(const AccountKey &key);
     GoPostAuctionAccount(Json::Value &jsonAccount);
@@ -75,8 +75,8 @@ struct GoAccounts {
     bool exists(const AccountKey& key);
     void add(const AccountKey&, GoAccountType type);
     void addFromJsonString(std::string json);
-    void updateBalance(const AccountKey &key, int64_t newBalance);
-    int64_t getBalance(const AccountKey &key);
+    void updateBalance(const AccountKey &key, Amount newBalance);
+    Amount getBalance(const AccountKey &key);
     bool bid(const AccountKey &key, Amount bidPrice);
     bool win(const AccountKey &key, Amount winPrice);
     Json::Value toJson();
