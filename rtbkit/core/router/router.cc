@@ -2595,8 +2595,12 @@ configure(const std::string & agent, AgentConfig & config)
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
         {
             //cerr << "got spend account for " << agent << ac << endl;
-            if (exc)
-                logException(exc, "Banker addAccount");
+            try {
+                if (exc)
+                    logException(exc, "Banker addAccount");
+            }
+            catch(ML::Exception const & e) {
+            }
         };
 
     banker->addSpendAccount(config.account, Amount(), onDone);

@@ -344,7 +344,12 @@ doConfigChange(
 
     banker->addSpendAccount(config->account, Amount(),
             [=] (std::exception_ptr error, ShadowAccount && acount) {
-                if(error) logException(error, "Banker addSpendAccount");
+                try {
+                    if(error)
+                        logException(error, "Banker addSpendAccount");
+                }
+                catch (ML::Exception const & e) {
+                }
             });
     if (localBanker) localBanker->addAccount(config->account);
 }
