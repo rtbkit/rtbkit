@@ -319,15 +319,20 @@ OpenRTBBidRequestParser::
 onVideo(OpenRTB::Video & video) {
     
     if(video.mimes.empty()) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.mimes needs to be populated." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) << "br.imp.video.mimes needs to be populated." << endl;
+        video.mimes.push_back(OpenRTB::MimeType("application/octet-stream"));
     }
 
     if(video.linearity.value() < 0 || video.linearity.value() > 2) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::linearity has been set to UNSPECIFIED." << endl;
+        video.linearity.val = -1;
     }
 
     if(video.protocol.value() < 0 || video.protocol.value() > 6) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::protocol has been set to UNSPECIFIED." << endl;
+        video.protocol.val = -1;
     }
 
     if(video.minduration.val < 0) {
