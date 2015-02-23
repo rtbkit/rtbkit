@@ -61,7 +61,7 @@ struct MultiAggregator {
     void record(const std::string & stat,
                 EventType type = ET_COUNT,
                 float value = 1.0,
-                std::initializer_list<int> extra = std::initializer_list<int>());
+                std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     /** Simplest interface: record that a particular event occurred.  The
         stat will record the total count for each second.  Lock-free and

@@ -11,6 +11,7 @@
 #include "jml/stats/distribution.h"
 #include <boost/thread.hpp>
 #include "soa/types/date.h"
+#include "stats_events.h"
 #include <unordered_map>
 #include <map>
 #include <deque>
@@ -98,7 +99,7 @@ struct GaugeAggregator : public StatAggregator {
     };
 
     GaugeAggregator(Verbosity  verbosity = Outcome,
-            std::vector<int> extra = std::vector<int>());
+            std::vector<int> extra = DefaultOutcomePercentiles);
 
     virtual ~GaugeAggregator();
 

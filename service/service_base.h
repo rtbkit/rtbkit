@@ -50,7 +50,7 @@ struct EventService {
                          const char * event,
                          EventType type,
                          float value,
-                         std::initializer_list<int> extra = std::initializer_list<int>()) = 0;
+                         std::initializer_list<int> extra = DefaultOutcomePercentiles) = 0;
 
     virtual void dump(std::ostream & stream) const
     {
@@ -74,7 +74,7 @@ struct NullEventService : public EventService {
                          const char * event,
                          EventType type,
                          float value,
-                         std::initializer_list<int> extra = std::initializer_list<int>());
+                         std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     virtual void dump(std::ostream & stream) const;
 
