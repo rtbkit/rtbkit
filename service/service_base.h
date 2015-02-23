@@ -473,7 +473,7 @@ struct EventRecorder {
     void recordEvent(const char * eventName,
                      EventType type = ET_COUNT,
                      float value = 1.0,
-                     std::initializer_list<int> extra = std::initializer_list<int>()) const
+                     std::initializer_list<int> extra = DefaultOutcomePercentiles) const
     {
         EventService * es = 0;
         if (events_)
