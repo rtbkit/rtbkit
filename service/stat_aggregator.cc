@@ -95,7 +95,7 @@ GaugeAggregator(Verbosity verbosity, std::vector<int> extra)
     , extra(std::move(extra))
 {
     if (verbosity == Outcome)
-        ExcCheck(extra.size() > 0, "Can no construct with empty percentiles");
+        ExcCheck(this->extra.size() > 0, "Can not construct with empty percentiles");
 
     values->reserve(100);
 }
