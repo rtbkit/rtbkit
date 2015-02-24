@@ -80,7 +80,8 @@ NullEventService::
 onEvent(const std::string & name,
         const char * event,
         EventType type,
-        float value)
+        float value,
+        std::initializer_list<int>)
 {
     stats->record(name + "." + event, type, value);
 }
@@ -124,20 +125,21 @@ CarbonEventService::
 onEvent(const std::string & name,
         const char * event,
         EventType type,
-        float value)
+        float value,
+        std::initializer_list<int> extra)
 {
+    std::string stat;
     if (name.empty()) {
-        connector->record(event, type, value);
+        stat = event;
     }
     else {
         size_t l = strlen(event);
-        string s;
-        s.reserve(name.length() + l + 2);
-        s.append(name);
-        s.push_back('.');
-        s.append(event, event + l);
-        connector->record(s, type, value);
+        stat.reserve(name.length() + l + 2);
+        stat.append(name);
+        stat.push_back('.');
+        stat.append(event, event + l);
     }
+    connector->record(stat, type, value, extra);
 }
 
 
@@ -683,6 +685,7 @@ void
 EventRecorder::
 recordEventFmt(EventType type,
                float value,
+               std::initializer_list<int> extra,
                const char * fmt, ...) const
 {
     if (!events_ && (!services_ || !services_->events))  return;
@@ -698,7 +701,7 @@ recordEventFmt(EventType type,
         if (res >= 2048)
             throw ML::Exception("key is too long");
             
-        recordEvent(buf, type, value);
+        recordEvent(buf, type, value, extra);
         va_end(ap);
         return;
     }
