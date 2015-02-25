@@ -25,7 +25,7 @@ struct EventForwarder :
         public Datacratic::MessageLoop
 {
     enum {
-        ConnectionCount = 1 << 10,
+        ConnectionCount = 1 << 7,
         AuctionQueueSize = 1 << 6,
         EventQueueSize = 1 << 8,
     };
@@ -118,7 +118,7 @@ private:
 
         auto cb = std::make_shared<HttpClientCallbacks>(nullptr, nullptr, nullptr, onDone);
 
-        client.post("/v1/" + endpoint, cb, body, RestParams(), RestParams(), 1000);
+        client.post("/v1/" + endpoint, cb, body, RestParams(), RestParams(), 1);
     }
 
     void sendAuction(std::shared_ptr<SubmittedAuctionEvent> auction)
