@@ -196,7 +196,6 @@ initConnections(size_t shard)
 
     LOG(print) << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
-    loop.addSource("PostAuctionService::logger", logger);
 
     auctions.onEvent = std::bind(&PostAuctionService::doAuction, this, _1);
     loop.addSource("PostAuctionService::auctions", auctions);
@@ -307,6 +306,7 @@ PostAuctionService::
 start(std::function<void ()> onStop)
 {
     loop.start(onStop);
+    logger.start();
     monitorProviderClient.start();
     loopMonitor.start();
     matcher->start();
