@@ -382,7 +382,7 @@ struct Launcher
             file << "#!/bin/bash" << std::endl;
             file << std::endl;
             file << "tmux kill-session -t rtb" << std::endl;
-            file << "tmux new-session -d -s rtb '" << bin << "/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " " << filename << "'" << std::endl;
+            file << "tmux new-session -d -s rtb '" << bin << "/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --bin " << bin << " --launch" << " " << filename << "'" << std::endl;
             file << "tmux rename-window 'launcher'" << std::endl;
 
             int i = 0;
