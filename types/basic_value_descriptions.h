@@ -36,7 +36,7 @@ struct DefaultDescription<Datacratic::Id>
             val->val2 == 0 && val->val1 <= std::numeric_limits<int32_t>::max()) {
             context.writeInt(val->val1);
         } else {
-            context.writeString(val->toString());
+            context.writeStringUtf8(Utf8String(val->toString()));
         }
     }
 
