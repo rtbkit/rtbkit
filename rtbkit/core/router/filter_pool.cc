@@ -92,7 +92,7 @@ recordReason(const Data* data, const FilterBase* f, FilterState & state){
              idx = it->second.next(idx + 1))
         {
             const AgentConfig& config = *data->configs[idx].config;
-            events->recordHit("accounts.%s.filter.static.%s.%s",
+            events->recordHit("accounts.%s.filter.static.reasons.%s.%s",
                                config.account.toString('.'),
                                f->name(),
                                it->first);
