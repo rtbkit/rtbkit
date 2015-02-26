@@ -59,12 +59,12 @@ biddableSpots()
 
 FilterState::FilterReasons&
 FilterState::getFilterReasons(){
-    return this->filter_reasons_;
+    return this->filterReasons_;
 }
 
 void
 FilterState::resetFilterReasons(){
-    this->filter_reasons_.clear();
+    this->filterReasons_.clear();
 }
 
 /******************************************************************************/

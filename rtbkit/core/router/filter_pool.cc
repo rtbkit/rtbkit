@@ -82,15 +82,22 @@ recordDiff(const Data* data, const FilterBase* filter, const ConfigSet& diff)
 
 void
 FilterPool::
-recordHitSegment(const Data* data, const FilterBase* f, FilterState & state){
+recordReason(const Data* data, const FilterBase* f, FilterState & state){
 
     FilterState::FilterReasons& reasons = state.getFilterReasons();
     for ( auto it = reasons.begin() ; it != reasons.end(); ++it) {
-        for ( unsigned idx : it->second ){
+
+        for (std::size_t idx = it->second.next();
+             idx < it->second.size();
+             idx = it->second.next(idx + 1))
+        {
             const AgentConfig& config = *data->configs[idx].config;
-            events->recordHit("accounts.%s.filter.static.segment.%s",
-                               config.account.toString('.'), it->first);
+            events->recordHit("accounts.%s.filter.static.%s.%s",
+                               config.account.toString('.'),
+                               f->name(),
+                               it->first);
         }
+
     }
 
 }
@@ -132,10 +139,9 @@ filter(const BidRequest& br, const ExchangeConnector* conn, const ConfigSet& mas
 
         if (sampleStats) {
             ticksStart = recordTime(ticksStart, filter);
-            if ( filter->name() != SegmentsFilter::name ){
-                recordDiff(current, filter, configs ^ filtered);
-            } else {
-                recordHitSegment(current, filter, state);
+            recordDiff(current, filter, configs ^ filtered);
+            if (!state.getFilterReasons().empty()) {
+                recordReason(current, filter, state);
             }
             configs = filtered;
         }

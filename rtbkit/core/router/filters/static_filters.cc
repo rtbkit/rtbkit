@@ -86,15 +86,9 @@ fillFilterReasons(FilterState& state, ConfigSet& beforeFilt,
                   ConfigSet& afterFilt, const std::string & segment) const {
 
     // Some Magic to get all the filtered out configs by this segment.
-    ConfigSet affected = beforeFilt ^ (beforeFilt & afterFilt);
+    FilterState::FilterReasons& reasons = state.getFilterReasons();
+    reasons[segment] = beforeFilt ^ (beforeFilt & afterFilt);
 
-    // Now fill the reasons map with the filtered configs ids.
-    for (std::size_t id = affected.next();
-         id < affected.size(); id = affected.next(id + 1))
-    {
-         FilterState::FilterReasons& reasons = state.getFilterReasons();
-         reasons[segment].push_back(id);
-    }
 }
 
 void

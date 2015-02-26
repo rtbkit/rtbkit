@@ -111,7 +111,7 @@ private:
 
     bool setData(Data*&, std::unique_ptr<Data>&);
     void recordDiff(const Data* data, const FilterBase* f, const ConfigSet& diff);
-    void recordHitSegment(const Data* data, const FilterBase* f, FilterState & state);
+    void recordReason(const Data* data, const FilterBase* f, FilterState & state);
     uint64_t recordTime(uint64_t ticks, const FilterBase* filter);
 
     std::atomic<Data*> data;
