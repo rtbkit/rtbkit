@@ -41,10 +41,10 @@ struct CreativeIdsExchangeFilter
             return false;
         };
 
-        if (spot.ext.isMember("external-ids")) {
-            return doFilter(spot.ext["external-ids"]);
-        } else if (spot.ext.isMember("creative-ids")) {
+        if (spot.ext.isMember("creative-ids")) {
             return doFilter(spot.ext["creative-ids"]);
+        } else if (spot.ext.isMember("external-ids")) {
+            return doFilter(spot.ext["external-ids"]);
         }
 
         ExcCheck(false, "Invalid code path");
