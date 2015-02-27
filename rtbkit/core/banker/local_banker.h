@@ -11,6 +11,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include "soa/service/service_base.h"
 #include "soa/service/http_client.h"
 #include "soa/service/message_loop.h"
 #include "rtbkit/common/currency.h"
@@ -20,15 +21,23 @@
 
 namespace RTBKIT {
 
-struct LocalBanker : public Datacratic::MessageLoop {
+struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     
-    LocalBanker(GoAccountType type, const std::string & accountSuffix);
+    LocalBanker(std::shared_ptr<Datacratic::ServiceProxies> services,
+            GoAccountType type,
+            const std::string & accountSuffix);
     
     void init(const std::string & bankerUrl, double timeout = 1.0, int numConnections = 128, bool tcpNoDelay = false);
+
+    void setSpendRate(Amount spendRate);
+    void setDebug(bool debugSetting);
+
     void start();
     void shutdown();
 
     void addAccount(const AccountKey &account);
+
+    void setRate(const AccountKey &key);
 
     void spendUpdate();
 
@@ -40,10 +49,13 @@ struct LocalBanker : public Datacratic::MessageLoop {
 
     GoAccountType type;
     std::string accountSuffix;
+    std::string accountSuffixNoDot;
     GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
     std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
+    Amount spendRate;
+    bool debug;
 
 private:
     void addAccountImpl(const AccountKey &account);

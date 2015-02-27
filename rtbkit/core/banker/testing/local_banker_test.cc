@@ -13,6 +13,7 @@
 #include "rtbkit/common/account_key.h"
 #include "jml/arch/timers.h"
 #include "soa/types/date.h"
+#include "soa/service/service_base.h"
 #include "rtbkit/common/currency.h"
 
 #include "rtbkit/core/banker/local_banker.h"
@@ -24,8 +25,9 @@ using namespace RTBKIT;
 
 BOOST_AUTO_TEST_CASE( test_local_banker )
 {
-    LocalBanker rBanker(ROUTER, "router");
-    LocalBanker pBanker(POST_AUCTION, "pal");
+    auto proxies = make_shared<ServiceProxies>();
+    LocalBanker rBanker(proxies, ROUTER, "router");
+    LocalBanker pBanker(proxies, POST_AUCTION, "pal");
     rBanker.init("http://127.0.0.1:27890");
     pBanker.init("http://127.0.0.1:27890");
     rBanker.start();

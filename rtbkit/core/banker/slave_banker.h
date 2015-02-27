@@ -351,8 +351,8 @@ public:
     static Logging::Category trace;
     static Logging::Category error;
 
-private:
     std::string spendRate;
+private:
     double syncRate;
     bool batched;
 

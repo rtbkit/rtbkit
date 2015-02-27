@@ -52,6 +52,7 @@ RouterRunner() :
     logAuctions(false),
     logBids(false),
     maxBidPrice(40),
+    localBankerDebug(false),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
@@ -98,7 +99,9 @@ doOptions(int argc, char ** argv,
         ("analytics-connections", value<int>(&analyticsConnections),
          "Number of connections for the analytics publisher.")
         ("local-banker", value<string>(&localBankerUri),
-         "address of where the local banker can be found.");
+         "address of where the local banker can be found.")
+        ("local-banker-debug", bool_switch(&localBankerDebug),
+         "enable local banker debug for more precise tracking by account");
 
     options_description all_opt = opts;
     all_opt
@@ -166,8 +169,11 @@ init()
 
     banker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
-        localBanker = make_shared<LocalBanker>(ROUTER, router->serviceName());
+        localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
+        localBanker->setDebug(localBankerDebug);
+        auto spendRate = Amount::parse(bankerArgs.spendRate);
+        localBanker->setSpendRate(spendRate);
         router->setLocalBanker(localBanker);
     }
 

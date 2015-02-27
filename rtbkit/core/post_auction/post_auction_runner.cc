@@ -44,7 +44,8 @@ PostAuctionRunner() :
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
     analyticsOn(false),
-    analyticsConnections(1)
+    analyticsConnections(1),
+    localBankerDebug(false)
 {
 }
 
@@ -76,7 +77,9 @@ doOptions(int argc, char ** argv,
         ("forward-auctions", value<std::string>(&forwardAuctionsUri),
          "When provided the PAL will forward all auctions to the given URI.")
         ("local-banker", value<string>(&localBankerUri),
-         "address of where the local banker can be found.");
+         "address of where the local banker can be found.")
+        ("local-banker-debug", bool_switch(&localBankerDebug),
+         "enable local banker debug for more precise tracking by account");
 
     options_description all_opt = opts;
     all_opt
@@ -125,8 +128,9 @@ init()
 
     banker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
-        localBanker = make_shared<LocalBanker>(POST_AUCTION, postAuctionLoop->serviceName());
+        localBanker = make_shared<LocalBanker>(proxies, POST_AUCTION, postAuctionLoop->serviceName());
         localBanker->init(localBankerUri);
+        localBanker->setDebug(localBankerDebug);
         postAuctionLoop->setLocalBanker(localBanker);
     }
 

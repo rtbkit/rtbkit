@@ -40,6 +40,7 @@ struct PostAuctionRunner {
 
     std::string forwardAuctionsUri;
     std::string localBankerUri;
+    bool localBankerDebug;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
