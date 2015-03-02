@@ -1,0 +1,186 @@
+/* epoll_loop.cc
+   Wolfgang Sourdeau, 25 February 2015
+   Copyright (c) 2015 Datacratic.  All rights reserved.
+
+   An alternative event loop to Epoller.
+*/
+
+#include <string>
+
+#include "jml/utils/exc_assert.h"
+#include "epoll_loop.h"
+
+using namespace std;
+using namespace Datacratic;
+
+
+EpollLoop::
+EpollLoop(const OnException & onException)
+    : AsyncEventSource(),
+      epollFd_(-1),
+      numFds_(0),
+      onException_(onException)
+{
+    epollFd_ = ::epoll_create(666);
+    if (epollFd_ == -1)
+        throw ML::Exception(errno, "epoll_create");
+}
+
+EpollLoop:: 
+~EpollLoop()
+{
+    closeEpollFd();
+}
+     
+bool
+EpollLoop::
+processOne()
+{
+    struct epoll_event events[numFds_];
+
+    if (numFds_ > 0) {
+        try {
+            int res = epoll_wait(epollFd_, events, numFds_, 0);
+            if (res == -1) {
+                throw ML::Exception(errno, "epoll_wait");
+            }
+
+            for (int i = 0; i < res; i++) {
+                auto * fn = static_cast<EpollCallback *>(events[i].data.ptr);
+                (*fn)(events[i]);
+            }
+
+            for (auto & unreg: delayedUnregistrations_) {
+                auto cb = move(unreg.second);
+                unregisterFdCallback(unreg.first, false, cb);
+            }
+        }
+        catch (const std::exception & exc) {
+            handleException();
+        }
+    }
+
+    return false;
+}
+
+void
+EpollLoop::
+closeEpollFd()
+{
+    if (epollFd_ != -1) {
+        ::close(epollFd_);
+        epollFd_ = -1;
+    }
+}
+
+void
+EpollLoop::
+performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
+{
+    if (epollFd_ == -1)
+        return;
+
+    struct epoll_event event;
+    if (oneshot) {
+        event.events = EPOLLONESHOT;
+    }
+    else {
+        event.events = 0;
+    }
+    if (readerFd) {
+        event.events |= EPOLLIN;
+    }
+    if (writerFd) {
+        event.events |= EPOLLOUT;
+    }
+
+    EpollCallback & cb = fdCallbacks_.at(fd);
+    event.data.ptr = &cb;
+
+    int operation = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
+
+    int res = epoll_ctl(epollFd_, operation, fd, &event);
+    if (res == -1) {
+        string message = (string("epoll_ctl:")
+                          + " modify=" + to_string(modify)
+                          + " fd=" + to_string(fd)
+                          + " readerFd=" + to_string(readerFd)
+                          + " writerFd=" + to_string(writerFd));
+        throw ML::Exception(errno, message);
+    }
+    if (!modify) {
+        numFds_++;
+    }
+}
+
+void
+EpollLoop::
+removeFd(int fd)
+{
+    if (epollFd_ == -1)
+        return;
+
+    int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
+    if (res == -1) {
+        throw ML::Exception(errno, "epoll_ctl DEL " + to_string(fd));
+    }
+    if (numFds_ == 0) {
+        throw ML::Exception("inconsistent number of fds registered");
+    }
+    numFds_--;
+}
+
+void
+EpollLoop::
+registerFdCallback(int fd, const EpollCallback & cb)
+{
+    if (delayedUnregistrations_.count(fd) == 0) {
+        if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
+            throw ML::Exception("callback already registered for fd");
+        }
+    }
+    else {
+        delayedUnregistrations_.erase(fd);
+    }
+    fdCallbacks_[fd] = cb;
+}
+
+void
+EpollLoop::
+unregisterFdCallback(int fd, bool delayed,
+                     const OnUnregistered & onUnregistered)
+{
+    if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
+        throw ML::Exception("callback not registered for fd");
+    }
+    if (delayed) {
+        ExcAssert(delayedUnregistrations_.count(fd) == 0);
+        delayedUnregistrations_[fd] = onUnregistered;
+    }
+    else {
+        delayedUnregistrations_.erase(fd);
+        fdCallbacks_.erase(fd);
+        if (onUnregistered) {
+            onUnregistered();
+        }
+    }
+}
+
+void
+EpollLoop::
+handleException()
+{
+    onException(current_exception());
+}
+
+void
+EpollLoop::
+onException(const exception_ptr & excPtr)
+{
+    if (onException_) {
+        onException(excPtr);
+    }
+    else {
+        rethrow_exception(excPtr);
+    }
+}
