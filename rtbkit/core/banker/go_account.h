@@ -75,6 +75,7 @@ struct GoAccounts {
     bool exists(const AccountKey& key);
     void add(const AccountKey&, GoAccountType type);
     void addFromJsonString(std::string json);
+    void replaceFromJsonString(std::string json);
     void updateBalance(const AccountKey &key, Amount newBalance);
     Amount getBalance(const AccountKey &key);
     bool bid(const AccountKey &key, Amount bidPrice);

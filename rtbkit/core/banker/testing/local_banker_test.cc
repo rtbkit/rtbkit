@@ -83,6 +83,12 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
 
     pBanker.spendUpdate();
 
+    auto acc = pBanker.accounts.accounts[AccountKey("test10:account10:pal")];
+    acc.pal->imp = 0;
+    pBanker.accounts.accounts[AccountKey("test10:account10:pal")] = acc;
+
+    pBanker.spendUpdate();
+
     ML::sleep(2.0);
 
     rBanker.shutdown();

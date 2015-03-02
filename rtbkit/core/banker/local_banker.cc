@@ -155,6 +155,42 @@ LocalBanker::addAccountImpl(const AccountKey &key)
 }
 
 void
+LocalBanker::replaceAccount(const AccountKey &key)
+{
+    this->recordHit("updateOutOfSync.attempts");
+    const Date sentTime = Date::now();
+
+    auto onResponse = [&, key, sentTime] (const HttpRequest &req,
+            HttpClientError error,
+            int status,
+            string && headers,
+            string && body)
+    {
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
+        this->recordLevel(latencyMs, "addAccountLatencyMs");
+
+        if (status != 200) {
+            cout << "addAccount::" << endl
+                 << "status: " << status << endl
+                 << "error:  " << error << endl
+                 << "body:   " << body << endl
+                 << "url:    " << req.url_ << endl
+                 << "cont_str: " << req.content_.str << endl;
+            this->recordHit("updateOutOfSync.failure");
+        } else {
+            cout << body << endl;
+            std::lock_guard<std::mutex> guard(this->mutex);
+            accounts.replaceFromJsonString(body);
+            this->recordHit("updateOutOfSync.success");
+        }
+    };
+    auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    cout << "calling get banker account: " << key.toString() << endl;
+    httpClient->get("/accounts/" + key.toString(), cbs, {}, {}, 1);
+}
+
+void
 LocalBanker::spendUpdate()
 {
     const Date sentTime = Date::now();
@@ -177,6 +213,16 @@ LocalBanker::spendUpdate()
                  << "body:   " << body << endl;
             this->recordHit("spendUpdate.failure");
         } else {
+            Json::Value result = Json::parse(body);
+            for ( auto it = result.begin(); it != result.end(); it++) {
+                string key = it.key().asString();
+                string value = (*it).asString();
+                if (value != "no need" && value != "success") {
+                    cout << key << ": " << value << endl;
+                    cout << "will reload from redis" << key << endl;
+                    replaceAccount(AccountKey(key));
+                }
+            }
             this->recordHit("spendUpdate.success");
         }
     };

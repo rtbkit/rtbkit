@@ -59,6 +59,7 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
 
 private:
     void addAccountImpl(const AccountKey &account);
+    void replaceAccount(const AccountKey &account);
 };
 
 } // namespace RTBKIT
