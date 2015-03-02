@@ -36,13 +36,34 @@ bool
 EpollLoop::
 processOne()
 {
-    struct epoll_event events[numFds_];
+    loop(-1, 0);
+
+    return false;
+}
+
+void
+EpollLoop::
+loop(int maxEvents, int timeout)
+{
+    ExcAssert(maxEvents != 0);
 
     if (numFds_ > 0) {
+        if (maxEvents == -1) {
+            maxEvents = numFds_;
+        }
+        struct epoll_event events[maxEvents];
+
         try {
-            int res = epoll_wait(epollFd_, events, numFds_, 0);
-            if (res == -1) {
-                throw ML::Exception(errno, "epoll_wait");
+            int res;
+            while (true) {
+                res = epoll_wait(epollFd_, events, maxEvents, timeout);
+                if (res == -1) {
+                    if (errno == EINTR) {
+                        continue;
+                    }
+                    throw ML::Exception(errno, "epoll_wait");
+                }
+                break;
             }
 
             for (int i = 0; i < res; i++) {
@@ -59,8 +80,6 @@ processOne()
             handleException();
         }
     }
-
-    return false;
 }
 
 void
@@ -79,6 +98,7 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
 {
     if (epollFd_ == -1)
         return;
+    ExcAssert(fd > -1);
 
     struct epoll_event event;
     if (oneshot) {
@@ -108,6 +128,7 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
                           + " writerFd=" + to_string(writerFd));
         throw ML::Exception(errno, message);
     }
+
     if (!modify) {
         numFds_++;
     }
@@ -115,10 +136,11 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
 
 void
 EpollLoop::
-removeFd(int fd)
+removeFd(int fd, bool unregisterCallback)
 {
     if (epollFd_ == -1)
         return;
+    ExcAssert(fd > -1);
 
     int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
     if (res == -1) {
@@ -128,6 +150,10 @@ removeFd(int fd)
         throw ML::Exception("inconsistent number of fds registered");
     }
     numFds_--;
+
+    if (unregisterCallback) {
+        unregisterFdCallback(fd, true);
+    }
 }
 
 void

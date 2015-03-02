@@ -4,7 +4,7 @@
 
    An alternative event loop to Epoller.
 
-   While not a complete replacement, this class provides most of the
+   Although not a complete replacement, this class provides most of the
    functionality of Epoller, whilst providing a simpler event handling
    mechanism and enabling write events on registered file descriptors. Both
    should ultimately be merged.
@@ -54,18 +54,31 @@ struct EpollLoop : public AsyncEventSource
 
     virtual bool processOne();
 
+    /* Perform a single loop, where "maxEvents" is the maximum numbers of
+     * events to handle (-1 for unlimited), and "timeout" the value passed as
+     * timeout to epoll_wait */
+    void loop(int maxEvents, int timeout);
+
     /* Register a file descriptor into the internal epoll queue for reading
        and/or writing. If "callback" is specified and not null, it will be
        registered for the given file descriptor. In any case the correponding
        callback *must* be registered beforehand. */
-    void addFd(int fd, bool readerFd, bool writerFd)
+    void addFd(int fd, bool readerFd, bool writerFd,
+               const EpollCallback & callback = nullptr)
     {
+        if (callback) {
+            registerFdCallback(fd, callback);
+        }
         performAddFd(fd, readerFd, writerFd, false, false);
     }
 
     /* Same as addFd, with the EPOLLONESHOT flag. */
-    void addFdOneShot(int fd, bool readerFd, bool writerFd)
+    void addFdOneShot(int fd, bool readerFd, bool writerFd,
+                      const EpollCallback & callback = nullptr)
     {
+        if (callback) {
+            registerFdCallback(fd, callback);
+        }
         performAddFd(fd, readerFd, writerFd, false, true);
     }
 
@@ -80,7 +93,7 @@ struct EpollLoop : public AsyncEventSource
     /* Remove a file descriptor from the internal epoll queue. If
      * "unregisterCallback" is specified, "unregisterFdCallback" will be
      * specified on the given fd, in delayed mode. */
-    void removeFd(int fd);
+    void removeFd(int fd, bool unregisterCallback = false);
 
     /* Associate a callback with a file descriptor for future epoll
        operations. */
