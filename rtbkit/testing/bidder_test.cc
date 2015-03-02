@@ -64,11 +64,11 @@ BOOST_AUTO_TEST_CASE( bidder_http_test )
             [&](Json::Value const &json)
         {
             // Since the FilterRegistry is shared amongst the routers,
-            // the ExternalIdsCreativeExchangeFilter will also be added
+            // the CreativeIdsExchangeFilter will also be added
             // to the upstream stack FilterPool. Thus we remove it before
             // starting the MockExchange to avoid being filtered
             upstreamStack.services.router->filters.removeFilter(
-                ExternalIdsCreativeExchangeFilter::name);
+                CreativeIdsExchangeFilter::name);
 
             auto proxies = std::make_shared<ServiceProxies>();
             MockExchange mockExchange(proxies);
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE( bidder_http_test_nobid )
             [&](Json::Value const &json)
         {
             upstreamStack.services.router->filters.removeFilter(
-                ExternalIdsCreativeExchangeFilter::name);
+                CreativeIdsExchangeFilter::name);
 
             auto proxies = std::make_shared<ServiceProxies>();
             MockExchange mockExchange(proxies);
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE( multi_bidder_test )
                               100,
                               [&](const Json::Value &json) {
             upstreamStack.services.router->filters.removeFilter(
-                ExternalIdsCreativeExchangeFilter::name);
+                CreativeIdsExchangeFilter::name);
 
             upstreamStack.postConfig("sample_http_config", httpAgentConfig);
 
