@@ -21,6 +21,7 @@ struct CreativeIdsExchangeFilter
 
         auto doFilter = [&](const Json::Value& value) -> bool {
             using std::find_if;  using std::begin;  using std::end;
+            using std::stoi;
             if (value.isArray()) {
                 return find_if(begin(value), end(value), [&](const Json::Value &val) {
                      return val.isIntegral() && val.asInt() == config.externalId;
@@ -29,15 +30,22 @@ struct CreativeIdsExchangeFilter
             else if (value.isObject()) {
                 for (auto it = value.begin(), end = value.end(); it != end; ++it) {
                     const auto& key = it.key();
-                    if (key.isIntegral() && key.asInt() == config.externalId) {
-                        const auto& crids = *it;
-                        return find_if(crids.begin(), crids.end(), [&](const Json::Value& value) {
-                            return value.isIntegral() && value.asInt() == creative.id;
-                        }) != crids.end();
+                    try {
+                        const int id = stoi(key.asString());
+                        if (id == config.externalId) {
+                            const auto& crids = *it;
+                            return find_if(crids.begin(), crids.end(), [&](const Json::Value& value) {
+                                return value.isIntegral() && value.asInt() == creative.id;
+                            }) != crids.end();
+                        }
+                    } catch (const std::invalid_argument&) {
+                        return false;
                     }
                 }
             }
-            ExcCheck(false, "Invalid code path");
+            else {
+                ExcCheck(false, "Invalid code path");
+            }
             return false;
         };
 
@@ -47,7 +55,7 @@ struct CreativeIdsExchangeFilter
             return doFilter(spot.ext["external-ids"]);
         }
 
-        ExcCheck(false, "Invalid code path");
+        return false;
     }
 
 };
