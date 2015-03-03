@@ -200,6 +200,22 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
 }
 
 void
+GoAccounts::replaceFromJsonString(std::string jsonAccount)
+{
+    Json::Value json = Json::parse(jsonAccount);
+    if (json.isMember("type") && json.isMember("name")) {
+        string name = json["name"].asString();
+        const AccountKey key(name);
+
+        std::lock_guard<std::mutex> guard(this->mutex);
+        GoAccount account(json);
+        accounts[key] = account;
+    } else {
+        cout << "error: type or name not parsed" << endl;
+    }
+}
+
+void
 GoAccounts::updateBalance(const AccountKey &key, Amount newBalance)
 {
     if (!exists(key)) return;
