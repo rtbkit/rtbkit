@@ -2083,6 +2083,10 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                             bid.price.toString().c_str(),
                             (double)bid.priority));
 
+        std::string meta;
+        if (!bid.ext.isNull()) meta = bid.ext.toStringNoNewLine();
+        else meta = message.meta;
+
         Auction::Response response(
                 Auction::Price(bid.price, bid.priority),
                 creative.id,
@@ -2090,7 +2094,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 config.test,
                 agent,
                 bids,
-                message.meta,
+                meta,
                 info.config,
                 config.visitChannels,
                 bid.creativeIndex,

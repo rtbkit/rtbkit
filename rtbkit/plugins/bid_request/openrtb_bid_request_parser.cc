@@ -21,6 +21,8 @@ namespace RTBKIT {
 
     static DefaultDescription<OpenRTB::BidRequest> desc;
 
+namespace { const char* DefaultVersion = "2.2"; }
+
 std::unique_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
 openRTBBidRequestParserFactory(const std::string & version) 
@@ -718,6 +720,21 @@ onDeal(OpenRTB::Deal & deal) {
 void
 OpenRTBBidRequestParser2point2::
 onPMP(OpenRTB::PMP & pmp) {
+}
+
+namespace {
+
+struct AtInit {
+    AtInit()
+    {
+        auto parser = [](const std::string& request) {
+            auto parser = OpenRTBBidRequestParser::openRTBBidRequestParserFactory(DefaultVersion);
+            return parser->parseBidRequest(request, "", "");
+        };
+        PluginInterface<BidRequest>::registerPlugin("openrtb", parser);
+    }
+} atInit;
+
 }
 
 } // namespace RTBKIT

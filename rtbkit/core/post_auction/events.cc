@@ -191,6 +191,7 @@ MatchedCampaignEvent(std::string label, const FinishedInfo& info) :
     account(info.bid.account),
     requestStr(info.bidRequestStr),
     requestStrFormat(info.bidRequestStrFormat),
+    response(info.bid),
     bid(info.bidToJson()),
     win(info.winToJson()),
     campaignEvents(info.campaignEvents.toJson()),
