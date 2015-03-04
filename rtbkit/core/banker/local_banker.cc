@@ -132,10 +132,14 @@ LocalBanker::addAccountImpl(const AccountKey &key)
             this->recordHit("addAccount.failure");
         } else {
             cout << body << endl;
-            std::lock_guard<std::mutex> guard(this->mutex);
-            accounts.addFromJsonString(body);
-            if (uninitializedAccounts.find(key) != uninitializedAccounts.end())
-                uninitializedAccounts.erase(key);
+            bool added = false;
+            {
+                std::lock_guard<std::mutex> guard(this->mutex);
+                added = accounts.addFromJsonString(body);
+                if (uninitializedAccounts.find(key) != uninitializedAccounts.end())
+                    uninitializedAccounts.erase(key);
+            }
+            if (!added) this->recordHit("addAccount.error");
             this->recordHit("addAccount.success");
         }
     };
@@ -180,8 +184,12 @@ LocalBanker::replaceAccount(const AccountKey &key)
             this->recordHit("updateOutOfSync.failure");
         } else {
             cout << body << endl;
-            std::lock_guard<std::mutex> guard(this->mutex);
-            accounts.replaceFromJsonString(body);
+            bool replaced = false;
+            {
+                std::lock_guard<std::mutex> guard(this->mutex);
+                replaced = accounts.replaceFromJsonString(body);
+            }
+            if (!replaced) this->recordHit("replaceAccount.error");
             this->recordHit("updateOutOfSync.success");
         }
     };
@@ -213,7 +221,14 @@ LocalBanker::spendUpdate()
                  << "body:   " << body << endl;
             this->recordHit("spendUpdate.failure");
         } else {
-            Json::Value result = Json::parse(body);
+            Json::Value result;
+            try {
+                result = Json::parse(body);
+            } catch (const std::exception & exc) {
+                cout << "spendUpdate response json parsing error:\n" << body << endl;
+                this->recordHit("spendUpdate.jsonParsingError");
+                return;
+            }
             for ( auto it = result.begin(); it != result.end(); it++) {
                 string key = it.key().asString();
                 string value = (*it).asString();
@@ -262,7 +277,14 @@ LocalBanker::reauthorize()
                  << "cont_str: " << req.content_.str << endl;
             this->recordHit("reauthorize.failure");
         } else {
-            Json::Value jsonAccounts = Json::parse(body);
+            Json::Value jsonAccounts;
+            try {
+                jsonAccounts = Json::parse(body);
+            } catch (const std::exception & exc) {
+                cout << "reauthorize response json parsing error:\n" << body << endl;
+                this->recordHit("reautorize.jsonParsingError");
+                return;
+            }
             for ( auto jsonAccount : jsonAccounts ) {
                 auto key = AccountKey(jsonAccount["name"].asString());
                 Amount newBalance(MicroUSD(jsonAccount["balance"].asInt()));

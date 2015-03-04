@@ -181,28 +181,42 @@ GoAccounts::add(const AccountKey &key, GoAccountType type)
     accounts.insert( pair<AccountKey, GoAccount>(key, GoAccount(key, type)) );
 }
 
-void
+bool
 GoAccounts::addFromJsonString(std::string jsonAccount)
 {
-    Json::Value json = Json::parse(jsonAccount);
+    Json::Value json;
+    try {
+        json = Json::parse(jsonAccount);
+    } catch (const std::exception & exc) {
+        cout << "addFromJsonString response json parsing error:\n" << jsonAccount << endl;
+        return false;
+    }
     if (json.isMember("type") && json.isMember("name")) {
         string name = json["name"].asString();
         const AccountKey key(name);
-        if (exists(key)) return;
+        if (exists(key)) return true;
 
         std::lock_guard<std::mutex> guard(this->mutex);
         GoAccount account(json);
         accounts.insert( pair<AccountKey, GoAccount>(key, account) );
         //cout << "account in map: " << accounts[key].toJson() << endl;
+        return true;
     } else {
         cout << "error: type or name not parsed" << endl;
+        return false;
     }
 }
 
-void
+bool
 GoAccounts::replaceFromJsonString(std::string jsonAccount)
 {
-    Json::Value json = Json::parse(jsonAccount);
+    Json::Value json;
+    try {
+        json = Json::parse(jsonAccount);
+    } catch (const std::exception & exc) {
+        cout << "replaceFromJsonString response json parsing error:\n" << jsonAccount << endl;
+        return false;
+    }
     if (json.isMember("type") && json.isMember("name")) {
         string name = json["name"].asString();
         const AccountKey key(name);
@@ -210,8 +224,10 @@ GoAccounts::replaceFromJsonString(std::string jsonAccount)
         std::lock_guard<std::mutex> guard(this->mutex);
         GoAccount account(json);
         accounts[key] = account;
+        return true;
     } else {
         cout << "error: type or name not parsed" << endl;
+        return false;
     }
 }
 
