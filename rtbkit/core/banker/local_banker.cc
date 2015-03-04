@@ -225,7 +225,8 @@ LocalBanker::spendUpdate()
             try {
                 result = Json::parse(body);
             } catch (const std::exception & exc) {
-                cout << "spendUpdate response json parsing error:\n" << body << endl;
+                cout << "spendUpdate response json parsing error:\n"
+                    << body << "\n" << exc.what() << endl;
                 this->recordHit("spendUpdate.jsonParsingError");
                 return;
             }
@@ -281,7 +282,8 @@ LocalBanker::reauthorize()
             try {
                 jsonAccounts = Json::parse(body);
             } catch (const std::exception & exc) {
-                cout << "reauthorize response json parsing error:\n" << body << endl;
+                cout << "reauthorize response json parsing error:\n"
+                    << body << "\n" << exc.what() << endl;
                 this->recordHit("reautorize.jsonParsingError");
                 return;
             }

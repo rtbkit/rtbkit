@@ -188,7 +188,8 @@ GoAccounts::addFromJsonString(std::string jsonAccount)
     try {
         json = Json::parse(jsonAccount);
     } catch (const std::exception & exc) {
-        cout << "addFromJsonString response json parsing error:\n" << jsonAccount << endl;
+        cout << "addFromJsonString response json parsing error:\n"
+            << jsonAccount << "\n" << exc.what() << endl;
         return false;
     }
     if (json.isMember("type") && json.isMember("name")) {
@@ -214,7 +215,8 @@ GoAccounts::replaceFromJsonString(std::string jsonAccount)
     try {
         json = Json::parse(jsonAccount);
     } catch (const std::exception & exc) {
-        cout << "replaceFromJsonString response json parsing error:\n" << jsonAccount << endl;
+        cout << "replaceFromJsonString response json parsing error:\n"
+            << jsonAccount << "\n" << exc.what() << endl;
         return false;
     }
     if (json.isMember("type") && json.isMember("name")) {
