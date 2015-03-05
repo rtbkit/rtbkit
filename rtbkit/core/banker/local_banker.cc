@@ -23,6 +23,10 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
           accountSuffixNoDot(accountSuffix),
           accounts(),
           spendRate(MicroUSD(100000)),
+          reauthorizeInProgress(false),
+          reauthorizeSkipped(0),
+          spendUpdateInProgress(false),
+          spendUpdateSkipped(0),
           debug(false)
 {
     replace(accountSuffixNoDot.begin(), accountSuffixNoDot.end(), '.', '_');
@@ -201,6 +205,17 @@ LocalBanker::replaceAccount(const AccountKey &key)
 void
 LocalBanker::spendUpdate()
 {
+    if (spendUpdateInProgress) {
+        this->recordHit("spendUpdate.inProgress");
+        spendUpdateSkipped++;
+        if (spendUpdateSkipped > 3) {
+            this->recordHit("spendUpdate.forceRetry");
+        } else {
+            return;
+        }
+    }
+    spendUpdateInProgress = true;
+    spendUpdateSkipped = 0;
     const Date sentTime = Date::now();
     this->recordHit("spendUpdate.attempt");
 
@@ -210,6 +225,7 @@ LocalBanker::spendUpdate()
             string && headers,
             string && body)
     {
+        spendUpdateInProgress = false;
         const Date recieveTime = Date::now();
         double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
         this->recordLevel(latencyMs, "spendUpdateLatencyMs");
@@ -250,12 +266,23 @@ LocalBanker::spendUpdate()
             payload.append(it.second.toJson());
         }
     }
-    httpClient->post("/spendupdate", cbs, payload, {}, {}, 0.5);
+    httpClient->post("/spendupdate", cbs, payload, {}, {}, 1);
 }
 
 void
 LocalBanker::reauthorize()
 {
+    if (reauthorizeInProgress) {
+        this->recordHit("reauthorize.inProgress");
+        reauthorizeSkipped++;
+        if (reauthorizeSkipped > 3) {
+            this->recordHit("reauthorize.forceRetry");
+        } else {
+            return;
+        }
+    }
+    reauthorizeInProgress = true;
+    reauthorizeSkipped = 0;
     const Date sentTime = Date::now();
     this->recordHit("reauthorize.attempt");
 
@@ -265,6 +292,7 @@ LocalBanker::reauthorize()
             string && headers,
             string && body)
     {
+        reauthorizeInProgress = false;
         const Date recieveTime = Date::now();
         double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
         this->recordLevel(latencyMs, "reauthorizeLatencyMs");
