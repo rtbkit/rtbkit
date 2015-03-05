@@ -123,7 +123,7 @@ private:
     std::string adserverErrorPath;
     Format adserverErrorFormat;
 
-    void submitBids(AgentBids &info, size_t impressionsCount);
+    void submitBids(AgentBids &info);
 
     bool prepareRequest(OpenRTB::BidRequest &request,
                         const RTBKIT::BidRequest &originalRequest,
