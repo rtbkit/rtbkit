@@ -55,6 +55,10 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
     Amount spendRate;
+    std::atomic<bool> reauthorizeInProgress;
+    std::atomic<int> reauthorizeSkipped;
+    std::atomic<bool> spendUpdateInProgress;
+    std::atomic<int> spendUpdateSkipped;
     bool debug;
 
 private:

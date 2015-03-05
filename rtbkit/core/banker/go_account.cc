@@ -225,7 +225,11 @@ GoAccounts::replaceFromJsonString(std::string jsonAccount)
 
         std::lock_guard<std::mutex> guard(this->mutex);
         GoAccount account(json);
-        accounts[key] = account;
+        if (account.type == POST_AUCTION &&
+                (account.pal->imp > accounts[key].pal->imp ||
+                account.pal->spend > accounts[key].pal->spend)) {
+            accounts[key] = account;
+        }
         return true;
     } else {
         cout << "error: type or name not parsed" << endl;
