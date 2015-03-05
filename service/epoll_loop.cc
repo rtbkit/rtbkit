@@ -204,7 +204,7 @@ EpollLoop::
 onException(const exception_ptr & excPtr)
 {
     if (onException_) {
-        onException(excPtr);
+        onException_(excPtr);
     }
     else {
         rethrow_exception(excPtr);
