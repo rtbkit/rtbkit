@@ -90,9 +90,9 @@ read(const std::string & prefix)
 /*****************************************************************************/
 
 GaugeAggregator::
-GaugeAggregator(Verbosity verbosity, std::vector<int> extra)
+GaugeAggregator(Verbosity verbosity, const std::vector<int>& extra)
     : verbosity(verbosity), values(new ML::distribution<float>())
-    , extra(std::move(extra))
+    , extra(extra)
 {
     if (verbosity == Outcome)
         ExcCheck(this->extra.size() > 0, "Can not construct with empty percentiles");
