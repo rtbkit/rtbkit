@@ -332,6 +332,13 @@ setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
 
 void
 Router::
+setGoBankerCampaigns(const unordered_set<string> & campaigns)
+{
+    goBankerCampaigns = campaigns;
+}
+
+void
+Router::
 bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
@@ -2057,6 +2064,9 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             bool goAuthorized = localBanker->bid(config.account, price);
             if (authorized != goAuthorized) {
                 recordHit("localBanker.differentBidOutcome");
+            }
+            if (goBankerCampaigns.find(config.account[0]) != goBankerCampaigns.end()) {
+                authorized = goAuthorized;
             }
         }
 
