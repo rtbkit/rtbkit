@@ -53,7 +53,7 @@ bool
 GoAccount::win(Amount winPrice)
 {
     if (type == POST_AUCTION) return pal->win(winPrice);
-    else throw ML::Exception("GoAccounts::updateBalance: attempt update on non ROUTER account");
+    else throw ML::Exception("GoAccounts::win: attempt win on non POST_AUCTION account");
     return false;
 }
 
@@ -90,6 +90,15 @@ GoRouterAccount::GoRouterAccount(Json::Value &json)
 
     if (json.isMember("balance")) balance = MicroUSD(json["balance"].asInt());
     else balance = MicroUSD(0);
+}
+
+Amount
+GoRouterAccount::updateBalance(const Amount & newBalance)
+{
+    Amount spent = previousBalance - balance;
+    balance = newBalance;
+    previousBalance = newBalance;
+    return spent;
 }
 
 bool
@@ -237,13 +246,13 @@ GoAccounts::replaceFromJsonString(std::string jsonAccount)
     }
 }
 
-void
-GoAccounts::updateBalance(const AccountKey &key, Amount newBalance)
+Amount
+GoAccounts::updateBalance(const AccountKey &key, const Amount & newBalance)
 {
-    if (!exists(key)) return;
+    if (!exists(key)) return MicroUSD(0);
     std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
-    account->router->balance = newBalance;
+    return account->router->updateBalance(newBalance);
 }
 
 Amount
