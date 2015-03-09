@@ -332,6 +332,13 @@ setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
 
 void
 Router::
+setGoBankerCampaigns(const unordered_set<string> & campaigns)
+{
+    goBankerCampaigns = campaigns;
+}
+
+void
+Router::
 bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
@@ -2058,6 +2065,9 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             if (authorized != goAuthorized) {
                 recordHit("localBanker.differentBidOutcome");
             }
+            if (goBankerCampaigns.find(config.account[0]) != goBankerCampaigns.end()) {
+                authorized = goAuthorized;
+            }
         }
 
         if (!authorized || failBid(budgetErrorRate))
@@ -2138,7 +2148,9 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             else if (localResult.val == Auction::WinLoss::INVALID)
                 ++info.stats->invalid;
 
-            banker->cancelBid(config.account, auctionKey);
+            if (!localBanker || goBankerCampaigns.find(config.account[0]) == goBankerCampaigns.end()) {
+                banker->cancelBid(config.account, auctionKey);
+            }
 
             BidStatus status;
             switch (localResult.val) {
@@ -2300,7 +2312,9 @@ doSubmitted(std::shared_ptr<Auction> auction)
             ML::Call_Guard guard
                 ([&] ()
                  {
-                     banker->cancelBid(response.agentConfig->account, auctionKey);
+                     if (!localBanker || goBankerCampaigns.find(response.agentConfig->account[0]) == goBankerCampaigns.end()) {
+                        banker->cancelBid(response.agentConfig->account, auctionKey);
+                     }
                  });
 
             // No bid
@@ -2774,7 +2788,10 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     string auctionKey = auction->id.toString()
                         + "-" + adSpotId.toString()
                         + "-" + bid.agent;
-    banker->detachBid(bid.account, auctionKey);
+
+    if (!localBanker || goBankerCampaigns.find(bid.account[0]) == goBankerCampaigns.end()) {
+        banker->detachBid(bid.account, auctionKey);
+    }
 
     if (connectPostAuctionLoop) {
         auto event = std::make_shared<SubmittedAuctionEvent>();

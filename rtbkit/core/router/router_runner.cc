@@ -177,6 +177,17 @@ init()
         router->setLocalBanker(localBanker);
     }
 
+    if (proxies->params.isMember("goBankerCampaigns")) {
+        Json::Value campaigns = proxies->params["goBankerCampaigns"];
+        if (campaigns.isArray()) {
+            unordered_set<string> campaignSet;
+            for (auto cmp : campaigns) {
+                campaignSet.insert(cmp.asString());
+            }
+            router->setGoBankerCampaigns(campaignSet);
+        }
+    }
+
     router->setBanker(banker);
     router->bindTcp();
 }

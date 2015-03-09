@@ -319,17 +319,18 @@ LocalBanker::reauthorize()
                 auto key = AccountKey(jsonAccount["name"].asString());
                 Amount newBalance(MicroUSD(jsonAccount["balance"].asInt()));
 
+                string gKey = "account." + key.toString() + ":" + accountSuffixNoDot; 
                 if (debug) {
-                    string gKey = "account." + key.toString() + ":" + accountSuffixNoDot; 
                     recordLevel(accounts.getBalance(key.toString() + ":" + accountSuffix).value,
                             gKey + ".oldBalance");
                     recordLevel(newBalance.value,
                             gKey + ".newBalance");
                 }
 
-                accounts.updateBalance(key, newBalance);
+                int64_t spend = accounts.updateBalance(key, newBalance).value;
+                recordLevel(spend, gKey + ".bidAmount");
                 int64_t rate = jsonAccount["rate"].asInt();
-                if (rate != spendRate.value) {
+                if (rate > spendRate.value) {
                     setRate(key);
                 }
             }
