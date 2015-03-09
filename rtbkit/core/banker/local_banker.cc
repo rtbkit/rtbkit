@@ -330,7 +330,7 @@ LocalBanker::reauthorize()
                 int64_t spend = accounts.updateBalance(key, newBalance).value;
                 recordLevel(spend, gKey + ".bidAmount");
                 int64_t rate = jsonAccount["rate"].asInt();
-                if (rate != spendRate.value) {
+                if (rate > spendRate.value) {
                     setRate(key);
                 }
             }
