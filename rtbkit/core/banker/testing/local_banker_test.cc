@@ -12,6 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include "rtbkit/common/account_key.h"
 #include "jml/arch/timers.h"
+#include "jml/utils/exc_assert.h"
 #include "soa/types/date.h"
 #include "soa/service/service_base.h"
 #include "rtbkit/common/currency.h"
@@ -93,4 +94,30 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
 
     rBanker.shutdown();
     pBanker.shutdown();
+}
+
+
+BOOST_AUTO_TEST_CASE( test_router_accumulate )
+{
+    auto proxies = make_shared<ServiceProxies>();
+    LocalBanker rBanker(proxies, ROUTER, "router");
+    // Max spend rate per sec set to 10,000 USD/1M
+    rBanker.setSpendRate(MicroUSD(10000));
+
+    string key = "parent:child:router";
+
+    rBanker.accounts.addFromJsonString("{\"name\":\"" + key + "\",\"type\":\"Router\","
+            "\"parent\":\"parent:sub\",\"rate\":1000,\"balance\":0}");
+
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 0);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(1000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 1000);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(0));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 1000);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(9000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 10000);
+    // should stay at 10,000 since it's the spend per sec max.
+    rBanker.accounts.accumulateBalance(key, MicroUSD(1000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 10000);
+
 }

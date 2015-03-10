@@ -75,6 +75,9 @@ GoAccount::toJson()
 }
 
 // Router Account
+
+Amount GoRouterAccount::MaxBalance = MicroUSD(100000);
+
 GoRouterAccount::GoRouterAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
@@ -98,6 +101,18 @@ GoRouterAccount::updateBalance(const Amount & newBalance)
     Amount spent = previousBalance - balance;
     balance = newBalance;
     previousBalance = newBalance;
+    return spent;
+}
+
+Amount
+GoRouterAccount::accumulateBalance(const Amount & newBalance)
+{
+    Amount spent = previousBalance - balance;
+    balance += newBalance;
+    if (balance > MaxBalance) {
+        balance = MaxBalance;
+    }
+    previousBalance = balance;
     return spent;
 }
 
@@ -183,6 +198,12 @@ GoAccounts::GoAccounts() : accounts{}
 }
 
 void
+GoAccounts::setSpendRate(const Amount & maxBalance)
+{
+    GoRouterAccount::MaxBalance = maxBalance;
+}
+
+void
 GoAccounts::add(const AccountKey &key, GoAccountType type)
 {
     if (exists(key)) return;
@@ -253,6 +274,15 @@ GoAccounts::updateBalance(const AccountKey &key, const Amount & newBalance)
     std::lock_guard<std::mutex> guard(this->mutex);
     auto account = get(key);
     return account->router->updateBalance(newBalance);
+}
+
+Amount
+GoAccounts::accumulateBalance(const AccountKey &key, const Amount & newBalance)
+{
+    if (!exists(key)) return MicroUSD(0);
+    std::lock_guard<std::mutex> guard(this->mutex);
+    auto account = get(key);
+    return account->router->accumulateBalance(newBalance);
 }
 
 Amount
