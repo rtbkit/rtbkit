@@ -206,15 +206,14 @@ handleChildStatus(const struct epoll_event & event)
                 task_.runResult.updateFromLaunchError
                     (status.launchErrno,
                      strLaunchError(status.launchErrorCode));
-
-                task_.postTerminate(*this);
-
+                task_.statusState = ProcessState::STOPPED;
                 childPid_ = -2;
                 ML::futex_wake(childPid_);
 
-                running_ = false;
-                endDate_ = Date::now();
-                ML::futex_wake(running_);
+                if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
+                    stdInSink_->requestClose();
+                }
+                attemptTaskTermination();
                 break;
             }
 
@@ -347,9 +346,30 @@ void
 Runner::
 attemptTaskTermination()
 {
-    /* for a task to be considered done:
+    /* There is a set of things that occurs spontaneously when a process
+       exits, due to the way Linux (possibly POSIX) handles processes, file
+       descriptors, etc. For example, the stdout/stderr channels of a
+       subprocess are always going to be closed when the relevant process
+       exits and all the data written by the program will be flushed from the
+       kernel buffers. Even though this may not occur in order, all of those
+       events will occur and will be caught by our epoll queue. This is the
+       basis of how we handle events throughout the Runner class.
+
+       For a task to be considered done:
        - stdout and stderr must have been closed, provided we redirected them
-       - the closing child status must have been returned */
+       - the closing child status must have been returned
+       - stdInSink must either be null or its state considered "closed"
+       This is a requirement for absolutely *all* conditions: whether the
+       calls to "fork" and "exec" have succeeded, whether the underlying
+       program has been successfully run or not. But, although they are
+       guaranteed to occur, those events do not specifically occur in a
+       deterministic order.
+
+       Since those checks must be performed at various places, the same
+       conditions must all be checked all the time and the same operations
+       must be performed when they are all met. This is what
+       "attemptTaskTermination" does.
+    */
     if ((!stdInSink_ || stdInSink_->state == OutputSink::CLOSED)
         && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
         && (task_.statusState == ProcessState::STOPPED
@@ -634,6 +654,8 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     throw ML::Exception("You are the King of Time!");
 }
 
+/* This method *must* be called from attemptTaskTermination, in order to
+ * respect the natural order of things. */
 void
 Runner::Task::
 postTerminate(Runner & runner)
