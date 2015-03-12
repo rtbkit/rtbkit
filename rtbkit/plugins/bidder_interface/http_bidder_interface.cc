@@ -340,7 +340,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                  }
                  else if (statusCode != 204) {
-                     LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl;
+                     LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl
+                               << body << std::endl;
                      recordError("response");
                      return;
                  }
