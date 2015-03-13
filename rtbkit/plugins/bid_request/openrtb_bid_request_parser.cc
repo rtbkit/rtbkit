@@ -48,19 +48,31 @@ toBidRequest(const RTBKIT::BidRequest & br) {
     result.tmax = br.timeAvailableMs;
     result.unparseable = br.unparseable;
 
-    auto onAdSpot = [&](const AdSpot & spot) {
+    result.imp.reserve(br.imp.size());
+
+    for(const auto & spot : br.imp) {
         OpenRTB::Impression imp(spot);
 
         // Since it's openrtb 2.1, make sure none of the 2.n fields are added.
         imp.pmp.reset();
 
+        if (imp.banner) {
+            auto& banner = *imp.banner;
+            ExcAssertEqual(banner.h.size(), banner.w.size());
+
+            // openrtb only supports a single value in the h and w fields so any
+            // extra values are relocated to the ext field.
+            if (banner.h.size() > 1) {
+
+                for (const auto& h : banner.h) banner.ext["h"].append(h);
+                for (const auto& w : banner.w) banner.ext["w"].append(w);
+
+                banner.h.resize(1);
+                banner.w.resize(1);
+            }
+        }
+
         result.imp.push_back(std::move(imp));
-    };
-
-    result.imp.reserve(br.imp.size());
-
-    for(const auto & spot : br.imp) {
-        onAdSpot(spot);
     }
 
     if(br.site && br.app)
