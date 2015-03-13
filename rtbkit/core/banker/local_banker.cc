@@ -73,7 +73,6 @@ void
 LocalBanker::setSpendRate(Amount newSpendRate)
 {
     spendRate = newSpendRate;
-    accounts.setSpendRate(spendRate);
 }
 
 void
@@ -303,8 +302,7 @@ LocalBanker::reauthorize()
                  << "status: " << status << endl
                  << "error:  " << error << endl
                  << "body:   " << body << endl
-                 << "url:    " << req.url_ << endl
-                 << "cont_str: " << req.content_.str << endl;
+                 << "url:    " << req.url_ << endl;
             this->recordHit("reauthorize.failure");
         } else {
             Json::Value jsonAccounts;
@@ -319,12 +317,17 @@ LocalBanker::reauthorize()
             for ( auto jsonAccount : jsonAccounts ) {
                 auto key = AccountKey(jsonAccount["name"].asString());
                 Amount newBalance(MicroUSD(jsonAccount["balance"].asInt()));
+                Amount maxBalance(MicroUSD(jsonAccount["maxBalance"].asInt()));
 
                 string gKey = "account." + key.parent().toString() + ":" + accountSuffixNoDot; 
                 if (debug) {
                     recordLevel(accounts.getBalance(key.toString()).value,
                             gKey + ".oldBalance");
                 }
+                if (maxBalance > spendRate) {
+                    maxBalance = spendRate;
+                }
+                accounts.setMaxBalance(key, maxBalance);
 
                 int64_t spend = accounts.accumulateBalance(key, newBalance).value;
                 recordLevel(spend, gKey + ".bidAmountLastPeriod");

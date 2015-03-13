@@ -28,13 +28,14 @@ struct GoBaseAccount {
 };
 
 struct GoRouterAccount : public GoBaseAccount {
-    static Amount MaxBalance;
     Amount rate;
     Amount balance;
+    Amount maxBalance;
     Amount previousBalance;
 
     GoRouterAccount(const AccountKey &key);
     GoRouterAccount(Json::Value &json);
+    void setMaxBalance(const Amount & newMaxBalance);
     Amount updateBalance(const Amount & newBalance);
     Amount accumulateBalance(const Amount & newBalance);
     bool bid(Amount bidPrice);
@@ -76,7 +77,7 @@ struct GoAccounts {
     std::unordered_map<AccountKey, GoAccount> accounts;
 
     GoAccounts();
-    void setSpendRate(const Amount & maxBalance);
+    void setMaxBalance(const AccountKey &key, const Amount & maxBalance);
     bool exists(const AccountKey& key);
     void add(const AccountKey&, GoAccountType type);
     bool addFromJsonString(std::string json);

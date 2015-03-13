@@ -76,8 +76,6 @@ GoAccount::toJson()
 
 // Router Account
 
-Amount GoRouterAccount::MaxBalance = MicroUSD(100000);
-
 GoRouterAccount::GoRouterAccount(const AccountKey &key)
     : GoBaseAccount(key)
 {
@@ -95,6 +93,12 @@ GoRouterAccount::GoRouterAccount(Json::Value &json)
     else balance = MicroUSD(0);
 }
 
+void
+GoRouterAccount::setMaxBalance(const Amount & newMaxBalance)
+{
+    maxBalance = newMaxBalance;
+}
+
 Amount
 GoRouterAccount::updateBalance(const Amount & newBalance)
 {
@@ -109,8 +113,8 @@ GoRouterAccount::accumulateBalance(const Amount & newBalance)
 {
     Amount spent = previousBalance - balance;
     balance += newBalance;
-    if (balance > MaxBalance) {
-        balance = MaxBalance;
+    if (balance > maxBalance) {
+        balance = maxBalance;
     }
     previousBalance = balance;
     return spent;
@@ -198,9 +202,12 @@ GoAccounts::GoAccounts() : accounts{}
 }
 
 void
-GoAccounts::setSpendRate(const Amount & maxBalance)
+GoAccounts::setMaxBalance(const AccountKey &key, const Amount & maxBalance)
 {
-    GoRouterAccount::MaxBalance = maxBalance;
+    if (!exists(key)) return;
+    std::lock_guard<std::mutex> guard(this->mutex);
+    auto account = get(key);
+    account->router->setMaxBalance(maxBalance);
 }
 
 void
