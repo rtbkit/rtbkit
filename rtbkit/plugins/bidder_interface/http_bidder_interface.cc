@@ -134,7 +134,7 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
     loop.addSource("HttpBidderInterface::httpClientAdserverErrors", httpClientAdserverErrors);
 
     loop.addPeriodic("HttpBidderInterface::reportQueues", 1.0, [=](uint64_t) {
-        router->recordLevel(httpClientRouter->queuedRequests(), "queuedRequests");
+        recordLevel(httpClientRouter->queuedRequests(), "queuedRequests");
     });
 
 }
@@ -202,7 +202,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
             {
                 Date responseReceivedTime = Date::now();
                 const double responseTime = responseReceivedTime.secondsSince(sentResponseTime);
-                router->recordOutcome(1000.0 * responseTime, "httpResponseTimeMs");
+                recordOutcome(1000.0 * responseTime, "httpResponseTimeMs");
                  //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
 
                  /* We need to make sure that we re-inject bids into the router for each
@@ -735,8 +735,8 @@ void HttpBidderInterface::submitBids(AgentBids &info) {
 }
 
 void HttpBidderInterface::recordError(const std::string &key) {
-     router->recordHit("error.httpBidderInterface.total");
-     router->recordHit("error.httpBidderInterface.%s", key);
+     recordHit("error.httpBidderInterface.total");
+     recordHit("error.httpBidderInterface.%s", key);
 }
 
 //
