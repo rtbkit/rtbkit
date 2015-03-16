@@ -475,7 +475,7 @@ void HttpBidderInterface::sendCampaignEventMessage(
 
             auto& ext = entry["ext"]["rtbkit"];
             ext["crid"] = event.response.creativeId;
-            ext["meta"] = event.bid["meta"];
+            ext["meta"] = Json::parse(event.bid["meta"].asString());
         }
         content["events"].append(entry);
     }
