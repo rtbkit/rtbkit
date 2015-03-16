@@ -134,7 +134,7 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
     loop.addSource("HttpBidderInterface::httpClientAdserverErrors", httpClientAdserverErrors);
 
     loop.addPeriodic("HttpBidderInterface::reportQueues", 1.0, [=](uint64_t) {
-        recordLevel(httpClientRouter->queuedRequests(), "queuedRequests");
+        router->recordLevel(httpClientRouter->queuedRequests(), "queuedRequests");
     });
 
 }
@@ -406,7 +406,7 @@ void HttpBidderInterface::sendWinLossMessage(
             entry["impid"] = event.impId.toString();
             entry["type"] = event.type == MatchedWinLoss::Loss ? "loss" : "win";
             entry["price"] = (double) getAmountIn<CPM>(event.winPrice);
-            entry["cid"] = event.response.agent;
+            entry["cid"] = event.response.account[1];
 
             auto& ext = entry["ext"]["rtbkit"];
             ext["meta"] = Json::parse(event.response.meta.rawString());
@@ -471,7 +471,7 @@ void HttpBidderInterface::sendCampaignEventMessage(
         {
             entry["impid"] = event.impId.toString();
             entry["type"] = event.label;
-            entry["cid"] = event.response.agent;
+            entry["cid"] = event.response.account[1];
 
             auto& ext = entry["ext"]["rtbkit"];
             ext["crid"] = event.response.creativeId;
@@ -735,8 +735,8 @@ void HttpBidderInterface::submitBids(AgentBids &info) {
 }
 
 void HttpBidderInterface::recordError(const std::string &key) {
-     recordHit("error.httpBidderInterface.total");
-     recordHit("error.httpBidderInterface.%s", key);
+     router->recordHit("error.httpBidderInterface.total");
+     router->recordHit("error.httpBidderInterface.%s", key);
 }
 
 //
