@@ -397,7 +397,7 @@ void HttpBidderInterface::sendWinLossMessage(
     else if (adserverWinFormat == FMT_DATACRATIC) {
         content["id"] = event.auctionId.toString();
 
-        auto& ext = content["ext"]["rtbkit"];
+        auto& ext = content["ext"]["datacratic"];
         ext["request"] = event.requestStr;
         ext["requestFormat"] = event.requestStrFormat;
 
@@ -407,10 +407,7 @@ void HttpBidderInterface::sendWinLossMessage(
             entry["type"] = event.type == MatchedWinLoss::Loss ? "loss" : "win";
             entry["price"] = (double) getAmountIn<CPM>(event.winPrice);
             entry["cid"] = event.response.account[1];
-
-            auto& ext = entry["ext"]["rtbkit"];
-            ext["meta"] = Json::parse(event.response.meta.rawString());
-            ext["crid"] = event.response.creativeId;
+            entry["ext"]["datacratic"]["meta"] = Json::parse(event.response.meta.rawString());
 
             Json::Value users;
             for (const auto& item : event.uids) {
@@ -463,7 +460,7 @@ void HttpBidderInterface::sendCampaignEventMessage(
     else if (adserverEventFormat == FMT_DATACRATIC) {
         content["id"] = event.auctionId.toString();
 
-        auto& ext = content["ext"]["rtbkit"];
+        auto& ext = content["ext"]["datacratic"];
         ext["request"] = event.requestStr;
         ext["requestFormat"] = event.requestStrFormat;
 
@@ -472,10 +469,7 @@ void HttpBidderInterface::sendCampaignEventMessage(
             entry["impid"] = event.impId.toString();
             entry["type"] = event.label;
             entry["cid"] = event.response.account[1];
-
-            auto& ext = entry["ext"]["rtbkit"];
-            ext["crid"] = event.response.creativeId;
-            ext["meta"] = Json::parse(event.bid["meta"].asString());
+            entry["ext"]["datacratic"]["meta"] = Json::parse(event.bid["meta"].asString());
         }
         content["events"].append(entry);
     }
