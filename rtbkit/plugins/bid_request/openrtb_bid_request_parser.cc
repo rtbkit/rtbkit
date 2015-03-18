@@ -435,9 +435,6 @@ void
 OpenRTBBidRequestParser::
 onDevice(OpenRTB::Device & device) {
 
-    if(device.devicetype.val > 3)
-        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
-
     ctx.br->language = device.language;
     ctx.br->userAgent = device.ua;
     
@@ -619,6 +616,18 @@ onSegment(OpenRTB::Segment & segment) {
 }
 
 void
+OpenRTBBidRequestParser2point1::
+onDevice(OpenRTB::Device& device) {
+    if(device.devicetype.val > 3) {
+        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
+    }
+
+    // Call base version
+    OpenRTBBidRequestParser::onDevice(device);
+}
+
+
+void
 OpenRTBBidRequestParser2point2::
 onBidRequest(OpenRTB::BidRequest & br) {
 
@@ -699,7 +708,7 @@ onDevice(OpenRTB::Device & device) {
     if(device.devicetype.val > 7)
         LOG(OpenRTBBidRequestLogs::error22) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
 
-    // Call 2.1 version
+    // Call base version
     OpenRTBBidRequestParser::onDevice(device);
 }
 
