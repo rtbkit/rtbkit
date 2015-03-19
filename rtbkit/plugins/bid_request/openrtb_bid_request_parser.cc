@@ -461,7 +461,7 @@ onGeo(OpenRTB::Geo & geo) {
 
 
     // Validation that lat is -180 to 180
-    if(geo.lon.val > 180.0 || geo.lat.val < -180.0)
+    if(geo.lon.val > 180.0 || geo.lon.val < -180.0)
         LOG(OpenRTBBidRequestLogs::trace) << " br.device.geo.lon : " << geo.lon.val << 
                                              " is invalid and should be within -180 to 180." << endl; 
 
