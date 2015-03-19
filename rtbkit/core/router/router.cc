@@ -2626,8 +2626,11 @@ configure(const std::string & agent, AgentConfig & config)
             }
         };
 
-    banker->addSpendAccount(config.account, Amount(), onDone);
-    if (localBanker) localBanker->addAccount(config.account);
+    if (localBanker && goBankerCampaigns.find(config.account[0]) != goBankerCampaigns.end()) {
+        localBanker->addAccount(config.account);
+    } else {
+        banker->addSpendAccount(config.account, Amount(), onDone);
+    }
 }
 
 Json::Value
