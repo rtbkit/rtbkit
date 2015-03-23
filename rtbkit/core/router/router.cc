@@ -2045,7 +2045,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             slowModePeriodicSpentReached = false;
         }
 
-        if (banker->authorizeBid(config.account, auctionKey, price) || failBid(budgetErrorRate))
+        if (!banker->authorizeBid(config.account, auctionKey, price) || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
 
