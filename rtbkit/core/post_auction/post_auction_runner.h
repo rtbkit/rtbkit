@@ -41,13 +41,15 @@ struct PostAuctionRunner {
     std::string forwardAuctionsUri;
     std::string localBankerUri;
     bool localBankerDebug;
+    bool splitBanker;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());
 
     std::shared_ptr<ServiceProxies> proxies;
-    std::shared_ptr<SlaveBanker> banker;
+    std::shared_ptr<Banker> banker;
+    std::shared_ptr<SlaveBanker> slaveBanker;
     std::shared_ptr<LocalBanker> localBanker;
     std::shared_ptr<PostAuctionService> postAuctionLoop;
 

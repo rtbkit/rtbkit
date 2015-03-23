@@ -79,11 +79,6 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
         monitorProviderClient.addProvider(banker.get());
     }
 
-    void setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
-    {
-        matcher->setLocalBanker(localBanker = newBanker);
-    }
-
 
     /**************************************************************************/
     /* TIMEOUTS                                                               */
