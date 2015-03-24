@@ -36,7 +36,6 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/monitor/monitor_client.h"
-#include "rtbkit/core/banker/local_banker.h"
 
 namespace RTBKIT {
 
@@ -139,8 +138,6 @@ struct Router : public ServiceBase,
 
     std::shared_ptr<Banker> getBanker() const;
     void setBanker(const std::shared_ptr<Banker> & newBanker);
-    void setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker);
-    void setGoBankerCampaigns(const std::unordered_set<std::string> & campaigns);
 
     /** Initialize the bidder interface. */
     void initBidderInterface(Json::Value const & json);
@@ -534,8 +531,6 @@ public:
     mutable Lock lock;
 
     std::shared_ptr<Banker> banker;
-    std::shared_ptr<LocalBanker> localBanker;
-    std::unordered_set<std::string> goBankerCampaigns;
 
     double secondsUntilLossAssumed_;
     double globalBidProbability;

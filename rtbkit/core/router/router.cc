@@ -325,20 +325,6 @@ setBanker(const std::shared_ptr<Banker> & newBanker)
 
 void
 Router::
-setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
-{
-    localBanker = newBanker;
-}
-
-void
-Router::
-setGoBankerCampaigns(const unordered_set<string> & campaigns)
-{
-    goBankerCampaigns = campaigns;
-}
-
-void
-Router::
 bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
@@ -2059,18 +2045,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             slowModePeriodicSpentReached = false;
         }
 
-        bool authorized = banker->authorizeBid(config.account, auctionKey, price);
-        if (localBanker) {
-            bool goAuthorized = localBanker->bid(config.account, price);
-            if (authorized != goAuthorized) {
-                recordHit("localBanker.differentBidOutcome");
-            }
-            if (goBankerCampaigns.find(config.account[0]) != goBankerCampaigns.end()) {
-                authorized = goAuthorized;
-            }
-        }
-
-        if (!authorized || failBid(budgetErrorRate))
+        if (!banker->authorizeBid(config.account, auctionKey, price) || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
 
@@ -2148,9 +2123,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             else if (localResult.val == Auction::WinLoss::INVALID)
                 ++info.stats->invalid;
 
-            if (!localBanker || goBankerCampaigns.find(config.account[0]) == goBankerCampaigns.end()) {
-                banker->cancelBid(config.account, auctionKey);
-            }
+            banker->cancelBid(config.account, auctionKey);
 
             BidStatus status;
             switch (localResult.val) {
@@ -2312,9 +2285,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             ML::Call_Guard guard
                 ([&] ()
                  {
-                     if (!localBanker || goBankerCampaigns.find(response.agentConfig->account[0]) == goBankerCampaigns.end()) {
-                        banker->cancelBid(response.agentConfig->account, auctionKey);
-                     }
+                     banker->cancelBid(response.agentConfig->account, auctionKey);
                  });
 
             // No bid
@@ -2626,11 +2597,7 @@ configure(const std::string & agent, AgentConfig & config)
             }
         };
 
-    if (localBanker && goBankerCampaigns.find(config.account[0]) != goBankerCampaigns.end()) {
-        localBanker->addAccount(config.account);
-    } else {
-        banker->addSpendAccount(config.account, Amount(), onDone);
-    }
+    banker->addSpendAccount(config.account, Amount(), onDone);
 }
 
 Json::Value
@@ -2792,9 +2759,7 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
                         + "-" + adSpotId.toString()
                         + "-" + bid.agent;
 
-    if (!localBanker || goBankerCampaigns.find(bid.account[0]) == goBankerCampaigns.end()) {
-        banker->detachBid(bid.account, auctionKey);
-    }
+    banker->detachBid(bid.account, auctionKey);
 
     if (connectPostAuctionLoop) {
         auto event = std::make_shared<SubmittedAuctionEvent>();

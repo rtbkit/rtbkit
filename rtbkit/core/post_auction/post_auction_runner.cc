@@ -8,6 +8,8 @@
 #include "post_auction_runner.h"
 #include "post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "rtbkit/core/banker/local_banker.h"
+#include "rtbkit/core/banker/split_banker.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/process_stats.h"
 #include "soa/utils/print_utils.h"
@@ -45,7 +47,8 @@ PostAuctionRunner() :
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
     analyticsOn(false),
     analyticsConnections(1),
-    localBankerDebug(false)
+    localBankerDebug(false),
+    splitBanker(false)
 {
 }
 
@@ -79,7 +82,9 @@ doOptions(int argc, char ** argv,
         ("local-banker", value<string>(&localBankerUri),
          "address of where the local banker can be found.")
         ("local-banker-debug", bool_switch(&localBankerDebug),
-         "enable local banker debug for more precise tracking by account");
+         "enable local banker debug for more precise tracking by account")
+        ("split-banker", bool_switch(&splitBanker),
+         "banker split on certain campaigns.");
 
     options_description all_opt = opts;
     all_opt
@@ -126,12 +131,26 @@ init()
     LOG(print) << "winLoss pipe timeout is " << winLossPipeTimeout << std::endl;
     LOG(print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
-    banker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
-    if (localBankerUri != "") {
+    slaveBanker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
+    if (splitBanker && localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, POST_AUCTION, postAuctionLoop->serviceName());
         localBanker->init(localBankerUri);
         localBanker->setDebug(localBankerDebug);
-        postAuctionLoop->setLocalBanker(localBanker);
+
+        unordered_set<string> campaignSet;
+        if (proxies->params.isMember("goBankerCampaigns")) {
+            Json::Value campaigns = proxies->params["goBankerCampaigns"];
+            if (campaigns.isArray()) {
+                for (auto cmp : campaigns) {
+                    campaignSet.insert(cmp.asString());
+                }
+            }
+        }
+
+        postAuctionLoop->addSource("local-banker", *localBanker);
+        banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
+    } else {
+        banker = slaveBanker;
     }
 
     if (analyticsOn) {
@@ -143,7 +162,7 @@ init()
             LOG(print) << "analytics-uri is not in the config" << endl;
     }
 
-    postAuctionLoop->addSource("slave-banker", *banker);
+    postAuctionLoop->addSource("slave-banker", *slaveBanker);
     postAuctionLoop->setBanker(banker);
     postAuctionLoop->bindTcp();
 
@@ -156,7 +175,6 @@ PostAuctionRunner::
 start()
 {
     postAuctionLoop->start();
-    if (localBanker) localBanker->start();
 }
 
 void
@@ -164,7 +182,7 @@ PostAuctionRunner::
 shutdown()
 {
     postAuctionLoop->shutdown();
-    banker->shutdown();
+    slaveBanker->shutdown();
     if (localBanker) localBanker->shutdown();
 }
 
