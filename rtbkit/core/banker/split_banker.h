@@ -1,4 +1,10 @@
-
+/* split_banker.h
+   Michael Burkat, 24 March 2015
+   Copyright (c) 2015 Datacratic.  All rights reserved.
+   
+   Split banker class, to divide campaigns between the
+   master banker and local banker.
+*/
 
 #pragma once
 
