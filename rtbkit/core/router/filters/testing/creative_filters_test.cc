@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE( testiPMPFilter )
             c.dealId = dealId;
     };
   
-    auto addImpr = [] (BidRequest& br,OpenRTB::AdPosition::Vals pos, OpenRTB::PMP& pmp) {
+    auto addPmpImp = [] (BidRequest& br,OpenRTB::AdPosition::Vals pos, OpenRTB::PMP& pmp) {
         AdSpot imp;
         imp.position.val = pos;
         imp.pmp.emplace(pmp);
@@ -280,9 +280,9 @@ BOOST_AUTO_TEST_CASE( testiPMPFilter )
 
     BidRequest r0;
     addImp(r0, OpenRTB::AdPosition::ABOVE, { {100, 100} }); // No pmp
-    addImpr(r0, OpenRTB::AdPosition::ABOVE, p0); // pmp but No privateAuction
-    addImpr(r0, OpenRTB::AdPosition::ABOVE, p1); // Single Deal
-    addImpr(r0, OpenRTB::AdPosition::ABOVE, p2); // Two Deals
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p0); // pmp but No privateAuction
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p1); // Single Deal
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p2); // Two Deals
 
     title("PMP-1");
     addConfig(filter, 0, c0, creatives);
