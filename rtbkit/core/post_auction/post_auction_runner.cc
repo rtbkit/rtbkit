@@ -175,7 +175,6 @@ PostAuctionRunner::
 start()
 {
     postAuctionLoop->start();
-    if (localBanker) localBanker->start();
 }
 
 void
