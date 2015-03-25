@@ -19,11 +19,11 @@ namespace RTBKIT {
 struct SplitBanker : public Banker {
 
     std::shared_ptr<Banker> masterBanker;
-    std::shared_ptr<LocalBanker> localBanker;
+    std::shared_ptr<Banker> localBanker;
     std::unordered_set<std::string> localCampaigns;
 
     SplitBanker(std::shared_ptr<Banker> master,
-                std::shared_ptr<LocalBanker> local,
+                std::shared_ptr<Banker> local,
                 std::unordered_set<std::string> campaigns)
         : masterBanker(master),
           localBanker(local),
@@ -41,7 +41,7 @@ struct SplitBanker : public Banker {
                     std::function<void (std::exception_ptr, ShadowAccount&&)> onDone)
     {
         if (isLocal(account)) {
-            localBanker->addAccount(account);
+            localBanker->addSpendAccount(account, Amount(), onDone);
         } else {
             masterBanker->addSpendAccount(account, Amount(), onDone);
         }
@@ -52,7 +52,7 @@ struct SplitBanker : public Banker {
                               Amount amount)
     {
         if (isLocal(account)) {
-            return localBanker->bid(account, amount);
+            return localBanker->authorizeBid(account, item, amount);
         } else {
             return masterBanker->authorizeBid(account, item, amount);
         }
@@ -72,9 +72,9 @@ struct SplitBanker : public Banker {
                         const LineItems & lineItems = LineItems())
     {
         if (isLocal(account)) {
-           localBanker->win(account, amountPaid);
+            localBanker->winBid(account, item, amountPaid, lineItems);
         } else {
-            masterBanker->commitBid(account, item, amountPaid, lineItems);
+            masterBanker->winBid(account, item, amountPaid, lineItems);
         }
     }
 
@@ -112,7 +112,7 @@ struct SplitBanker : public Banker {
                              const LineItems & lineItems)
     {
         if (isLocal(account)) {
-            localBanker->win(account, amountPaid);
+            localBanker->forceWinBid(account, amountPaid, lineItems);
         } else {
             masterBanker->forceWinBid(account, amountPaid, lineItems);
         }

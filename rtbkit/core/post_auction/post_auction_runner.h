@@ -42,6 +42,7 @@ struct PostAuctionRunner {
     std::string localBankerUri;
     bool localBankerDebug;
     bool splitBanker;
+    bool onlyLocal;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

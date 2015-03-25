@@ -351,7 +351,6 @@ doConfigChange(
                 catch (ML::Exception const & e) {
                 }
             });
-    if (localBanker) localBanker->addAccount(config->account);
 }
 
 void

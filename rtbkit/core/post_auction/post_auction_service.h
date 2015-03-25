@@ -304,7 +304,6 @@ private:
 
     std::unique_ptr<EventMatcher> matcher;
     std::shared_ptr<Banker> banker;
-    std::shared_ptr<LocalBanker> localBanker;
     AgentConfigurationListener configListener;
     MonitorProviderClient monitorProviderClient;
 
