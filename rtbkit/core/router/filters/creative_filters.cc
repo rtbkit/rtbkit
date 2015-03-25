@@ -78,6 +78,7 @@ struct InitFilters
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeNameFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeSegmentsFilter>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativePMPFilter>();
     }
 
 } initFilters;

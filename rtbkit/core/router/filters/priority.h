@@ -28,6 +28,7 @@ struct Priority
     static constexpr unsigned CreativeLocation     = 0x2100;
     static constexpr unsigned CreativeExchangeName = 0x2200;
     static constexpr unsigned CreativeLanguage     = 0x2300;
+    static constexpr unsigned CreativePMP          = 0x2400;
 
     static constexpr unsigned Segments             = 0x3000;
     static constexpr unsigned HourOfWeek           = 0x3100;
