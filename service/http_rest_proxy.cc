@@ -265,7 +265,8 @@ doneConnection(curlpp::Easy * conn)
 
 JsonRestProxy::
 JsonRestProxy(const string & url)
-    : HttpRestProxy(url), maxRetries(10), maxBackoffTime(900)
+    : HttpRestProxy(url), protocolDate(0),
+      maxRetries(10), maxBackoffTime(900)
 {
     if (url.find("https://") == 0) {
         cerr << "warning: no validation will be performed on the SSL cert.\n";
@@ -289,6 +290,9 @@ performWithBackoff(const string & method, const string & resource,
     // cerr << "posting data to " + resource + "\n";
     if (authToken.size() > 0) {
         headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
+    }
+    if (protocolDate > 0) {
+        headers.emplace_back(make_pair("X-Protocol-Date", to_string(protocolDate)));
     }
 
     pid_t tid = gettid();
