@@ -47,9 +47,7 @@ PostAuctionRunner() :
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
     analyticsOn(false),
     analyticsConnections(1),
-    localBankerDebug(false),
-    splitBanker(false),
-    onlyLocal(false)
+    localBankerDebug(false)
 {
 }
 
@@ -84,10 +82,8 @@ doOptions(int argc, char ** argv,
          "address of where the local banker can be found.")
         ("local-banker-debug", bool_switch(&localBankerDebug),
          "enable local banker debug for more precise tracking by account")
-        ("split-banker", bool_switch(&splitBanker),
-         "banker split on certain campaigns.")
-        ("only-local", bool_switch(&onlyLocal),
-         "only use local banker for all campaigns.");
+        ("banker-choice", value<string>(&bankerChoice),
+         "split or local banker can be chosen.");
 
     options_description all_opt = opts;
     all_opt
@@ -140,7 +136,7 @@ init()
         localBanker->init(localBankerUri);
         localBanker->setDebug(localBankerDebug);
     }
-    if (localBanker && splitBanker) {
+    if (localBanker && bankerChoice == "split") {
         unordered_set<string> campaignSet;
         if (proxies->params.isMember("goBankerCampaigns")) {
             Json::Value campaigns = proxies->params["goBankerCampaigns"];
@@ -152,7 +148,7 @@ init()
         }
         postAuctionLoop->addSource("local-banker", *localBanker);
         banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
-    } else if (localBanker && onlyLocal) {
+    } else if (localBanker && bankerChoice == "local") {
         postAuctionLoop->addSource("local-banker", *localBanker);
         banker = localBanker;
     } else {
