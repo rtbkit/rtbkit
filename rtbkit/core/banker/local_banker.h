@@ -99,12 +99,6 @@ struct LocalBanker : public Banker, Datacratic::MessageLoop, Datacratic::Service
 
     virtual void sync();
 
-    virtual std::string
-    getProviderClass() const
-    {
-        return "localBanker";
-    }
-
     virtual MonitorIndicator
     getProviderIndicators() const;
 
