@@ -18,11 +18,13 @@ namespace RTBKIT {
 LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type,
         const string & accountSuffix)
         : ServiceBase(accountSuffix + ".localBanker", services),
+          accounts(),
           type(type),
           accountSuffix(accountSuffix),
           accountSuffixNoDot(accountSuffix),
-          accounts(),
           spendRate(MicroUSD(100000)),
+          syncRate(0.5),
+          reauthRate(1.0),
           reauthorizeInProgress(false),
           reauthorizeSkipped(0),
           spendUpdateInProgress(false),
@@ -41,6 +43,8 @@ LocalBanker::init(const string & bankerUrl,
     httpClient = std::make_shared<HttpClient>(bankerUrl, numConnections);
     httpClient->sendExpect100Continue(false);
     addSource("LocalBanker:HttpClient", httpClient);
+
+    lastSync = lastReauth = Date::now();
 
     auto reauthorizePeriodic = [&] (uint64_t wakeups) {
         reauthorize();
@@ -61,10 +65,10 @@ LocalBanker::init(const string & bankerUrl,
     };
 
     if (type == ROUTER)
-        addPeriodic("localBanker::reauthorize", 1.0, reauthorizePeriodic);
+        addPeriodic("localBanker::reauthorize", reauthRate, reauthorizePeriodic);
 
     if (type == POST_AUCTION)
-        addPeriodic("localBanker::spendUpdate", 0.5, spendUpdatePeriodic);
+        addPeriodic("localBanker::spendUpdate", syncRate, spendUpdatePeriodic);
 
     addPeriodic("uninitializedAccounts", 1.0, initializeAccountsPeriodic);
 }
@@ -203,6 +207,16 @@ LocalBanker::replaceAccount(const AccountKey &key)
 }
 
 void
+LocalBanker::sync()
+{
+    if (type == ROUTER) {
+        reauthorize();
+    } else if (type == POST_AUCTION) {
+        spendUpdate();
+    }
+}
+
+void
 LocalBanker::spendUpdate()
 {
     if (spendUpdateInProgress) {
@@ -254,6 +268,10 @@ LocalBanker::spendUpdate()
                     cout << "will reload from redis" << key << endl;
                     replaceAccount(AccountKey(key));
                 }
+            }
+            {
+                std::lock_guard<std::mutex> guard(this->syncMtx);
+                lastSync = Date::now();
             }
             this->recordHit("spendUpdate.success");
         }
@@ -342,6 +360,10 @@ LocalBanker::reauthorize()
                     setRate(key);
                 }
             }
+            {
+                std::lock_guard<std::mutex> guard(this->syncMtx);
+                lastReauth = Date::now();
+            }
             this->recordHit("reauthorize.success");
         }
     };
@@ -419,6 +441,24 @@ LocalBanker::win(const AccountKey &key, Amount winPrice)
             recordHit("account." + key.toString() + ":" + accountSuffixNoDot + ".noWin");
     }
     return winAccounted;
+}
+
+MonitorIndicator
+LocalBanker::
+getProviderIndicators() const
+{
+    Date now = Date::now();
+
+    std::lock_guard<std::mutex> guard(syncMtx);
+    bool syncOk = now < lastSync.plusSeconds(syncRate*2) ||
+                  now < lastReauth.plusSeconds(reauthRate*2);
+
+    MonitorIndicator ind;
+    ind.serviceName = accountSuffix;
+    ind.status = syncOk;
+    ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
+
+    return ind;
 }
 
 } // namespace RTBKIT

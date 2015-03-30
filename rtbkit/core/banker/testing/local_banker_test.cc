@@ -44,8 +44,8 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
         string key = ss.str();
         AccountKey rkey(key);
         AccountKey pkey(key);
-        rBanker.addAccount(rkey);
-        pBanker.addAccount(pkey);
+        rBanker.addSpendAccount(rkey, {}, nullptr);
+        pBanker.addSpendAccount(pkey, {}, nullptr);
 
         routerAccounts[i] = rkey;
         palAccounts[i] = pkey;
@@ -62,33 +62,32 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
 
     ML::sleep(1.0);
 
-    rBanker.reauthorize();
+    rBanker.sync();
 
     Amount bidPrice = MicroUSD(2);
     for (auto key : routerAccounts) {
-        auto allowed = rBanker.bid(key, bidPrice);
+        bool allowed = rBanker.authorizeBid(key, "", bidPrice);
         cout << key.toString() << " bid: " << allowed << endl;
     }
 
-    rBanker.reauthorize();
+    rBanker.sync();
 
     ML::sleep(1.0);
 
-    pBanker.spendUpdate();
+    pBanker.sync();
 
     Amount winPrice = MicroUSD(2);
     for (auto key : palAccounts) {
-        auto allowed = pBanker.win(key, winPrice);
-        cout << key.toString() << " win: " << allowed << endl;
+        pBanker.winBid(key, "", winPrice);
     }
 
-    pBanker.spendUpdate();
+    pBanker.sync();
 
     auto acc = pBanker.accounts.accounts[AccountKey("test10:account10:pal")];
     acc.pal->imp = 0;
     pBanker.accounts.accounts[AccountKey("test10:account10:pal")] = acc;
 
-    pBanker.spendUpdate();
+    pBanker.sync();
 
     ML::sleep(2.0);
 

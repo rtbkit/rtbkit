@@ -55,7 +55,6 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(40),
     localBankerDebug(false),
-    splitBanker(false),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
@@ -105,8 +104,8 @@ doOptions(int argc, char ** argv,
          "address of where the local banker can be found.")
         ("local-banker-debug", bool_switch(&localBankerDebug),
          "enable local banker debug for more precise tracking by account")
-        ("split-banker", bool_switch(&splitBanker),
-         "banker split to two different bankers on certain campaigns.");
+        ("banker-choice", value<string>(&bankerChoice),
+         "split or local banker can be chosen.");
 
     options_description all_opt = opts;
     all_opt
@@ -173,13 +172,14 @@ init()
     router->init();
 
     slaveBanker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
-    if (splitBanker && localBankerUri != "") {
+    if (localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
         localBanker->setDebug(localBankerDebug);
         auto spendRate = Amount::parse(bankerArgs.spendRate);
         localBanker->setSpendRate(spendRate);
-
+    }
+    if (localBanker && bankerChoice == "split") {
         unordered_set<string> campaignSet;
         if (proxies->params.isMember("goBankerCampaigns")) {
             Json::Value campaigns = proxies->params["goBankerCampaigns"];
@@ -189,8 +189,9 @@ init()
                 }
             }
         }
-
         banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
+    } else if (localBanker && bankerChoice == "local") {
+        banker = localBanker;
     } else {
         banker = slaveBanker;
     }

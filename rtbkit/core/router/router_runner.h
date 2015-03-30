@@ -44,7 +44,7 @@ struct RouterRunner {
     std::string bankerUri;
     std::string localBankerUri;
     bool localBankerDebug;
-    bool splitBanker;
+    std::string bankerChoice;
 
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
     int slowModeTolerance;

@@ -11,6 +11,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include "banker.h"
 #include "soa/service/service_base.h"
 #include "soa/service/http_client.h"
 #include "soa/service/message_loop.h"
@@ -21,7 +22,7 @@
 
 namespace RTBKIT {
 
-struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
+struct LocalBanker : public Banker, Datacratic::MessageLoop, Datacratic::ServiceBase {
     
     LocalBanker(std::shared_ptr<Datacratic::ServiceProxies> services,
             GoAccountType type,
@@ -35,6 +36,75 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     void start();
     void shutdown();
 
+    virtual void
+    addSpendAccount(const AccountKey & account,
+                    CurrencyPool accountFloat,
+                    std::function<void (std::exception_ptr, ShadowAccount&&)> onDone)
+    {
+        addAccount(account);
+    }
+
+    virtual bool
+    authorizeBid(const AccountKey & account,
+                 const std::string & item,
+                 Amount amount)
+    {
+        return bid(account, amount);
+    }
+
+    virtual void
+    cancelBid(const AccountKey & account,
+              const std::string & item)
+    {
+    }
+
+    virtual void
+    winBid(const AccountKey & account,
+           const std::string & item,
+           Amount amountPaid,
+           const LineItems & lineItems = LineItems())
+    {
+        win(account, amountPaid);
+    }
+
+    virtual void
+    attachBid(const AccountKey & account,
+              const std::string & item,
+              Amount amountAuthorized)
+    {
+    }
+
+    virtual Amount
+    detachBid(const AccountKey & account,
+              const std::string & item)
+    {
+        return MicroUSD(0);
+    }
+
+    virtual void
+    commitBid(const AccountKey & account,
+              const std::string & item,
+              Amount amountPaid,
+              const LineItems & lineItems)
+    {
+    }
+
+    virtual void
+    forceWinBid(const AccountKey & account,
+                Amount amountPaid,
+                const LineItems & lineItems)
+    {
+        win(account, amountPaid);
+    }
+
+    virtual void sync();
+
+    virtual MonitorIndicator
+    getProviderIndicators() const;
+
+    GoAccounts accounts;
+
+private:
     void addAccount(const AccountKey &account);
 
     void setRate(const AccountKey &key);
@@ -50,18 +120,21 @@ struct LocalBanker : public Datacratic::MessageLoop, Datacratic::ServiceBase {
     GoAccountType type;
     std::string accountSuffix;
     std::string accountSuffixNoDot;
-    GoAccounts accounts;
     std::shared_ptr<Datacratic::HttpClient> httpClient;
     std::mutex mutex;
     std::unordered_set<AccountKey> uninitializedAccounts;
     Amount spendRate;
+    double syncRate;
+    double reauthRate;
     std::atomic<bool> reauthorizeInProgress;
     std::atomic<int> reauthorizeSkipped;
     std::atomic<bool> spendUpdateInProgress;
     std::atomic<int> spendUpdateSkipped;
+    mutable std::mutex syncMtx;
+    Datacratic::Date lastSync;
+    Datacratic::Date lastReauth;
     bool debug;
 
-private:
     void addAccountImpl(const AccountKey &account);
     void replaceAccount(const AccountKey &account);
 };
