@@ -36,7 +36,7 @@ const string ILoggerMetrics::METRICS = "metrics";
 const string ILoggerMetrics::PROCESS = "process";
 const string ILoggerMetrics::META = "meta";
 
-bool ILoggerMetrics::failSafe(false);
+bool ILoggerMetrics::failSafe(true);
 string ILoggerMetrics::parentObjectId;
 
 shared_ptr<ILoggerMetrics>
