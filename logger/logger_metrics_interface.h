@@ -35,9 +35,15 @@ struct ILoggerMetrics {
     typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
     typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
 
+    ILoggerMetrics() = delete;
+
     static std::shared_ptr<ILoggerMetrics> setup(const std::string & configKey,
                                                  const std::string & coll,
                                                  const std::string & appName);
+    static std::shared_ptr<ILoggerMetrics>
+        setupFromJson(const Json::Value & config,
+                      const std::string & coll, const std::string & appName);
+
     /**
      * Factory like getter for kvp
      */
@@ -112,23 +118,15 @@ struct ILoggerMetrics {
     void close();
     virtual ~ILoggerMetrics(){};
 
-private:
-    static bool failSafe;
-    const Date startDate;
-    ILoggerMetrics(){};
-
 protected:
     const static std::string METRICS;
     const static std::string PROCESS;
     const static std::string META;
 
-    const std::string coll;
-    static std::string parentObjectId;
-
     ILoggerMetrics(const std::string & coll)
-        : startDate(Date::now()), coll(coll)
+        : coll(coll), startDate(Date::now())
     {
-    };
+    }
     virtual void logInCategory(const std::string & category,
                                const std::vector<std::string> & path,
                                const NumOrStr & val) = 0;
@@ -137,6 +135,17 @@ protected:
     virtual std::string getProcessId() const = 0;
 
     void failSafeHelper(const std::function<void()> & fct);
+
+    std::string coll;
+
+private:
+    static void setupLogger(const Json::Value & config,
+                            const std::string & coll,
+                            const std::string & appName);
+    static bool failSafe;
+    static std::string parentObjectId;
+
+    const Date startDate;
 };
 
-} //namespace Datacratic
+} // namespace Datacratic

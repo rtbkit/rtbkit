@@ -24,6 +24,10 @@ protected:
         : ILoggerMetrics(coll)
     {
     }
+    LoggerMetricsVoid(const std::string & coll)
+        : ILoggerMetrics(coll)
+    {
+    }
 
     void logInCategory(const std::string &, const Json::Value &)
     {
