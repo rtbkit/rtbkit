@@ -303,6 +303,9 @@ DefaultDescription()
     addField("crid", &Bid::crid, "Creative ID",
              new StringIdDescription());
     addField("attr", &Bid::attr, "Creative attributes");
+    addField("dealid", &Bid::dealid, "Deal Id for PMP Auction");
+    addField("w", &Bid::w, "width of ad in pixels");
+    addField("h", &Bid::h, "height of ad in pixels");
     addField("ext", &Bid::ext, "Extensions");
 }
 
