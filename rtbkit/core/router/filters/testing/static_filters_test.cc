@@ -1,5 +1,5 @@
 /** static_filters_test.cc                                 -*- C++ -*-
-    R��mi Attab, 22 Aug 2013
+    Rémi Attab, 22 Aug 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
 
     Tests for the static filters.
