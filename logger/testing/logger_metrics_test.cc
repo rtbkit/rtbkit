@@ -30,17 +30,14 @@ using namespace std;
 
 BOOST_AUTO_TEST_CASE( test_logger_metrics ) {
     Mongo::MongoTemporaryServer mongo;
-    setenv("CONFIG", "soa/logger/testing/logger_metrics_config.json", 1);
-    shared_ptr<ILoggerMetrics> logger =
-        ILoggerMetrics::setup("metricsLogger", "lalmetrics", "test");
+    string filename("soa/logger/testing/logger_metrics_config.json");
+    Json::Value config = Json::parseFromFile(filename);
+    const Json::Value & metricsLogger = config["metricsLogger"];
+    auto logger = ILoggerMetrics::setupFromJson(metricsLogger,
+                                                "lalmetrics", "test");
 
     logger->logMeta({"a", "b"}, "taratapom");
 
-    Json::Value config;
-    filter_istream cfgStream("soa/logger/testing/logger_metrics_config.json");
-    cfgStream >> config;
-
-    Json::Value metricsLogger = config["metricsLogger"];
     auto conn = std::make_shared<mongo::DBClientConnection>();
     conn->connect(metricsLogger["hostAndPort"].asString());
     string err;
