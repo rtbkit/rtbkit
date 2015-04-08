@@ -215,3 +215,92 @@ BOOST_AUTO_TEST_CASE( testSegmentsFilter )
     check(filter, br3, creatives, 0, { {1}, {2}         });
 
 }
+
+
+/******************************************************************************/
+/* PMP FILTER                                                              */
+/******************************************************************************/
+
+BOOST_AUTO_TEST_CASE( testiPMPFilter )
+{
+    CreativePMPFilter filter;
+    CreativeMatrix creatives;
+    auto addDeal = [] (AgentConfig& cfg, const std::string& dealId) {
+        for ( auto& c : cfg.creatives)
+            c.dealId = dealId;
+    };
+  
+    auto addPmpImp = [] (BidRequest& br,OpenRTB::AdPosition::Vals pos, OpenRTB::PMP& pmp) {
+        AdSpot imp;
+        imp.position.val = pos;
+        imp.pmp.emplace(pmp);
+        br.imp.push_back(imp);
+    };
+
+
+// With DealId DEAL1
+    AgentConfig c0;
+    c0.creatives.push_back(Creative());
+    c0.creatives.push_back(Creative(100, 100));
+    c0.creatives.push_back(Creative(300, 300));
+    addDeal(c0, "DEAL1");
+
+// With DealId DEAL2
+    AgentConfig c1;
+    c1.creatives.push_back(Creative(100, 100));
+    c1.creatives.push_back(Creative(200, 200));
+    addDeal(c1, "DEAL2");
+
+// With No DealId
+    AgentConfig c2;
+    c2.creatives.push_back(Creative());
+    c2.creatives.push_back(Creative(200, 200));
+
+    OpenRTB::Deal d0;
+    d0.id = Datacratic::Id("DEAL1");
+    OpenRTB::Deal d1;
+    d1.id = Datacratic::Id("DEAL2");
+    
+    // No private Auction 
+    OpenRTB::PMP p0;
+    p0.privateAuction = 0;
+    p0.deals.push_back(d0);
+    
+    // Single DealId in PMP
+    OpenRTB::PMP p1;
+    p1.privateAuction = 1;
+    p1.deals.push_back(d0);
+
+    // Both DealId in PMP
+    OpenRTB::PMP p2;
+    p2.privateAuction = 1;
+    p2.deals.push_back(d0);
+    p2.deals.push_back(d1);
+
+
+    BidRequest r0;
+    addImp(r0, OpenRTB::AdPosition::ABOVE, { {100, 100} }); // No pmp
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p0); // pmp but No privateAuction
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p1); // Single Deal
+    addPmpImp(r0, OpenRTB::AdPosition::ABOVE, p2); // Two Deals
+
+    title("PMP-1");
+    addConfig(filter, 0, c0, creatives);
+    addConfig(filter, 1, c1, creatives);
+    addConfig(filter, 2, c2, creatives);
+
+    check(filter, r0, creatives, 0, { {2},    {2}              });
+    check(filter, r0, creatives, 1, { {2},    {2}              });
+    check(filter, r0, creatives, 2, { {0},    {0},      {0}    });
+    check(filter, r0, creatives, 3, { {0, 1}, {0, 1},   {0}    });
+    
+
+    title("PMP-2");
+    removeConfig(filter, 0, c0, creatives);
+
+    check(filter, r0, creatives, 0, { {2}, {2} });
+    check(filter, r0, creatives, 1, { {2}, {2} });
+    check(filter, r0, creatives, 2, { });
+    check(filter, r0, creatives, 3, { {1}, {1} });
+}
+
