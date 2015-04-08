@@ -424,6 +424,17 @@ struct FilterState
     // creative matrix. This is the format ingested by the router.
     std::unordered_map<unsigned, BiddableSpots> biddableSpots();
 
+    /*
+     * This map is keyed by filtered reasons and contains a ConfigSet.
+     * Of course, those configs belonging to those configIndex were filtered
+     * due to the given reason.
+     */
+    typedef std::map<std::string, ConfigSet > FilterReasons;
+
+    FilterReasons& getFilterReasons();
+
+    void resetFilterReasons();
+
 private:
     void updateConfigs()
     {
@@ -434,6 +445,7 @@ private:
 
     ConfigSet configs_;
     ML::compact_vector<CreativeMatrix, 8> creatives_;
+    FilterReasons filterReasons_;
 };
 
 
