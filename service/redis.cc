@@ -519,6 +519,15 @@ struct AsyncConnection::EventLoop {
                 wakeupfd.read();
                 //cerr << "woken up with " << res << " messages" << endl;
             }
+            if ((fds[1].revents & POLLHUP)
+                || (fds[1].revents & POLLERR)) {
+                /* For now, we simply disconnect when we receive a POLLHUP, but eventually
+                 * we should try to reconnect or at least notify the user through a callback
+                 */
+                onDisconnect(REDIS_ERR_IO);
+                break;
+            }
+
             if ((fds[1].revents & POLLOUT)
                 && (fds[1].events & POLLOUT)) {
                 //cerr << "got write on " << fds[1].fd << endl;
