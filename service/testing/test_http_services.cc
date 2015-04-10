@@ -8,7 +8,7 @@ HttpService::
 HttpService(const shared_ptr<ServiceProxies> & proxies)
     : ServiceBase("http-test-service", proxies),
       HttpEndpoint("http-test-service-ep"),
-      portToUse(0)
+      portToUse(0), numReqs(0)
 {
 }
 
@@ -51,7 +51,7 @@ sendResponse(int code, const string & body, const string & type)
 
 HttpGetService::
 HttpGetService(const shared_ptr<ServiceProxies> & proxies)
-    : HttpService(proxies), numReqs(0)
+    : HttpService(proxies)
 {}
 
 void
@@ -61,14 +61,13 @@ handleHttpPayload(HttpTestConnHandler & handler,
                   const string & payload)
 {
     numReqs++;
-    // int localRq = numReqs;
-    // if ((localRq % 100) == 0) {
-    //     ::fprintf(stderr, "srv reqs: %d\n", localRq);
-    // }
     string key = header.verb + ":" + header.resource;
     if (header.resource == "/timeout") {
         sleep(3);
         handler.sendResponse(200, "Will time out", "text/plain");
+    }
+    else if (header.resource == "/counter") {
+        handler.sendResponse(200, to_string(numReqs), "text/plain");
     }
     else if (header.resource == "/headers") {
         string headersBody("{\n");
@@ -84,6 +83,22 @@ handleHttpPayload(HttpTestConnHandler & handler,
         }
         headersBody += "}\n";
         handler.sendResponse(200, headersBody, "application/json");
+    }
+    else if (header.resource == "/query-params") {
+        string body = header.queryParams.uriEscaped();
+        handler.sendResponse(200, body, "text/plain");
+    }
+    else if (header.resource == "/connection-close") {
+        handler.send("HTTP/1.1 204 No contents\r\nConnection: close\r\n\r\n",
+                     PassiveConnectionHandler::NextAction::NEXT_CLOSE);
+    }
+    else if (header.resource == "/quiet-connection-close") {
+        handler.send("HTTP/1.1 204 No contents\r\n\r\n",
+                     PassiveConnectionHandler::NextAction::NEXT_CLOSE);
+    }
+    else if (header.resource == "/abrupt-connection-close") {
+        handler.send("",
+                     PassiveConnectionHandler::NextAction::NEXT_CLOSE);
     }
     else {
         const auto & it = responses_.find(key);

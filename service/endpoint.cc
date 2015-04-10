@@ -161,7 +161,7 @@ shutdown()
 
         for (const auto & it: transportMapping) {
             auto transport = it.first.get();
-            cerr << "shutting down transport " << transport->status() << endl;
+            // cerr << "shutting down transport " << transport->status() << endl;
             transport->closeAsync();
         }
     }

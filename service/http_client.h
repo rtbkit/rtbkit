@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
@@ -117,15 +120,14 @@ struct HttpClientImpl : public AsyncEventSource {
     virtual ~HttpClientImpl()
     {}
 
+    /** Enable debugging */
+    virtual void enableDebug(bool value) = 0;
+
     /** SSL checks */
     virtual void enableSSLChecks(bool value) = 0;
 
     /** Enable the TCP_NODELAY option, also known as the Nagle's algorithm */
     virtual void enableTcpNoDelay(bool value) = 0;
-
-    /** Enable the requesting of "100 Continue" responses in preparation of
-     * a PUT request */
-    virtual void sendExpect100Continue(bool value) = 0;
 
     /** Use with servers that support HTTP pipelining */
     virtual void enablePipelining(bool value) = 0;
@@ -199,6 +201,12 @@ struct HttpClient : public AsyncEventSource {
         return impl->processOne();
     }
 
+    /** Enable debugging */
+    void enableDebug(bool value)
+    {
+        impl->enableDebug(value);
+    }
+
     /** SSL checks */
     void enableSSLChecks(bool value)
     {
@@ -213,10 +221,7 @@ struct HttpClient : public AsyncEventSource {
 
     /** Enable the requesting of "100 Continue" responses in preparation of
      * a PUT request */
-    void sendExpect100Continue(bool value)
-    {
-        impl->sendExpect100Continue(value);
-    }
+    void sendExpect100Continue(bool value);
 
     /** Use with servers that support HTTP pipelining */
     void enablePipelining(bool value)
