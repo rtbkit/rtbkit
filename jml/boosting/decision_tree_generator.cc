@@ -21,6 +21,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/variate_generator.hpp>
+#include <mutex>
 
 
 using namespace std;
@@ -305,6 +306,23 @@ struct Tree_Accum {
 
             if (z < best_z) {
 
+                if (!isfinite(arg)) {  // will never happen
+                    static std::mutex mutex;
+                    std::unique_lock<std::mutex> guard(mutex);
+
+                    cerr << "Best arg had non-finite split" << endl;
+                    cerr << "feature = " << fs.print(feature) << endl;
+                    cerr << "info = " << fs.info(feature) << endl;
+                    cerr << "z = " << z << endl;
+                    cerr << "arg = " << arg << endl;
+
+                    cerr << "Beating previous best" << endl;
+                    cerr << "feature = " << fs.print(best_feature) << endl;
+                    cerr << "info = " << fs.info(best_feature) << endl;
+                    cerr << "z = " << best_z << endl;
+                    cerr << "arg = " << best_arg << endl;
+                }
+
                 if (tracer || print_feat)
                     tracer("tree accum", 4) << w.print() << endl;
                 // A better one.  This replaces whatever we had accumulated so
@@ -321,6 +339,18 @@ struct Tree_Accum {
 
     float add(const Feature & feature, const W & w, float arg, double missing)
     {
+        // If the decision tree generator is having a really tough time
+        // separating the classes, and it's a bucketed feature, than it
+        // may send back a -INF for arg (which means split on missing or
+        // not missing), even if there is no missing feature, due to
+        // numerical issues.  Since the decision tree can't handle a split
+        // point of -INIFINITY, we return that we don't want this split
+        // point so that it will continue looking for something better.
+
+        if (!isfinite(arg)) {
+            return Z::none;
+        }
+
         float z = calc_z.non_missing(w, missing);
         return add_z(feature, w, arg, z);
     }
@@ -874,17 +904,19 @@ train_recursive(Thread_Context & context,
     }
 
     if (split.feature() == MISSING_FEATURE) {
-/*
-        cerr << "in_class = " << in_class << endl;
-        cerr << "weights = " << endl;
-        for (unsigned i = 0;  i < weights.size();  ++i)
-            cerr << weights[i][0] << " " << weights[i][1] << endl;
+        //cerr << "in_class = " << in_class << endl;
+        //cerr << "weights = " << endl;
+        //for (unsigned i = 0;  i < weights.size();  ++i)
+        //    cerr << weights[i][0] << " " << weights[i][1] << endl;
+        cerr << "in_class.total() = " << in_class.total() << endl;
+        cerr << "in_class non zero = " << (in_class != 0.0).count() << endl;
+        cerr << "in_class.size() = " << in_class.size() << endl;
+
         cerr << "example count = " << data.example_count() << endl;
         cerr << "class_weights = " << class_weights << endl;
         cerr << "total_weight = " << total_weight << endl;
- */       
+
         cerr << "WARNING: no feature found in decision tree split" << endl;
-        cerr << "warning : didn't print a sometimes awfully long print in decision_tree_generator.cc" << endl;
         Tree::Leaf * result = tree.new_leaf();
         *result = leaf;
         return result;
