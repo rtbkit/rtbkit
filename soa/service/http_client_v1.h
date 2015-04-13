@@ -11,6 +11,7 @@
 
 #include "sys/epoll.h"
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -36,11 +37,6 @@ struct HttpClientV1 : public HttpClientImpl {
     HttpClientV1(const std::string & baseUrl,
                  int numParallel, int queueSize);
 
-    HttpClientV1(HttpClientV1 && other) noexcept;
-    HttpClientV1 & operator = (HttpClientV1 && other) noexcept;
-
-    HttpClientV1(const HttpClientV1 & other) = delete;
-
     ~HttpClientV1();
 
     /* AsyncEventSource */
@@ -48,8 +44,8 @@ struct HttpClientV1 : public HttpClientImpl {
     virtual bool processOne();
 
     /* HttpClientImpl */
+    void enableDebug(bool value);
     void enableSSLChecks(bool value);
-    void sendExpect100Continue(bool value);
     void enableTcpNoDelay(bool value);
     void enablePipelining(bool value);
 
@@ -99,8 +95,7 @@ private:
             afterContinue_ = false;
             uploadOffset_ = 0;
         }
-        void perform(bool noSSLChecks, bool withExpect100Continue,
-                     bool tcpNoDelay, bool debug);
+        void perform(bool noSSLChecks, bool tcpNoDelay, bool debug);
 
         /* header and body write callbacks */
         curlpp::types::WriteFunctionFunctor onHeader_;

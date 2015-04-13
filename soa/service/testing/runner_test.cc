@@ -109,10 +109,10 @@ BOOST_AUTO_TEST_CASE( test_runner_no_sigchld )
     BOOST_REQUIRE_EQUAL(runner.waitStart(1.0), false);
     cerr << "done waiting for start" << endl;
 
+    runner.waitTermination();
+
     BOOST_CHECK(isTerminated);
     BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
-
-    runner.waitTermination();
 }
 #endif
 
