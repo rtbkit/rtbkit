@@ -43,7 +43,7 @@ struct TemporaryServer : boost::noncopyable
     }
 
     void start() {
-        if (uniquePath == "" || uniquePath[0] == '/' || uniquePath == "." || uniquePath == "..") {
+        if (uniquePath == "" || uniquePath == "." || uniquePath == "..") {
             throw ML::Exception("unacceptable path");
         }
 

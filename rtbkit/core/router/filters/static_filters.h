@@ -36,6 +36,9 @@ struct SegmentsFilter : public FilterBaseT<SegmentsFilter>
 
 private:
 
+    void fillFilterReasons(FilterState& state, ConfigSet& beforeFilt,
+            ConfigSet& afterFilt, const std::string & segment) const;
+
     struct SegmentData
     {
         typedef ListFilter<std::string> ExchangeFilterT;

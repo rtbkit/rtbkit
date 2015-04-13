@@ -347,12 +347,17 @@ public:
     std::shared_ptr<SlaveBanker> makeBanker(
             std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const;
 
+    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
+            std::shared_ptr<ServiceProxies> proxies) const;
+
+    Amount spendRate() const;
+
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
 
-    std::string spendRate;
 private:
+    std::string spendRateStr;
     double syncRate;
     bool batched;
 
@@ -360,9 +365,6 @@ private:
     double httpTimeout;
     int httpConnections;
     bool tcpNoDelay;
-
-    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
-            std::shared_ptr<ServiceProxies> proxies) const;
 };
 
 } // namespace RTBKIT

@@ -176,8 +176,7 @@ init()
         localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
         localBanker->setDebug(localBankerDebug);
-        auto spendRate = Amount::parse(bankerArgs.spendRate);
-        localBanker->setSpendRate(spendRate);
+        localBanker->setSpendRate(bankerArgs.spendRate());
     }
     if (localBanker && bankerChoice == "split") {
         unordered_set<string> campaignSet;
