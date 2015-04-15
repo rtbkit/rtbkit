@@ -262,10 +262,11 @@ HttpAuctionHandler::
 doEvent(const char * eventName,
         EventType type,
         float value,
-        const char * units)
+        const char * units,
+        std::initializer_list<int> extra)
 {
     //cerr << eventName << " " << value << endl;
-    endpoint->recordEvent(eventName, type, value);
+    endpoint->recordEvent(eventName, type, value, extra);
 }
 
 void
@@ -535,7 +536,8 @@ sendResponse()
             this->doEvent("auctionTotalTimeMs",
                           ET_OUTCOME,
                           Date::now().secondsSince(this->firstData) * 1000.0,
-                          "ms");
+                          "ms",
+                          { 90, 95, 98, 99 });
 
             if (random() % 1000 == 0) {
                 this->transport().closeWhenHandlerFinished();
@@ -581,6 +583,7 @@ sendErrorResponse(const std::string & error,
                   const std::string & details)
 {
     putResponseOnWire(endpoint->getErrorResponse(*this,  error + ": " + details));
+    endpoint->onAuctionError("EXCHANGE_ERROR", auction, error + ": " + details);
 }
 
 std::string

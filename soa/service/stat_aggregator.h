@@ -11,6 +11,7 @@
 #include "jml/stats/distribution.h"
 #include <boost/thread.hpp>
 #include "soa/types/date.h"
+#include "stats_events.h"
 #include <unordered_map>
 #include <map>
 #include <deque>
@@ -97,7 +98,8 @@ struct GaugeAggregator : public StatAggregator {
         Outcome      ///< mean, min, max, percentiles, count
     };
 
-    GaugeAggregator(Verbosity  verbosity = Outcome);
+    GaugeAggregator(Verbosity  verbosity = Outcome,
+            const std::vector<int>& extra = DefaultOutcomePercentiles);
 
     virtual ~GaugeAggregator();
 
@@ -116,6 +118,7 @@ private:
     Verbosity verbosity;
     Date start;  //< Date at which we last cleared the counter
     ML::distribution<float> * volatile values;  //< List of added values
+    std::vector<int> extra;
 };
 
 

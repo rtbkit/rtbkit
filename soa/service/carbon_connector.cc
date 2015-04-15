@@ -116,23 +116,34 @@ StatAggregator * createNewLevel()
     return new GaugeAggregator(GaugeAggregator::Level);
 }
 
-StatAggregator * createNewOutcome()
+StatAggregator * createNewOutcome(const std::vector<int>& percentiles)
 {
-    return new GaugeAggregator(GaugeAggregator::Outcome);
+    return new GaugeAggregator(GaugeAggregator::Outcome, percentiles);
 }
 
 void
 MultiAggregator::
 record(const std::string & stat,
        EventType type,
-       float value)
+       float value,
+       std::initializer_list<int> extra)
 {
     switch (type) {
-    case ET_HIT:          recordHit(stat);                break;
-    case ET_COUNT:        recordCount(stat, value);       break;
-    case ET_STABLE_LEVEL: recordStableLevel(stat, value); break;
-    case ET_LEVEL:        recordLevel(stat, value);       break;
-    case ET_OUTCOME:      recordOutcome(stat, value);     break;
+    case ET_HIT:
+        recordHit(stat);
+        break;
+    case ET_COUNT:
+        recordCount(stat, value);
+        break;
+    case ET_STABLE_LEVEL:
+        recordStableLevel(stat, value);
+        break;
+    case ET_LEVEL:
+        recordLevel(stat, value);
+        break;
+    case ET_OUTCOME:
+        recordOutcome(stat, value, extra);
+        break;
     default:
         cerr << "warning: unknown stat type" << endl;
     }
@@ -168,9 +179,10 @@ recordLevel(const std::string & stat, float value)
     
 void
 MultiAggregator::
-recordOutcome(const std::string & stat, float value)
+recordOutcome(const std::string & stat, float value,
+              const std::vector<int>& percentiles)
 {
-    getAggregator(stat, createNewOutcome).record(value);
+    getAggregator(stat, createNewOutcome, percentiles).record(value);
 }
 
 
@@ -221,44 +233,6 @@ shutdown()
 
         if (onStop) onStop();
     }
-}
-
-StatAggregator &
-MultiAggregator::
-getAggregator(const std::string & stat,
-              StatAggregator * (*createFn) ())
-{
-    if (!lookupCache.get())
-        lookupCache.reset(new LookupCache());
-
-    auto found = lookupCache->find(stat);
-    if (found != lookupCache->end())
-        return *found->second->second;
-
-    // Get the read lock to look for the aggregator
-    std::unique_lock<Lock> guard(lock);
-
-    auto found2 = stats.find(stat);
-
-    if (found2 != stats.end()) {
-        guard.unlock();
-
-        (*lookupCache)[stat] = found2;
-
-        return *found2->second;
-    }
-    
-    guard.unlock();
-
-    // Get the write lock to add it to the aggregator
-    std::unique_lock<Lock> guard2(lock);
-
-    // Add it in
-    found2 = stats.insert(make_pair(stat, std::shared_ptr<StatAggregator>(createFn()))).first;
-
-    guard2.unlock();
-    (*lookupCache)[stat] = found2;
-    return *found2->second;
 }
 
 void
@@ -400,7 +374,7 @@ doStat(const std::vector<StatReading> & values) const
     std::string message;
 
     for (unsigned i = 0;  i < values.size();  ++i) {
-        message += ML::format("%s%s %.5f %lld\n",
+        message += ML::format("%s%s %g %lld\n",
                               prefix.c_str(), values[i].name.c_str(),
                               values[i].value,
                               (unsigned long long)

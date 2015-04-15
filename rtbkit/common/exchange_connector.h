@@ -60,6 +60,11 @@ struct ExchangeConnector: public ServiceBase {
     /** Probability that we will accept a given auction. */
     double acceptAuctionProbability;
 
+    typedef boost::function<void (const std::string & channel,
+                                  std::shared_ptr<Auction> auction,
+                                  const std::string & message)> OnAuctionError;
+    OnAuctionError onAuctionError;
+
     /*************************************************************************/
     /* METHODS CALLED BY THE ROUTER TO CONTROL THE EXCHANGE CONNECTOR        */
     /*************************************************************************/

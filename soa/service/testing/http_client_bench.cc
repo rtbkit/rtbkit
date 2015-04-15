@@ -40,11 +40,11 @@ AsyncModelBench(HttpMethod method,
 {
     int numReqs, numResponses(0), numMissed(0);
     MessageLoop loop(1, 0, -1);
-
     loop.start();
 
     auto client = make_shared<HttpClient>(baseUrl, concurrency);
-    loop.addSource("httpClient", client);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
 
     auto onResponse = [&] (const HttpRequest & rq, HttpClientError errorCode_,
                            int status, string && headers, string && body) {

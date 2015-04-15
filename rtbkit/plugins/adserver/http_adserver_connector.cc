@@ -167,7 +167,7 @@ init(const shared_ptr<ConfigurationService> & config)
     for (HttpAdServerHttpEndpoint & endpoint: endpoints_) {
         auto onEvent = bind(&ServiceBase::recordEvent, this,
                             placeholders::_1, placeholders::_2,
-                            placeholders::_3);
+                            placeholders::_3, placeholders::_4);
         endpoint.onEvent = onEvent;
     }
 }

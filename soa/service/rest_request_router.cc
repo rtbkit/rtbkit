@@ -8,6 +8,7 @@
 #include "jml/utils/vector_utils.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/set_utils.h"
+#include "jml/utils/file_functions.h"
 
 
 using namespace std;
@@ -369,6 +370,53 @@ addSubRouter(PathSpec path, const std::string & description, ExtractObject extra
 
     subRoutes.push_back(route);
     return *route.router;
+}
+
+RestRequestRouter::OnProcessRequest
+RestRequestRouter::
+getStaticRouteHandler(const string dir) const {
+    RestRequestRouter::OnProcessRequest staticRoute
+        = [dir] (const RestServiceEndpoint::ConnectionId & connection,
+                 const RestRequest & request,
+                 const RestRequestParsingContext & context) {
+
+        string path = context.resources.back();
+
+        cerr << "static content for " << path << endl;
+
+        if (path.find("..") != string::npos) {
+            throw ML::Exception("not dealing with path with .. in it");
+        }
+
+        string filename = dir + "/" + path;
+
+        ML::filter_istream stream(filename);
+        ML::File_Read_Buffer buf(filename);
+
+        string mimeType = "text/plain";
+        if (filename.find(".html") != string::npos) {
+            mimeType = "text/html";
+        }
+        else if (filename.find(".js") != string::npos) {
+            mimeType = "application/javascript";
+        }
+        else if (filename.find(".css") != string::npos) {
+            mimeType = "text/css";
+        }
+
+        string result(buf.start(), buf.end());
+        connection.sendResponse(200, result, mimeType);
+        return RestRequestRouter::MR_YES;
+    };
+    return staticRoute;
+}
+
+void RestRequestRouter::
+serveStaticDirectory(const std::string & route, const std::string & dir) {
+    addRoute(Rx(route + "/(.*)", "<resource>"),
+             "GET", "Static content",
+             getStaticRouteHandler(dir),
+             Json::Value());
 }
 
 

@@ -106,6 +106,8 @@ struct MatchedCampaignEvent
     Datacratic::UnicodeString requestStr;
     std::string requestStrFormat;
 
+    Auction::Response response;
+
     Json::Value bid;
     Json::Value win;
     Json::Value campaignEvents;

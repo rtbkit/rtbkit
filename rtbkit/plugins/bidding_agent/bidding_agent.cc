@@ -512,7 +512,7 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel
 
     /** Gather some stats */
     for (const Bid& bid : bids) {
-        if (bid.isNullBid()) recordHit("filtered.total");
+        if (bid.isNullBid()) recordHit("noBid");
         else {
             recordHit("bids");
             recordLevel(bid.price.value, "bidPrice." + bid.price.getCurrencyStr());

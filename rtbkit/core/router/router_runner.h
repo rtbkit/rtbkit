@@ -11,6 +11,7 @@
 #include <boost/program_options/options_description.hpp>
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "rtbkit/core/banker/local_banker.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/logs.h"
 
@@ -34,12 +35,16 @@ struct RouterRunner {
 
     float lossSeconds;
     bool noPostAuctionLoop;
+    bool noBidProb;
 
     bool logAuctions;
     bool logBids;
 
     float maxBidPrice;
     std::string bankerUri;
+    std::string localBankerUri;
+    bool localBankerDebug;
+    std::string bankerChoice;
 
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
     int slowModeTolerance;
@@ -53,7 +58,9 @@ struct RouterRunner {
                    = boost::program_options::options_description());
 
     std::shared_ptr<ServiceProxies> proxies;
-    std::shared_ptr<SlaveBanker> banker;
+    std::shared_ptr<Banker> banker;
+    std::shared_ptr<SlaveBanker> slaveBanker;
+    std::shared_ptr<LocalBanker> localBanker;
     std::shared_ptr<Router> router;
     Json::Value exchangeConfig;
     Json::Value bidderConfig;
