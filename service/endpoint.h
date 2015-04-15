@@ -37,6 +37,13 @@ struct PassiveEndpoint;
 /*****************************************************************************/
 
 struct EndpointBase : public Epoller {
+    enum PollingMode {
+        DEFAULT_POLLING,
+        REALTIME_POLLING, // <<< Reduce latency jitter caused by the polling
+                          // loop at the cost of busy looping the CPU (100%
+                          // usage).
+        SLEEP_POLLING // enable the polling loop to sleep while awaiting events
+    };
 
     EndpointBase(const std::string & name);
 
@@ -113,10 +120,14 @@ struct EndpointBase : public Epoller {
     /** Set this endpoint up to handle events in realtime. */
     void makeRealTime(int priority = 1);
 
-    /** Helps reduce latency jitter caused by the polling loop at the cost of
-        busy looping the CPU (100% usage).
-    */
-    void realTimePolling(bool value) { realTimePolling_ = value; }
+    /** Set the polling mode to the given value. */
+    void setPollingMode(enum PollingMode mode);
+
+    /** Set the polling mode to "REALTIME_POLLING" */
+    void realTimePolling(bool value)
+    {
+        setPollingMode(value ? REALTIME_POLLING : DEFAULT_POLLING);
+    }
 
     /** Spin up the threads as part of the initialization.  NOTE: make sure that this is
         only called once; normally it will be done as part of init().  Calling directly is
@@ -255,7 +266,7 @@ private:
     bool disallowTimers_;
 
     // Turns the polling loop into a busy loop with no sleeps.
-    bool realTimePolling_;
+    enum PollingMode pollingMode_;
 
     std::map<std::string, int> numTransportsByHost;
 
@@ -263,6 +274,15 @@ private:
 
     /** Run a thread to handle events. */
     void runEventThread(int threadNum, int numThreads);
+
+    /** Mode-specific polling loops. */
+    void doDefaultPolling(int threadNum, int numThreads);
+    void doRealtimePolling(int threadNum, int numThreads);
+    void doSleepPolling(int threadNum, int numThreads);
+
+    /** Return the timeout value to use when polling, depending on the given
+        mode. */
+    int modePollTimeout(enum PollingMode mode) const;
 
     /** Handle a single ePoll event */
     Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
