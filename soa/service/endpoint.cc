@@ -44,7 +44,7 @@ EndpointBase(const std::string & name)
       name_(name),
       threadsActive_(0),
       numTransports(0), shutdown_(false), disallowTimers_(false),
-      pollingMode_(DEFAULT_POLLING)
+      pollingMode_(MIN_CONTEXT_SWITCH_POLLING)
 {
     Epoller::init(16384);
     auto wakeupData = make_shared<EpollData>(EpollData::EpollDataType::WAKEUP,
@@ -513,14 +513,14 @@ runEventThread(int threadNum, int numThreads)
 
     while (!shutdown_) {
         switch (pollingMode_) {
-        case DEFAULT_POLLING:
-            doDefaultPolling(threadNum, numThreads);
+        case MIN_CONTEXT_SWITCH_POLLING:
+            doMinCtxSwitchPolling(threadNum, numThreads);
             break;
-        case REALTIME_POLLING:
-            doRealtimePolling(threadNum, numThreads);
+        case MIN_LATENCY_POLLING:
+            doMinLatencyPolling(threadNum, numThreads);
             break;
-        case SLEEP_POLLING:
-            doSleepPolling(threadNum, numThreads);
+        case MIN_CPU_POLLING:
+            doMinCpuPolling(threadNum, numThreads);
             break;
         default:
             throw ML::Exception("unhandled polling mode");
@@ -535,7 +535,7 @@ runEventThread(int threadNum, int numThreads)
 
 void
 EndpointBase::
-doDefaultPolling(int threadNum, int numThreads)
+doMinCtxSwitchPolling(int threadNum, int numThreads)
 {
     bool debug = false;
     //debug = name() == "Backchannel";
@@ -657,7 +657,7 @@ doDefaultPolling(int threadNum, int numThreads)
 
 void
 EndpointBase::
-doRealtimePolling(int threadNum, int numThreads)
+doMinLatencyPolling(int threadNum, int numThreads)
 {
     bool wasBusy = false;
     Date sleepStart = Date::now();
@@ -685,9 +685,48 @@ doRealtimePolling(int threadNum, int numThreads)
 
 void
 EndpointBase::
-doSleepPolling(int threadNum, int numThreads)
+doMinCpuPolling(int threadNum, int numThreads)
 {
-    handleEvents(0, -1, handleEvent);
+    bool debug = false;
+
+    ML::Duty_Cycle_Timer duty;
+
+    auto beforeSleep = [&] () {
+        duty.notifyBeforeSleep();
+    };
+
+    auto afterSleep = [&] () {
+        duty.notifyAfterSleep();
+    };
+
+    if (debug) {
+        cerr << ("threadNum = " + to_string(threadNum)
+                 + " of " + name()
+                 + " numThreads = " + to_string(numThreads)
+                 + "\n");
+    }
+
+    Date lastCheck = Date::now();
+
+    while (!shutdown_) {
+        handleEvents(0, -1, handleEvent, beforeSleep, afterSleep);
+
+        Date now = Date::now();
+        if (now.secondsSince(lastCheck) > 1.0 && debug) {
+            ML::Duty_Cycle_Timer::Stats stats = duty.stats();
+            string msg = format("control thread for %s: "
+                                "events %lld sleeping %lld "
+                                "processing %lld duty %.2f%%",
+                                name().c_str(),
+                                (long long)stats.numWakeups,
+                                (long long)stats.usAsleep,
+                                (long long)stats.usAwake,
+                                stats.duty_cycle() * 100.0);
+            cerr << msg << flush;
+            duty.clear();
+            lastCheck = now;
+        }
+    }
 }
 
 int
@@ -695,7 +734,7 @@ EndpointBase::
 modePollTimeout(enum PollingMode mode)
     const
 {
-    return (mode == SLEEP_POLLING) ? -1 : 0;
+    return (mode == MIN_CPU_POLLING) ? 1000 : 0;
 }
 
 } // namespace Datacratic
