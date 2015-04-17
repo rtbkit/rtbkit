@@ -640,7 +640,7 @@ SlaveBankerArguments::SlaveBankerArguments()
     , batched(Defaults::Batched)
     , useHttp(Defaults::UseHttp)
     , httpTimeout(Defaults::HttpTimeout)
-    , httpConnections(0)
+    , httpConnections(Defaults::HttpConnections)
     , tcpNoDelay(Defaults::TcpNoDelay)
 {
 }
@@ -668,7 +668,7 @@ SlaveBankerArguments::makeProgramOptions(std::string title)
          "Communicate with the MasterBanker over http")
         ("banker-http-timeouts", po::value<double>(&httpTimeout),
          "banker sync request timeout over http.")
-        ("http-connections", po::value<int>(&httpConnections),
+        ("http-connections", po::value<int>(&httpConnections)->default_value(Defaults::HttpConnections),
          "Number of active http connections to use when http is enabled")
         ("banker-tcp-nodelay", po::bool_switch(&tcpNoDelay),
           "Enable the TCP_NODELAY option for the http banker interface (use with caution)");

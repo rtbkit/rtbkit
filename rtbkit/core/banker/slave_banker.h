@@ -327,7 +327,7 @@ public:
         static constexpr bool Batched = false;
 
         static constexpr bool UseHttp = false;
-        static constexpr int HttpConnections = 1 << 3;
+        static constexpr int HttpConnections = 128;
         static constexpr double HttpTimeout = 3.0;
         static constexpr bool TcpNoDelay = false;
     };
