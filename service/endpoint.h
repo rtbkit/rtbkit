@@ -38,11 +38,10 @@ struct PassiveEndpoint;
 
 struct EndpointBase : public Epoller {
     enum PollingMode {
-        DEFAULT_POLLING,
-        REALTIME_POLLING, // <<< Reduce latency jitter caused by the polling
-                          // loop at the cost of busy looping the CPU (100%
-                          // usage).
-        SLEEP_POLLING // enable the polling loop to sleep while awaiting events
+        MIN_CONTEXT_SWITCH_POLLING, ///< Minimise context switches
+        MIN_CPU_POLLING,            ///< Minimise CPU usage when idle
+        MIN_LATENCY_POLLING         ///< Minimise latency, at the cost of busy
+                                    ///< looping the CPU
     };
 
     EndpointBase(const std::string & name);
@@ -123,10 +122,12 @@ struct EndpointBase : public Epoller {
     /** Set the polling mode to the given value. */
     void setPollingMode(enum PollingMode mode);
 
-    /** Set the polling mode to "REALTIME_POLLING" */
+    /** Set the polling mode to "MIN_LATENCY_POLLING" */
     void realTimePolling(bool value)
     {
-        setPollingMode(value ? REALTIME_POLLING : DEFAULT_POLLING);
+        setPollingMode(value
+                       ? MIN_LATENCY_POLLING
+                       : MIN_CONTEXT_SWITCH_POLLING);
     }
 
     /** Spin up the threads as part of the initialization.  NOTE: make sure that this is
@@ -276,9 +277,9 @@ private:
     void runEventThread(int threadNum, int numThreads);
 
     /** Mode-specific polling loops. */
-    void doDefaultPolling(int threadNum, int numThreads);
-    void doRealtimePolling(int threadNum, int numThreads);
-    void doSleepPolling(int threadNum, int numThreads);
+    void doMinCpuPolling(int threadNum, int numThreads);
+    void doMinCtxSwitchPolling(int threadNum, int numThreads);
+    void doMinLatencyPolling(int threadNum, int numThreads);
 
     /** Return the timeout value to use when polling, depending on the given
         mode. */
