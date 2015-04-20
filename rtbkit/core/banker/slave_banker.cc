@@ -635,7 +635,7 @@ constexpr bool SlaveBankerArguments::Defaults::TcpNoDelay;
 const std::string SlaveBankerArguments::Defaults::SpendRate{"100000USD/1M"};
 
 SlaveBankerArguments::SlaveBankerArguments()
-    : spendRate(Defaults::SpendRate)
+    : spendRateStr(Defaults::SpendRate)
     , syncRate(Defaults::SyncRate)
     , batched(Defaults::Batched)
     , useHttp(Defaults::UseHttp)
@@ -658,7 +658,7 @@ SlaveBankerArguments::makeProgramOptions(std::string title)
 
     po::options_description options(std::move(title));
     options.add_options()
-        ("spend-rate", po::value<string>(&spendRate),
+        ("spend-rate", po::value<string>(&spendRateStr),
          "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
         ("banker-sync-rate", po::value<double>(&syncRate),
          "frequency at which the slave banker syncs itself with the master banker.")
@@ -686,7 +686,7 @@ std::shared_ptr<SlaveBanker>
 SlaveBankerArguments::
 makeBanker(std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const
 {
-    auto spendRate = CurrencyPool(Amount::parse(this->spendRate));
+    auto spendRate = CurrencyPool(Amount::parse(spendRateStr));
     auto banker = std::make_shared<SlaveBanker>(accountSuffix, spendRate, syncRate, batched);
 
     banker->setApplicationLayer(makeApplicationLayer(std::move(proxies)));
@@ -728,6 +728,11 @@ SlaveBankerArguments::makeApplicationLayer(std::shared_ptr<ServiceProxies> proxi
     }
 
     return layer;
+}
+
+Amount
+SlaveBankerArguments::spendRate() const {
+    return Amount::parse(spendRateStr);
 }
 
 } // namespace RTBKIT

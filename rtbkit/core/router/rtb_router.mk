@@ -21,7 +21,7 @@ LIBRTB_ROUTER_SOURCES := \
 	filter_pool.cc
 
 LIBRTB_ROUTER_LINK := \
-	rtb zeromq boost_thread logger opstats crypto++ leveldb gc services redis banker agent_configuration monitor monitor_service post_auction static_filters openrtb
+	rtb zeromq boost_thread logger opstats crypto++ leveldb gc services redis banker gobanker agent_configuration monitor monitor_service post_auction static_filters openrtb
 
 $(eval $(call library,rtb_router,$(LIBRTB_ROUTER_SOURCES),$(LIBRTB_ROUTER_LINK)))
 

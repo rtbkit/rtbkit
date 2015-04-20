@@ -87,7 +87,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
                 if(v.mimes.empty()) {
                     // We need at least one MIME type supported by the exchange
-                    THROW(openrtbBidRequestError) << "Video::mimes needs to be populated." << endl;
+                    //LOG(openrtbBidRequestError) << "Video::mimes needs to be populated." << endl;
+                    v.mimes.push_back(OpenRTB::MimeType("application/octet-stream"));
                 }
             
                 if(version == "2.1") {
@@ -97,7 +98,9 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     * so if it's under 0, it means it wasn't given and it can only be 1 or 2
                     */
                     if(v.linearity.value() < -0 ||v.linearity.value() > 2) {
-                        THROW(openrtbBidRequestError) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+                        //LOG(openrtbBidRequestError) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+                        //LOG(openrtbBidRequestError) <<"Video::linearity has been set to UNSPECIFIED." << endl;
+                        v.linearity.val = -1;
                     }
                 
                     /** 
@@ -107,7 +110,9 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     */
                 
                     if(v.protocol.value() < 0 || v.protocol.value() > 6) {
-                        THROW(openrtbBidRequestError) << "Video::protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+                        //LOG(openrtbBidRequestError) << "Video::protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+                        //LOG(openrtbBidRequestError) <<"Video::protocol has been set to UNSPECIFIED." << endl;
+                        v.protocol.val = -1;
                     }
                 }
 

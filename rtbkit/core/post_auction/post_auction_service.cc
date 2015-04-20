@@ -50,7 +50,11 @@ PostAuctionService(
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+
+      totalEvents(0),
+      orphanEvents(0),
+      orphanRatios(30, 0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -72,7 +76,11 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       logger(getZmqContext()),
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
-      router(!!getZmqContext())
+      router(!!getZmqContext()),
+
+      totalEvents(0),
+      orphanEvents(0),
+      orphanRatios(30, 0)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -114,6 +122,21 @@ init(size_t externalShard, size_t internalShards)
     initConnections(externalShard);
     initRestEndpoint();
     monitorProviderClient.init(getServices()->config);
+
+    auto checkOrphans = [=] (double) {
+        double ratio = 0;
+        if (totalEvents > 0) ratio = double(orphanEvents) / double(totalEvents);
+        orphanEvents = totalEvents = 0;
+
+        orphanRatios.pop_back();
+        orphanRatios.insert(orphanRatios.begin(), ratio);
+
+        ratio = accumulate(orphanRatios.begin(), orphanRatios.end(), 0);
+        ratio /= orphanRatios.size();
+
+        ExcCheckLess(ratio, 0.1, "Excessive orphaned events detected");
+    };
+    loop.addPeriodic("PostAuctionService::checkOrphans", 60.0, checkOrphans);
 }
 
 void
@@ -173,7 +196,6 @@ initConnections(size_t shard)
 
     LOG(print) << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
-    loop.addSource("PostAuctionService::logger", logger);
 
     auctions.onEvent = std::bind(&PostAuctionService::doAuction, this, _1);
     loop.addSource("PostAuctionService::auctions", auctions);
@@ -228,9 +250,9 @@ PostAuctionService::
 initRestEndpoint()
 {
     const auto& params = getServices()->params;
-    if (!params.isMember("ports") ||
-            !params["ports"].isMember("postAuctionLoopREST.zmq") ||
-            !params["ports"].isMember("postAuctionLoopREST.http"))
+    if (!params.isMember("portRanges") ||
+            !params["portRanges"].isMember("postAuctionREST.zmq") ||
+            !params["portRanges"].isMember("postAuctionREST.http"))
     {
         return;
     }
@@ -255,6 +277,15 @@ initRestEndpoint()
             this,
             JsonParam< std::shared_ptr< SubmittedAuctionEvent> >("", "auction to submit"));
 
+    addRouteSync(
+            versionNode,
+            "/events",
+            {"POST"},
+            "Submit and auction to the PAL",
+            &PostAuctionService::doEvent,
+            this,
+            JsonParam< std::shared_ptr< PostAuctionEvent> >("", "event to submit"));
+
     addSource("PostAuctionService::restEndpoint", *restEndpoint);
 }
 
@@ -266,7 +297,7 @@ forwardAuctions(const std::string& uri)
     ExcCheck(!uri.empty(), "empty forwarding uri");
 
     LOG(print) << "forwarding all bids to: " << uri << endl;
-    forwarder.reset(new EventForwarder(*this, uri));
+    forwarder.reset(new EventForwarder(*this, uri, "forwarder"));
 }
 
 
@@ -275,6 +306,7 @@ PostAuctionService::
 start(std::function<void ()> onStop)
 {
     loop.start(onStop);
+    logger.start();
     monitorProviderClient.start();
     loopMonitor.start();
     matcher->start();
@@ -312,7 +344,12 @@ doConfigChange(
 
     banker->addSpendAccount(config->account, Amount(),
             [=] (std::exception_ptr error, ShadowAccount && acount) {
-                if(error) logException(error, "Banker addSpendAccount");
+                try {
+                    if(error)
+                        logException(error, "Banker addSpendAccount");
+                }
+                catch (ML::Exception const & e) {
+                }
             });
 }
 
@@ -541,7 +578,11 @@ deliverEvent(const std::string& label, const std::string& eventType,
     };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
+
+    totalEvents++;
+
     if (!sent) {
+        orphanEvents++;
         recordHit("%s.orphaned", label);
         logPAError(ML::format("%s.noListeners%s", eventType, label),
                    "nothing listening for account " + account.toString());

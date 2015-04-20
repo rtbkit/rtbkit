@@ -112,6 +112,7 @@ Router(ServiceBase & parent,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
+       bool enableBidProbability,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
@@ -119,7 +120,7 @@ Router(ServiceBase & parent,
        Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
-      postAuctionEndpoint(parent.getServices()),
+      postAuctionEndpoint(*this),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
@@ -134,6 +135,7 @@ Router(ServiceBase & parent,
       bidsErrorRate(0.0),
       budgetErrorRate(0.0),
       connectPostAuctionLoop(connectPostAuctionLoop),
+      enableBidProbability(enableBidProbability),
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
@@ -162,6 +164,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
+       bool enableBidProbability,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
@@ -169,7 +172,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, services),
       shutdown_(false),
-      postAuctionEndpoint(services),
+      postAuctionEndpoint(*this),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
@@ -184,6 +187,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       bidsErrorRate(0.0),
       budgetErrorRate(0.0),
       connectPostAuctionLoop(connectPostAuctionLoop),
+      enableBidProbability(enableBidProbability),
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
@@ -1443,20 +1447,21 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     std::vector<GroupPotentialBidders> validGroups;
 
-    for (auto it = groupAgents.begin(), end = groupAgents.end();
-         it != end;  ++it) {
+    for(auto it = groupAgents.begin(), end = groupAgents.end(); it != end; ++it) {
         // Check for bid probability and skip if we don't bid
-        double bidProbability
-            = it->second.totalBidProbability
-            / it->second.size()
-            * globalBidProbability;
+        if(enableBidProbability) {
+            double bidProbability
+                = it->second.totalBidProbability
+                / it->second.size()
+                * globalBidProbability;
 
-        if (bidProbability < 1.0) {
-            float val = (random() % 1000000) / 1000000.0;
-            if (val > bidProbability) {
-                for (unsigned i = 0;  i < it->second.size();  ++i)
-                    ML::atomic_inc(it->second[i].stats->skippedBidProbability);
-                continue;
+            if (bidProbability < 1.0) {
+                float val = (random() % 1000000) / 1000000.0;
+                if (val > bidProbability) {
+                    for (unsigned i = 0;  i < it->second.size();  ++i)
+                        ML::atomic_inc(it->second[i].stats->skippedBidProbability);
+                    continue;
+                }
             }
         }
 
@@ -2040,8 +2045,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             slowModePeriodicSpentReached = false;
         }
 
-        if (!banker->authorizeBid(config.account, auctionKey, price)
-                || failBid(budgetErrorRate))
+        if (!banker->authorizeBid(config.account, auctionKey, price) || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
 
@@ -2049,8 +2053,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
-            this->logMessageToAnalytics("NOBUDGET", agent, auctionId,
-                    bidsString, message.meta);
+            this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
             continue;
         }
         
@@ -2065,6 +2068,10 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                             bid.price.toString().c_str(),
                             (double)bid.priority));
 
+        std::string meta;
+        if (!bid.ext.isNull()) meta = bid.ext.toStringNoNewLine();
+        else meta = message.meta;
+
         Auction::Response response(
                 Auction::Price(bid.price, bid.priority),
                 creative.id,
@@ -2072,7 +2079,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 config.test,
                 agent,
                 bids,
-                message.meta,
+                meta,
                 info.config,
                 config.visitChannels,
                 bid.creativeIndex,
@@ -2137,7 +2144,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
 
             this->logMessage(msg, agent, auctionId, bidsString, message.meta);
-            this->logMessageToAnalytics(msg, agent, auctionId, bidsString, message.meta);
+            this->logMessageToAnalytics(msg, agent, auctionId, bidsString);
             continue;
         }
         case Auction::WinLoss::WIN:
@@ -2157,7 +2164,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         if (logBids)
             // Send BID to logger
             logMessage("BID", agent, auctionId, bidsString, message.meta);
-        logMessageToAnalytics("BID", agent, auctionId, bidsString, message.meta);
+        logMessageToAnalytics("BID", agent, auctionId, bidsString);
         ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
@@ -2331,6 +2338,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
         ML::atomic_add(numAuctionsWithBid, 1);
         //cerr << fName << "injecting submitted auction " << endl;
 
+        logMessageToAnalytics("SUBMITTED", auction->id, responses[0].agent, responses[0].price.toJsonStr());
         onSubmittedAuction(auction, spotId, responses[0]);
         //postAuctionLoop.injectSubmittedAuction(auction, spotId, responses[0]);
     }
@@ -2387,7 +2395,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (logAuctions)
         // Send AUCTION to logger
         logMessage("AUCTION", auction->id, auction->requestStr);
-    logMessageToAnalytics("AUCTION", auction->id, auction->requestStr);
+    logMessageToAnalytics("AUCTION", auction->id);
 
     const BidRequest & request = *auction->request;
     int numFields = 0;
@@ -2422,6 +2430,22 @@ onAuctionDone(std::shared_ptr<Auction> auction)
 
     debugAuction(auction->id, "SENT SUBMITTED");
     submittedBuffer.push(auction);
+}
+
+void
+Router::
+onAuctionError(const std::string & channel,
+               std::shared_ptr<Auction> auction,
+               const std::string & message)
+{
+    if (auction) {
+//         cout << channel << " " << auction->requestStr << " " << message << endl;
+        logMessageToAnalytics(channel, auction->id, message);
+    }
+    else {
+//         cout << channel << " " << message << endl;
+        logMessageToAnalytics(channel, message);
+    }
 }
 
 void
@@ -2565,8 +2589,12 @@ configure(const std::string & agent, AgentConfig & config)
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
         {
             //cerr << "got spend account for " << agent << ac << endl;
-            if (exc)
-                logException(exc, "Banker addAccount");
+            try {
+                if (exc)
+                    logException(exc, "Banker addAccount");
+            }
+            catch(ML::Exception const & e) {
+            }
         };
 
     banker->addSpendAccount(config.account, Amount(), onDone);
@@ -2730,18 +2758,19 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     string auctionKey = auction->id.toString()
                         + "-" + adSpotId.toString()
                         + "-" + bid.agent;
+
     banker->detachBid(bid.account, auctionKey);
 
     if (connectPostAuctionLoop) {
-        SubmittedAuctionEvent event;
-        event.auctionId = auction->id;
-        event.adSpotId = adSpotId;
-        event.lossTimeout = auction->lossAssumed;
-        event.augmentations = auction->agentAugmentations[bid.agent];
-        event.bidRequest(auction->request);
-        event.bidRequestStr = auction->requestStr;
-        event.bidRequestStrFormat = auction->requestStrFormat ;
-        event.bidResponse = bid;
+        auto event = std::make_shared<SubmittedAuctionEvent>();
+        event->auctionId = auction->id;
+        event->adSpotId = adSpotId;
+        event->lossTimeout = auction->lossAssumed;
+        event->augmentations = auction->agentAugmentations[bid.agent];
+        event->bidRequest(auction->request);
+        event->bidRequestStr = auction->requestStr;
+        event->bidRequestStrFormat = auction->requestStrFormat ;
+        event->bidResponse = bid;
 
         postAuctionEndpoint.sendAuction(event);
     }

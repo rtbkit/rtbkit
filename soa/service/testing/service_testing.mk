@@ -51,8 +51,11 @@ $(eval $(call program,async_writer_bench,services))
 # nsq_client_test is "manual" because of dependency on nsqd */
 $(eval $(call test,nsq_client_test,cloud,boost manual))
 
-$(eval $(call test,http_client_test,services test_services,boost))
+$(eval $(call test,http_client_test_v1,services test_services,boost))
+$(eval $(call test,http_client_test_v2,services test_services,boost))
+$(eval $(call test,http_client_online_test,services test_services,boost manual))
 $(eval $(call test,http_client_bench,boost_program_options services test_services,boost manual))
+$(eval $(call test,http_parsers_test,services test_services,boost valgrind))
 
 $(eval $(call test,logs_test,services,boost))
 

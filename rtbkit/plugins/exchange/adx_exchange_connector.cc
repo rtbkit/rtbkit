@@ -801,7 +801,7 @@ getResponse(const HttpAuctionHandler & connection,
 
                     Json::Value meta;
                     Json::Reader reader;
-                    if (!reader.parse(resp.meta, meta)) {
+                    if (!reader.parse(resp.meta.rawString(), meta)) {
                         return getErrorResponse(
                                 connection,
                                 "Cannot decode meta information");

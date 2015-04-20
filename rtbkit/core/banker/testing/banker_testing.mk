@@ -31,5 +31,6 @@ $(eval $(call test,slave_banker_test,banker mock_banker_persistence,boost manual
 $(eval $(call test,banker_account_test,banker,boost))
 $(eval $(call test,banker_behaviour_test,banker banker_temporary_server,boost manual))
 $(eval $(call test,redis_persistence_test,banker,boost))
+$(eval $(call test,local_banker_test,gobanker banker,boost manual))
 
 banker_tests: master_banker_test slave_banker_test banker_account_test banker_behaviour_test redis_persistence_test

@@ -290,7 +290,7 @@ void Mutable_Feature_Info::parse(Parse_Context & context)
                 set_categorical(make_sp(new Mutable_Categorical_Info()), STRING);
             else if (context.match_literal("REAL"))
                 type_ = REAL;
-            else if (context.match_literal("UNUTILE"))
+            else if (context.match_literal("INUTILE"))
                 type_ = INUTILE;
             else context.exception("Feature_Info::parse(): unknown type");
             break;

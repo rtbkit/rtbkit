@@ -5,6 +5,7 @@
 
 #include "http_client.h"
 #include "http_client_v1.h"
+#include "http_client_v2.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -27,11 +28,9 @@ struct AtInit {
         if (::strcmp(value, "1") == 0) {
             httpClientImplVersion = 1;
         }
-#if 0
         else if (::strcmp(value, "2") == 0) {
             httpClientImplVersion = 2;
         }
-#endif
         else {
             ::fprintf(stderr, "HttpClient: no handling for HttpClientImpl"
                       " version '%s', using default\n", value);
@@ -62,7 +61,7 @@ void
 HttpClient::
 setHttpClientImplVersion(int version)
 {
-    if (version < 1 || version > 1) {
+    if (version < 1 || version > 2) {
         throw ML::Exception("invalid value for 'version': "
                             + to_string(version));
     }
@@ -89,7 +88,6 @@ HttpClient(const string & baseUrl, int numParallel, int queueSize,
     if (implVersion == 1) {
         impl.reset(new HttpClientV1(baseUrl, numParallel, queueSize));
     }
-#if 0
     else if (implVersion == 2) {
         if (isHttps) {
             impl.reset(new HttpClientV1(baseUrl, numParallel, queueSize));
@@ -98,16 +96,25 @@ HttpClient(const string & baseUrl, int numParallel, int queueSize,
             impl.reset(new HttpClientV2(baseUrl, numParallel, queueSize));
         }
     }
-#endif
     else {
         throw ML::Exception("invalid httpclient impl version");
     }
 
     /* centralize the default values */
+    enableDebug(false);
     enableSSLChecks(true);
     enableTcpNoDelay(false);
-    sendExpect100Continue(true);
     enablePipelining(false);
+}
+
+void
+HttpClient::
+sendExpect100Continue(bool value)
+{
+    if (value) {
+        throw ML::Exception("HttpClient has no support for"
+                            " 'Expect: 100 Continue' requests");
+    }
 }
 
 

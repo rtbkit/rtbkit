@@ -26,11 +26,12 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
 #include "soa/service/sink.h"
+
+
 namespace Mongo {
 
 struct MongoTemporaryServer : boost::noncopyable {
-
-    MongoTemporaryServer(std::string uniquePath = "");
+    MongoTemporaryServer(const std::string & uniquePath = "");
     ~MongoTemporaryServer();
     
     void testConnection();

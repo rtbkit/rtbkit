@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <thread>
+#include <initializer_list>
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/unnamed_bool.h"
 
@@ -48,7 +49,8 @@ struct EventService {
     virtual void onEvent(const std::string & name,
                          const char * event,
                          EventType type,
-                         float value) = 0;
+                         float value,
+                         std::initializer_list<int> extra = DefaultOutcomePercentiles) = 0;
 
     virtual void dump(std::ostream & stream) const
     {
@@ -71,7 +73,8 @@ struct NullEventService : public EventService {
     virtual void onEvent(const std::string & name,
                          const char * event,
                          EventType type,
-                         float value);
+                         float value,
+                         std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     virtual void dump(std::ostream & stream) const;
 
@@ -96,7 +99,8 @@ struct CarbonEventService : public EventService {
     virtual void onEvent(const std::string & name,
                          const char * event,
                          EventType type,
-                         float value);
+                         float value,
+                         std::initializer_list<int> extra = std::initializer_list<int>());
 
     std::shared_ptr<CarbonConnector> connector;
 };
@@ -468,7 +472,8 @@ struct EventRecorder {
     */
     void recordEvent(const char * eventName,
                      EventType type = ET_COUNT,
-                     float value = 1.0) const
+                     float value = 1.0,
+                     std::initializer_list<int> extra = DefaultOutcomePercentiles) const
     {
         EventService * es = 0;
         if (events_)
@@ -480,17 +485,18 @@ struct EventRecorder {
             std::cerr << "no services configured!!!!" << std::endl;
             return;
         }
-        es->onEvent(eventPrefix_, eventName, type, value);
+        es->onEvent(eventPrefix_, eventName, type, value, extra);
     }
 
     void recordEventFmt(EventType type,
                         float value,
-                        const char * fmt, ...) const JML_FORMAT_STRING(4, 5);
+                        std::initializer_list<int> extra,
+                        const char * fmt, ...) const JML_FORMAT_STRING(5, 6);
 
     template<typename... Args>
     void recordHit(const std::string & event, Args... args) const
     {
-        return recordEventFmt(ET_HIT, 1.0, event.c_str(),
+        return recordEventFmt(ET_HIT, 1.0, {}, event.c_str(),
                               ML::forwardForPrintf(args)...);
     }
 
@@ -498,7 +504,7 @@ struct EventRecorder {
     JML_ALWAYS_INLINE
     void recordHit(const char * event, Args... args) const
     {
-        return recordEventFmt(ET_HIT, 1.0, event,
+        return recordEventFmt(ET_HIT, 1.0, {}, event,
                               ML::forwardForPrintf(args)...);
     }
 
@@ -515,7 +521,7 @@ struct EventRecorder {
     template<typename... Args>
     void recordCount(float count, const std::string & event, Args... args) const
     {
-        return recordEventFmt(ET_COUNT, count, event.c_str(),
+        return recordEventFmt(ET_COUNT, count, {}, event.c_str(),
                               ML::forwardForPrintf(args)...);
     }
     
@@ -523,7 +529,7 @@ struct EventRecorder {
     JML_ALWAYS_INLINE
     void recordCount(float count, const char * event, Args... args) const
     {
-        return recordEventFmt(ET_COUNT, count, event,
+        return recordEventFmt(ET_COUNT, count, {}, event,
                               ML::forwardForPrintf(args)...);
     }
 
@@ -538,40 +544,69 @@ struct EventRecorder {
     }
 
     template<typename... Args>
-    void recordOutcome(float outcome, const std::string & event, Args... args) const
+    void recordOutcome(float outcome,
+                       const std::string & event, Args... args) const
     {
-        return recordEventmt(ET_OUTCOME, outcome, event.c_str(),
+        return recordEventFmt(ET_OUTCOME, outcome, DefaultOutcomePercentiles, event.c_str(),
                              ML::forwardForPrintf(args)...);
     }
     
     template<typename... Args>
     void recordOutcome(float outcome, const char * event, Args... args) const
     {
-        return recordEventFmt(ET_OUTCOME, outcome, event,
+        return recordEventFmt(ET_OUTCOME, outcome, DefaultOutcomePercentiles, event,
                               ML::forwardForPrintf(args)...);
     }
 
     void recordOutcome(float outcome, const char * event) const
     {
-        recordEvent(event, ET_OUTCOME, outcome);
+        recordEvent(event, ET_OUTCOME, outcome, DefaultOutcomePercentiles);
     }
 
     void recordOutcome(float outcome, const std::string & event) const
     {
-        recordEvent(event.c_str(), ET_OUTCOME, outcome);
+        recordEvent(event.c_str(), ET_OUTCOME, outcome, DefaultOutcomePercentiles);
+    }
+
+    template<typename... Args>
+    void recordOutcomeCustom(float outcome, std::initializer_list<int> percentiles,
+                               const std::string& event, Args... args) const
+    {
+        return recordEventFmt(ET_OUTCOME, outcome, percentiles, event.c_str(),
+                             ML::forwardForPrintf(args)...);
+    }
+
+    template<typename... Args>
+    void recordOutcomeCustom(float outcome, std::initializer_list<int> percentiles,
+                               const char * event, Args... args) const
+    {
+        return recordEventFmt(ET_OUTCOME, outcome, percentiles, event,
+                              ML::forwardForPrintf(args)...);
+    }
+
+    void recordOutcomeCustom(float outcome, std::initializer_list<int> percentiles,
+                               const char * event) const
+    {
+        recordEvent(event, ET_OUTCOME, outcome, percentiles);
+    }
+
+    void recordOutcomeCustom(float outcome, std::initializer_list<int> percentiles,
+                               const std::string & event) const
+    {
+        recordEvent(event.c_str(), ET_OUTCOME, outcome, percentiles);
     }
     
     template<typename... Args>
     void recordLevel(float level, const std::string & event, Args... args) const
     {
-        return recordEventmt(ET_LEVEL, level, event.c_str(),
+        return recordEventmt(ET_LEVEL, level, {}, event.c_str(),
                              ML::forwardForPrintf(args)...);
     }
     
     template<typename... Args>
     void recordLevel(float level, const char * event, Args... args) const
     {
-        return recordEventFmt(ET_LEVEL, level, event,
+        return recordEventFmt(ET_LEVEL, level, {}, event,
                               ML::forwardForPrintf(args)...);
     }
 
