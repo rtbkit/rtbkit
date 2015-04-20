@@ -57,3 +57,14 @@
    fun:_ULx86_64_step
    ...
 }
+
+        
+{
+   Category Logger static members
+   Memcheck:Leak
+   ...
+   fun:_ZN10Datacratic7Logging12CategoryData7getRootEv
+   ...
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.15.so
+}
