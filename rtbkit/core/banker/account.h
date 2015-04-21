@@ -554,14 +554,23 @@ struct ShadowAccount {
         spent += amountPaid;
 
         if(amountPaid) {
-            commitmentsRetired += Amount(CurrencyCode::CC_IMP, 1.0);
-            spent += Amount(CurrencyCode::CC_IMP, 1.0);
+            // Increase the number of impressions by 1
+            // whenever an amount is paid for a bid
+            commitEvent(Amount(CurrencyCode::CC_IMP, 1.0));
         }
 
         this->lineItems += lineItems;
         checkInvariants();
     }
 
+    /// Commit a specific currency (amountToCommit)
+    void commitEvent(const Amount & amountToCommit)
+    {
+        checkInvariants();
+        spent += amountToCommit;
+        commitmentsRetired += amountToCommit;
+        checkInvariants();
+    }
 
     /*************************************************************************/
     /* SPEND AUTHORIZATION                                                   */
@@ -1541,6 +1550,13 @@ struct ShadowAccounts {
         Guard guard(lock);
         return getAccountImpl(accountKey)
             .commitDetachedBid(amountAuthorized, amountPaid, lineItems);
+    }
+
+    /// Commit a specific currency (amountToCommit)
+    void commitEvent(const AccountKey & accountKey, const Amount & amountToCommit)
+    {
+        Guard guard(lock);
+        return getAccountImpl(accountKey).commitEvent(amountToCommit);
     }
 
     Amount detachBid(const AccountKey & accountKey,

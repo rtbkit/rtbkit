@@ -175,6 +175,17 @@ struct SlaveBanker : public Banker, public MessageLoop {
                                           lineItems);
     }
 
+    /**
+     * Commit a given Amount to the given accounts
+     * This function is built to commit special
+     * currencies (clicks, impressions, ...) without
+     * affecting any other attribute of the account
+     */
+    void commitEvent(const AccountKey & account, const Amount & amountToCommit)
+    {
+        accounts.commitEvent(account,amountToCommit);
+    }
+
     virtual void forceWinBid(const AccountKey & account,
                              Amount amountPaid,
                              const LineItems & lineItems)

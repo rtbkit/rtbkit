@@ -28,7 +28,6 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 #if 1
-
 BOOST_AUTO_TEST_CASE( test_master_slave_banker )
 {
     ZooKeeper::TemporaryServer zookeeper;
@@ -396,6 +395,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
 }
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( test_redis_persistence )
 {
     using namespace Redis;
@@ -460,3 +460,120 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence )
     }
 
 }
+#endif
+
+#if 1
+BOOST_AUTO_TEST_CASE( test_commit_event )
+{
+    /* We test if commitEvent function works correctly:
+     * - Committed amount should show in "spent" field of the account
+     * - Committing an event should only change the currency
+     * amount it modified, leaving other fields in "spent"
+     * unchanged
+     * - We should be able to commit different currencies of different
+     * amount (ex: 2 clicks, 5 impressions etc.)
+    */
+
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+
+    MasterBanker master(proxies);
+    master.init(make_shared<NoBankerPersistence>());
+    auto addr = master.bindTcp();
+    auto bankerAddr = addr.second;
+    cerr << "master banker is listening on " << addr.first << ","
+         << addr.second << endl;
+
+    master.start();
+
+    proxies->config->dump(cerr);
+
+    SlaveBudgetController slave;
+    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
+    slave.start();
+    slave.addAccountSync({"hello", "world"});
+    slave.setBudgetSync("hello", USD(200));
+    slave.topupTransferSync({"hello", "world"}, USD(20));
+
+    // Record some spend in an initial slave
+    {
+        SlaveBanker banker("slave");
+        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
+        banker.start();
+        banker.addSpendAccountSync({"hello", "world"});
+
+        // Spend $1 -- This increases CC_IMP by 1
+        banker.forceWinBid({"hello", "world"}, USD(1), LineItems());
+
+        // Commit 1 click
+        banker.commitEvent({"hello", "world"}, RTBKIT::Amount(CurrencyCode::CC_CLK, 1));
+
+        // Commit 1 impression
+        banker.commitEvent({"hello", "world"}, RTBKIT::Amount(CurrencyCode::CC_IMP, 1));
+
+        // Synchronize
+        banker.syncAllSync();
+
+        banker.shutdown();
+    }
+
+    // Check that the spend was recorded
+    auto summ = slave.getAccountSummarySync({"hello", "world"}, 1 /* depth */);
+    cerr << "after initial spend was recorded" << endl;
+    cerr << summ << endl;
+
+    CurrencyPool total = USD(1);
+    total += Amount(CurrencyCode::CC_IMP, 2);
+    total += Amount(CurrencyCode::CC_CLK, 1);
+
+    BOOST_CHECK_EQUAL(summ.spent, total);
+
+    // Now asynchronously start up and record another dollar of spend
+    {
+        SlaveBanker banker("slave");
+        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
+        banker.start();
+        banker.addSpendAccountSync({"hello", "world"});
+
+        // Spend $2 -- This increases CC_IMP by 1
+        banker.forceWinBid({"hello", "world"}, USD(2), LineItems());
+
+        // Commit 2 clicks
+        banker.commitEvent({"hello", "world"}, RTBKIT::Amount(CurrencyCode::CC_CLK, 2));
+
+        // Commit 2 impressions
+        banker.commitEvent({"hello", "world"}, RTBKIT::Amount(CurrencyCode::CC_IMP, 2));
+
+        auto st = banker.getAccountStateDebug({"hello","world"});
+        cerr << "after forceWinBid" << endl;
+        cerr << st << endl;
+
+        // Allow the synchronization to work
+        ML::sleep(2.0);
+
+        st = banker.getAccountStateDebug({"hello","world"});
+        cerr << "after synchronization" << endl;
+        cerr << st << endl;
+
+        // Synchronize
+        banker.syncAllSync();
+
+        banker.shutdown();
+    }
+
+    // Check that the spend was recorded
+    cerr << "after second spend recorded" << endl;
+    summ = slave.getAccountSummarySync({"hello", "world"}, 1 /* depth */);
+
+    cerr << summ << endl;
+
+    total += USD(2);
+    total += Amount(CurrencyCode::CC_IMP, 3);
+    total += Amount(CurrencyCode::CC_CLK, 2);
+
+    BOOST_CHECK_EQUAL(summ.spent, total);
+}
+#endif
