@@ -84,7 +84,7 @@ struct Logging
 
     struct ConsoleWriter : public Writer {
         ConsoleWriter(bool color = true) :
-            color(color) {
+            color(color && isatty(STDERR_FILENO)) {
         }
 
         void head(char const * timestamp,
