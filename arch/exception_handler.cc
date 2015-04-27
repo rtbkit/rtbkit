@@ -4,6 +4,7 @@
 
 */
 
+#include <sys/utsname.h>
 #include <cxxabi.h>
 #include <cstring>
 #include <fstream>
@@ -136,6 +137,14 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
         heapDemangled = char_demangle(tinfo->name());
         demangled = heapDemangled;
     }
+    const char *nodeName = "<unknown>";
+    struct utsname utsName;
+    if (::uname(&utsName) == 0) {
+        nodeName = utsName.nodename;
+    }
+    else {
+        cerr << "error calling uname\n";
+    }
     auto pid = getpid();
     auto tid = gettid();
 
@@ -145,8 +154,9 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
                          "---------------------------\n"
                          "time:   %s\n"
                          "type:   %s\n"
+                         "node:   %s\n"
                          "pid:    %d; tid: %d\n",
-                         datetime, demangled, pid, tid);
+                         datetime, demangled, nodeName, pid, tid);
     if (heapDemangled) {
         free(heapDemangled);
     }
