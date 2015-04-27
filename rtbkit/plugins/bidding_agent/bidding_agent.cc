@@ -399,9 +399,9 @@ handleBidRequest(const std::string & fromRouter,
 
     recordHit("requests");
 
-    ExcCheck(!requests.count(id), "seen multiple requests with same ID");
     {
         lock_guard<mutex> guard (requestsLock);
+        ExcCheck(!requests.count(id), "seen multiple requests with same ID");
 
         requests[id].timestamp = Date::now();
         requests[id].fromRouter = fromRouter;
