@@ -380,6 +380,58 @@ LocalBanker::reauthorize()
 }
 
 void
+LocalBanker::sendBidCounts()
+{
+    if (bidCountsInProgress) {
+        this->recordHit("bidCounts.inProgress");
+        bidCountsSkipped++;
+        if (bidCountsSkipped > 3) {
+            this->recordHit("bidCounts.forceRetry");
+        } else {
+            return;
+        }
+    }
+    bidCountsInProgress = true;
+    bidCountsSkipped = 0;
+    const Date sentTime = Date::now();
+    this->recordHit("bidCounts.attempt");
+
+    auto onResponse = [&, sentTime] (const HttpRequest &req,
+            HttpClientError error,
+            int status,
+            string && headers,
+            string && body)
+    {
+        bidCountsInProgress = false;
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
+        this->recordLevel(latencyMs, "bidCountsLatencyMs");
+
+        if (status != 200) {
+            cout << "bidCounts::" << endl
+                 << "status: " << status << endl
+                 << "error:  " << error << endl
+                 << "body:   " << body << endl
+                 << "url:    " << req.url_ << endl;
+            this->recordHit("bidCounts.failure");
+        } else {
+            this->recordHit("bidCounts.success");
+        }
+    };
+
+    auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    Json::Value payload(Json::objectValue);
+    {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        for (auto it : accounts.accounts) {
+            payload[it.first.toString()] = it.second.router->bidsLastPeriod;
+            it.second.router->bidsLastPeriod = 0;
+        }
+    }
+    httpClient->post("/bidCounts", cbs, payload, {}, {}, 1.0);
+}
+
+void
 LocalBanker::setRate(const AccountKey &key)
 {
     const Date sentTime = Date::now();
