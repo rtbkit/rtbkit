@@ -156,4 +156,30 @@ std::string baseName(const std::string & filename);
 std::string dirName(const std::string & filename);
 
 
+/****************************************************************************/
+/* FILE COMMITER                                                            */
+/****************************************************************************/
+
+/* The FileCommiter class is meant to ensure that a given file is in a
+ * consistent state and meant to exist. In practice, it gives a reasonable
+ * guarantee that exceptions or abandonned writes will not leave incomplete
+ * files lying around. Using RAII, we require the file to be "commited" at
+ * destruction time and we erase it otherwise. */
+struct FileCommiter {
+    FileCommiter(const std::string & fileUrl)
+        : fileUrl_(fileUrl), commited_(false)
+    {
+    }
+    ~FileCommiter();
+
+    void commit()
+    {
+        commited_ = true;
+    }
+
+private:
+    const std::string & fileUrl_;
+    bool commited_;
+};
+
 } // namespace Datacratic
