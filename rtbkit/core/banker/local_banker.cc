@@ -25,6 +25,7 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
           spendRate(MicroUSD(100000)),
           syncRate(0.5),
           reauthRate(1.0),
+          bidCountRate(10.0),
           reauthorizeInProgress(false),
           reauthorizeSkipped(0),
           spendUpdateInProgress(false),
@@ -49,6 +50,9 @@ LocalBanker::init(const string & bankerUrl,
     auto reauthorizePeriodic = [&] (uint64_t wakeups) {
         reauthorize();
     };
+    auto bidCountsPeriodic = [&] (uint64_t wakeups) {
+        sendBidCounts();
+    };
     auto spendUpdatePeriodic = [&] (uint64_t wakeups) {
         spendUpdate();
     };
@@ -64,8 +68,10 @@ LocalBanker::init(const string & bankerUrl,
         }
     };
 
-    if (type == ROUTER)
+    if (type == ROUTER) {
         addPeriodic("localBanker::reauthorize", reauthRate, reauthorizePeriodic);
+        addPeriodic("localBanker::bidCounts", bidCountRate, bidCountsPeriodic);
+    }
 
     if (type == POST_AUCTION)
         addPeriodic("localBanker::spendUpdate", syncRate, spendUpdatePeriodic);

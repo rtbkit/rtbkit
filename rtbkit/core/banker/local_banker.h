@@ -128,6 +128,7 @@ private:
     Amount spendRate;
     double syncRate;
     double reauthRate;
+    double bidCountRate;
     std::atomic<bool> reauthorizeInProgress;
     std::atomic<int> reauthorizeSkipped;
     std::atomic<bool> spendUpdateInProgress;
