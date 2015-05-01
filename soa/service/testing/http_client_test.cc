@@ -455,16 +455,6 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
                 throw;
             }
 
-            int lowerLimit = std::max(0, (numResponses - numParallel));
-            int upperLimit = std::min(maxReqs, (numResponses + numParallel));
-            if (bodyNbr < lowerLimit || bodyNbr > upperLimit) {
-                throw ML::Exception("number of returned server requests "
-                                    " is anomalous: %d is out of range"
-                                    " [%d,*%d,%d]",
-                                    bodyNbr, lowerLimit,
-                                    numResponses, upperLimit);
-            }
-
             if (numResponses == numReqs) {
                 ML::futex_wake(numResponses);
             }
