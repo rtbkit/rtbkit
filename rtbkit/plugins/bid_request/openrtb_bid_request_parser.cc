@@ -21,6 +21,8 @@ namespace RTBKIT {
 
     static DefaultDescription<OpenRTB::BidRequest> desc;
 
+namespace { const char* DefaultVersion = "2.2"; }
+
 std::unique_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
 openRTBBidRequestParserFactory(const std::string & version) 
@@ -46,19 +48,31 @@ toBidRequest(const RTBKIT::BidRequest & br) {
     result.tmax = br.timeAvailableMs;
     result.unparseable = br.unparseable;
 
-    auto onAdSpot = [&](const AdSpot & spot) {
+    result.imp.reserve(br.imp.size());
+
+    for(const auto & spot : br.imp) {
         OpenRTB::Impression imp(spot);
 
         // Since it's openrtb 2.1, make sure none of the 2.n fields are added.
         imp.pmp.reset();
 
+        if (imp.banner) {
+            auto& banner = *imp.banner;
+            ExcAssertEqual(banner.h.size(), banner.w.size());
+
+            // openrtb only supports a single value in the h and w fields so any
+            // extra values are relocated to the ext field.
+            if (banner.h.size() > 1) {
+
+                for (const auto& h : banner.h) banner.ext["h"].append(h);
+                for (const auto& w : banner.w) banner.ext["w"].append(w);
+
+                banner.h.resize(1);
+                banner.w.resize(1);
+            }
+        }
+
         result.imp.push_back(std::move(imp));
-    };
-
-    result.imp.reserve(br.imp.size());
-
-    for(const auto & spot : br.imp) {
-        onAdSpot(spot);
     }
 
     if(br.site && br.app)
@@ -291,11 +305,18 @@ OpenRTBBidRequestParser::
 onBanner(OpenRTB::Banner & banner) {
 
     // RTBKit allows multiple banner sizes restrictions
+    if((banner.w.size() == 0) and (banner.h.size() == 1)) {
+        banner.w.push_back(0);
+    }
+    if((banner.w.size() == 1) and (banner.h.size() == 0)) {
+        banner.h.push_back(0);
+    }
+
     if(banner.w.size() != banner.h.size())
         LOG(OpenRTBBidRequestLogs::error) << "Mismatch between number of width and heights illegal." << endl;
 
     for(unsigned int i = 0; i < banner.w.size(); ++i) {
-        ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));    
+        ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));
     }
 
     // Add api to the segments in order to filter on it
@@ -312,15 +333,20 @@ OpenRTBBidRequestParser::
 onVideo(OpenRTB::Video & video) {
     
     if(video.mimes.empty()) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.mimes needs to be populated." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) << "br.imp.video.mimes needs to be populated." << endl;
+        video.mimes.push_back(OpenRTB::MimeType("application/octet-stream"));
     }
 
     if(video.linearity.value() < 0 || video.linearity.value() > 2) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::linearity has been set to UNSPECIFIED." << endl;
+        video.linearity.val = -1;
     }
 
     if(video.protocol.value() < 0 || video.protocol.value() > 6) {
-        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) <<"Video::protocol has been set to UNSPECIFIED." << endl;
+        video.protocol.val = -1;
     }
 
     if(video.minduration.val < 0) {
@@ -423,9 +449,6 @@ void
 OpenRTBBidRequestParser::
 onDevice(OpenRTB::Device & device) {
 
-    if(device.devicetype.val > 3)
-        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
-
     ctx.br->language = device.language;
     ctx.br->userAgent = device.ua;
     
@@ -457,13 +480,13 @@ onGeo(OpenRTB::Geo & geo) {
     // Validation that lat is -90 to 90
     if(geo.lat.val > 90.0 || geo.lat.val < -90.0)
         LOG(OpenRTBBidRequestLogs::trace) << " br.device.geo.lat : " << geo.lat.val << 
-                                             " is invalid and should be within -90 to 90." << endl; 
+                                             " is invalid and should be within -90 to 90." << " ReqID: " << ctx.br->auctionId << endl; 
 
 
     // Validation that lat is -180 to 180
-    if(geo.lon.val > 180.0 || geo.lat.val < -180.0)
+    if(geo.lon.val > 180.0 || geo.lon.val < -180.0)
         LOG(OpenRTBBidRequestLogs::trace) << " br.device.geo.lon : " << geo.lon.val << 
-                                             " is invalid and should be within -180 to 180." << endl; 
+                                             " is invalid and should be within -180 to 180." << " ReqID: " << ctx.br->auctionId << endl; 
 
     // Validate ISO-3166 Alpha 3 for country
     if(!geo.country.empty()) {/*
@@ -607,6 +630,18 @@ onSegment(OpenRTB::Segment & segment) {
 }
 
 void
+OpenRTBBidRequestParser2point1::
+onDevice(OpenRTB::Device& device) {
+    if(device.devicetype.val > 3) {
+        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
+    }
+
+    // Call base version
+    OpenRTBBidRequestParser::onDevice(device);
+}
+
+
+void
 OpenRTBBidRequestParser2point2::
 onBidRequest(OpenRTB::BidRequest & br) {
 
@@ -687,7 +722,7 @@ onDevice(OpenRTB::Device & device) {
     if(device.devicetype.val > 7)
         LOG(OpenRTBBidRequestLogs::error22) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
 
-    // Call 2.1 version
+    // Call base version
     OpenRTBBidRequestParser::onDevice(device);
 }
 
@@ -706,6 +741,21 @@ onDeal(OpenRTB::Deal & deal) {
 void
 OpenRTBBidRequestParser2point2::
 onPMP(OpenRTB::PMP & pmp) {
+}
+
+namespace {
+
+struct AtInit {
+    AtInit()
+    {
+        auto parser = [](const std::string& request) {
+            auto parser = OpenRTBBidRequestParser::openRTBBidRequestParserFactory(DefaultVersion);
+            return parser->parseBidRequest(request, "", "");
+        };
+        PluginInterface<BidRequest>::registerPlugin("openrtb", parser);
+    }
+} atInit;
+
 }
 
 } // namespace RTBKIT

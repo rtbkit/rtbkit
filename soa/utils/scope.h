@@ -1,4 +1,4 @@
-/* scope.h
+/* scope.h                                                         -*- C++ -*-
    Mathieu Stefani, 26 November 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
    
@@ -36,6 +36,7 @@
 #pragma once
 
 #include <exception>
+#include <utility>
 
 namespace Datacratic {
 
@@ -74,6 +75,8 @@ namespace Scope {
         Exit(Func func)
             : Base<Func>(func)
         { }
+	Exit(Exit<Func>&& other) = default;
+        Exit& operator=(Exit<Func>&& other) = default;
 
         ~Exit() noexcept { Exit<Func>::exec(); }
     };
@@ -83,6 +86,8 @@ namespace Scope {
         Success(Func func)
             : Base<Func>(func)
         { }
+        Success(Success<Func>&& other) = default;
+        Success& operator=(Success<Func>&& other) = default;
 
         ~Success() noexcept {
             if (!std::uncaught_exception()) {
@@ -97,6 +102,9 @@ namespace Scope {
             : Base<Func>(func)
             , failed { false }
         { }
+
+	Failure(Failure<Func>&& other) = default;
+        Failure& operator=(Failure<Func>&& other) = default;
 
         ~Failure() noexcept {
             if (std::uncaught_exception() || failed) {
@@ -123,18 +131,18 @@ namespace Scope {
 } // namespace Scope
 
 template<typename Func>
-Scope::Exit<Func> ScopeExit(Func func) {
-    return Scope::Exit<Func>(func);
+Scope::Exit<Func> ScopeExit(Func && func) {
+    return Scope::Exit<Func>(std::forward<Func>(func));
 }
 
 template<typename Func>
-Scope::Success<Func> ScopeSuccess(Func func) {
-    return Scope::Success<Func>(func);
+Scope::Success<Func> ScopeSuccess(Func && func) {
+    return Scope::Success<Func>(std::forward<Func>(func));
 }
 
 template<typename Func>
-Scope::Failure<Func> ScopeFailure(Func func) {
-    return Scope::Failure<Func>(func);
+Scope::Failure<Func> ScopeFailure(Func && func) {
+    return Scope::Failure<Func>(std::forward<Func>(func));
 }
 
 using Scope::fail;
@@ -145,15 +153,18 @@ using Scope::fail;
 #define UNIQUE_LABEL(prefix) LABEL_(CAT(__scope, prefix), __LINE__)
 
 #define Scope_Exit(func) \
-    auto UNIQUE_LABEL(exit) = ScopeExit([&]() noexcept { func; }); \
+    auto UNIQUE_LABEL(exitlambda) = [&]() noexcept { func; }; \
+    Scope::Exit<decltype(UNIQUE_LABEL(exitlambda))> UNIQUE_LABEL(exit)(std::move(UNIQUE_LABEL(exitlambda))); \
     (void) 0
 
 #define Scope_Success(func) \
-    auto UNIQUE_LABEL(success) = ScopeSuccess([&]() noexcept { func; }); \
+    auto UNIQUE_LABEL(successlambda) = [&]() noexcept { func; }; \
+    Scope::Success<decltype(UNIQUE_LABEL(successlambda))> UNIQUE_LABEL(success)(std::move(UNIQUE_LABEL(successlambda))); \
     (void) 0
 
 #define Scope_Failure(func) \
-    auto UNIQUE_LABEL(failure) = ScopeFailure([&]() noexcept { func; }); \
+    auto UNIQUE_LABEL(failurelambda) = [&]() noexcept { func; }; \
+    Scope::Failure<decltype(UNIQUE_LABEL(failurelambda))> UNIQUE_LABEL(failure)(std::move(UNIQUE_LABEL(failurelambda))); \
     (void) 0
 
 } // namespace Datacratic

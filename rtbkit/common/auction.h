@@ -159,11 +159,11 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         std::string agent;    ///< Agent ID who's bidding
 
         Bids bidData;   ///< Data that the bidder wants to keep
-        std::string meta;      ///< Free form agent information about the bid
+        Datacratic::UnicodeString meta; ///< Free form agent information about the bid
                                ///< (Passed back to agent with notification)
 
         int creativeId;           ///< Id of the creative/placement
-        std::string creativeName; ///< Name of the creative
+        Datacratic::UnicodeString creativeName; ///< Name of the creative
 
         // Information about the status of the bid (what happened to it)
         WinLoss localStatus;   ///< What happened in the local auction?

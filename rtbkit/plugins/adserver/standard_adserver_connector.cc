@@ -35,7 +35,11 @@ makeProgramOptions()
     options.add_options()
         ("win-port,w", value(&winPort), "listening port for wins")
         ("events-port,e", value(&eventsPort), "listening port for events")
-        ("verbose,v", value(&verbose), "verbose mode");
+        ("verbose,v", value(&verbose), "verbose mode")
+        ("analytics,a", bool_switch(&analyticsOn),
+         "Send data to analytics endpoint.")
+        ("analytics-connections", value<int>(&analyticsConnections),
+         "Number of connections for the analytics publisher.");
     stdOptions.add(options);
 
     return stdOptions;
@@ -96,12 +100,13 @@ StandardAdServerConnector::
 init(StandardAdServerArguments & ssConfig)
 {
     ssConfig.validate();
-    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.verbose);
+    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.verbose,
+         ssConfig.analyticsOn, ssConfig.analyticsConnections);
 }
 
 void
 StandardAdServerConnector::
-init(int winsPort, int eventsPort, bool verbose)
+init(int winsPort, int eventsPort, bool verbose, bool analyticsOn, int analyticsConnections)
 {
     if(!verbose) {
         adserverTrace.deactivate();
@@ -117,6 +122,15 @@ init(int winsPort, int eventsPort, bool verbose)
 
     HttpAdServerConnector::init(services->config);
     publisher_.init(services->config, serviceName_ + "/logger");
+
+    if (analyticsOn) {
+        const auto & analyticsUri = services->params["analytics-uri"].asString();
+        if (!analyticsUri.empty()) {
+            cout << "analyticsURI: " << analyticsUri << endl;
+            analytics_.init(analyticsUri, analyticsConnections);
+        }
+        else cout << "analytics-uri is not in the config" << endl;
+    }
 }
 
 
@@ -135,6 +149,7 @@ start()
 
     publisher_.bindTcp(getServices()->ports->getRange("adServer.logger"));
     publisher_.start();
+    analytics_.start();
     HttpAdServerConnector::start();
 }
 
@@ -143,6 +158,7 @@ StandardAdServerConnector::
 shutdown()
 {
     publisher_.shutdown();
+    analytics_.shutdown();
     HttpAdServerConnector::shutdown();
 }
 
@@ -187,12 +203,14 @@ handleWinRq(const HttpHeader & header,
             errorResponseHelper(response,
                                 "TIMESTAMP_NOT_SECONDS",
                                 "The timestamp field is not in seconds.");
+            publishError(response);
             return response;
         }
     } else {
         errorResponseHelper(response,
                             "MISSING_TIMESTAMP",
                             "A win notice requires the timestamp field.");
+        publishError(response);
         return response;
     }
 
@@ -207,6 +225,7 @@ handleWinRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_BIDREQUESTID",
                             "A win notice requires the bidRequestId field.");
+        publishError(response);
         return response;
     }
 
@@ -221,6 +240,7 @@ handleWinRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_IMPID",
                             "A win notice requires the impId field.");
+        publishError(response);
         return response;
     }
 
@@ -235,6 +255,7 @@ handleWinRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_WINPRICE",
                             "A win notice requires the price field.");
+        publishError(response);
         return response;
     }
     
@@ -269,8 +290,10 @@ handleWinRq(const HttpHeader & header,
 
     if(response.valid) {
         publishWin(bidRequestId, impId, winPrice, timestamp, Json::Value(), userIds,
-                   AccountKey(), Date());
+                   AccountKey(passback), Date());
         publisher_.publish("WIN", timestamp.print(3), bidRequestIdStr,
+                           impIdStr, winPrice.toString());
+        analytics_.publish("WIN", timestamp.print(3), bidRequestIdStr,
                            impIdStr, winPrice.toString());
     }
 
@@ -300,12 +323,14 @@ handleDeliveryRq(const HttpHeader & header,
             errorResponseHelper(response,
                                 "TIMESTAMP_NOT_SECONDS",
                                 "The timestamp field is not in seconds.");
+            publishError(response);
             return response;
         }
     } else {
         errorResponseHelper(response,
                             "MISSING_TIMESTAMP",
                             "A win notice requires the timestamp field.");
+        publishError(response);
         return response;
     }
 
@@ -321,6 +346,7 @@ handleDeliveryRq(const HttpHeader & header,
             errorResponseHelper(response,
                                 "UNSUPPORTED_TYPE",
                                 "A campaign event requires the type field.");
+            publishError(response);
             return response;
         }
 
@@ -329,6 +355,7 @@ handleDeliveryRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_TYPE",
                             "A campaign event requires the type field.");
+        publishError(response);
         return response;
     }
 
@@ -342,7 +369,7 @@ handleDeliveryRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_IMPID",
                             "A campaign event requires the impId field.");
-    
+        publishError(response);
         return response;
     }
 
@@ -356,6 +383,7 @@ handleDeliveryRq(const HttpHeader & header,
         errorResponseHelper(response,
                             "MISSING_BIDREQUESTID",
                             "A campaign event requires the bidRequestId field.");
+        publishError(response);
         return response;
     }
 
@@ -389,8 +417,16 @@ handleDeliveryRq(const HttpHeader & header,
                                  Json::Value(), userIds);
         publisher_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
                                 impIdStr, userIds.toString());
+        analytics_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
+                                impIdStr, userIds.toString());
     }
     return response;
+}
+
+void
+StandardAdServerConnector::
+publishError(HttpAdServerResponse & resp) {
+    analytics_.publish("ADSERVER_ERROR", resp.error, resp.details);
 }
 
 namespace {

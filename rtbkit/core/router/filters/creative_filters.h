@@ -271,4 +271,52 @@ private:
 
 };
 
+
+/******************************************************************************/
+/* CREATIVE PMP FILTER                                                   */
+/******************************************************************************/
+
+struct CreativePMPFilter : public CreativeFilter<CreativePMPFilter>
+{
+    static constexpr const char* name = "CreativePMP";
+    unsigned priority() const { return Priority::CreativePMP; }
+
+
+    void addCreative(
+            unsigned cfgIndex, unsigned crIndex, const Creative& creative)
+    {
+        dealFilter[Datacratic::Id(creative.dealId)].set(crIndex, cfgIndex);
+    }
+
+    void removeCreative(
+            unsigned cfgIndex, unsigned crIndex, const Creative& creative)
+    {
+        dealFilter[Datacratic::Id(creative.dealId)].reset(crIndex, cfgIndex);
+    }
+
+    void filterImpression(
+            FilterState& state, unsigned impIndex, const AdSpot& imp) const
+    {
+        CreativeMatrix creatives;
+        if (imp.pmp && imp.pmp->privateAuction.val == 1){
+            const auto pmp = *imp.pmp;
+            for (const auto& deal : pmp.deals) 
+                creatives |= get(deal.id);
+        }else {
+            creatives |= get(Datacratic::Id("")); //If filter is not set its a No-Deal agent
+        }
+
+        state.narrowCreativesForImp(impIndex, creatives);
+    }
+
+private:
+    std::unordered_map<Datacratic::Id, CreativeMatrix> dealFilter;
+
+    CreativeMatrix get(const Datacratic::Id dealId) const
+    {
+        auto it = dealFilter.find(dealId);
+        return it == dealFilter.end() ? CreativeMatrix() : it->second;
+    }
+};
+
 } // namespace RTBKIT

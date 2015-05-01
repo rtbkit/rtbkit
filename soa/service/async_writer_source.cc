@@ -25,9 +25,7 @@ AsyncWriterSource(const OnClosed & onClosed,
                   const OnException & onException,
                   size_t maxMessages,
                   size_t readBufferSize)
-    : AsyncEventSource(),
-      epollFd_(-1),
-      numFds_(0),
+    : EpollLoop(onException),
       fd_(-1),
       closing_(false),
       readBufferSize_(readBufferSize),
@@ -39,13 +37,8 @@ AsyncWriterSource(const OnClosed & onClosed,
       bytesReceived_(0),
       msgsSent_(0),
       onClosed_(onClosed),
-      onReceivedData_(onReceivedData),
-      onException_(onException)
+      onReceivedData_(onReceivedData)
 {
-    epollFd_ = ::epoll_create(666);
-    if (epollFd_ == -1)
-        throw ML::Exception(errno, "epoll_create");
-
     auto handleQueueEventCb = [&] (const ::epoll_event & event) {
         queue_.processOne();
     };
@@ -58,7 +51,6 @@ AsyncWriterSource::
     if (fd_ != -1) {
         closeFd();
     }
-    closeEpollFd();
 }
 
 void
@@ -92,16 +84,6 @@ closeFd()
     ExcCheck(fd_ != -1, "already closed (fd)");
 
     handleClosing(false, false);
-}
-
-void
-AsyncWriterSource::
-closeEpollFd()
-{
-    if (epollFd_ != -1) {
-        ::close(epollFd_);
-        epollFd_ = -1;
-    }
 }
 
 bool
@@ -194,13 +176,6 @@ handleWriteResult(int error, AsyncWrite && currentWrite)
 
 void
 AsyncWriterSource::
-handleException()
-{
-    onException(current_exception());
-}
-
-void
-AsyncWriterSource::
 onClosed(bool fromPeer, const vector<string> & msgs)
 {
     if (onClosed_) {
@@ -219,18 +194,6 @@ onReceivedData(const char * buffer, size_t bufferSize)
 
 void
 AsyncWriterSource::
-onException(const exception_ptr & excPtr)
-{
-    if (onException_) {
-        onException(excPtr);
-    }
-    else {
-        rethrow_exception(excPtr);
-    }
-}
-
-void
-AsyncWriterSource::
 requestClose()
 {
     if (queueEnabled()) {
@@ -241,38 +204,6 @@ requestClose()
     else {
         throw ML::Exception("already closed/ing\n");
     }
-}
-
-/* async event source */
-bool
-AsyncWriterSource::
-processOne()
-{
-    struct epoll_event events[numFds_];
-
-    if (numFds_ > 0) {
-        try {
-            int res = epoll_wait(epollFd_, events, numFds_, 0);
-            if (res == -1) {
-                throw ML::Exception(errno, "epoll_wait");
-            }
-
-            for (int i = 0; i < res; i++) {
-                auto * fn = static_cast<EpollCallback *>(events[i].data.ptr);
-                (*fn)(events[i]);
-            }
-
-            for (auto & unreg: delayedUnregistrations_) {
-                auto cb = move(unreg.second);
-                unregisterFdCallback(unreg.first, false, cb);
-            }
-        }
-        catch (const std::exception & exc) {
-            handleException();
-        }
-    }
-
-    return false;
 }
 
 /* wakeup events */
@@ -408,99 +339,6 @@ handleClosing(bool fromPeer, bool delayedUnregistration)
         vector<string> lostMessages = emptyMessageQueue();
         onClosed(fromPeer, lostMessages);
     }
-}
-
-/* epoll operations */
-
-void
-AsyncWriterSource::
-registerFdCallback(int fd, const EpollCallback & cb)
-{
-    if (delayedUnregistrations_.count(fd) == 0) {
-        if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
-            throw ML::Exception("callback already registered for fd");
-        }
-    }
-    else {
-        delayedUnregistrations_.erase(fd);
-    }
-    fdCallbacks_[fd] = cb;
-}
-
-void
-AsyncWriterSource::
-unregisterFdCallback(int fd, bool delayed,
-                     const OnUnregistered & onUnregistered)
-{
-    if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
-        throw ML::Exception("callback not registered for fd");
-    }
-    if (delayed) {
-        ExcAssert(delayedUnregistrations_.count(fd) == 0);
-        delayedUnregistrations_[fd] = onUnregistered;
-    }
-    else {
-        delayedUnregistrations_.erase(fd);
-        fdCallbacks_.erase(fd);
-        if (onUnregistered) {
-            onUnregistered();
-        }
-    }
-}
-
-void
-AsyncWriterSource::
-performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
-{
-    if (epollFd_ == -1)
-        return;
-
-    struct epoll_event event;
-    if (oneshot) {
-        event.events = EPOLLONESHOT;
-    }
-    else {
-        event.events = 0;
-    }
-    if (readerFd) {
-        event.events |= EPOLLIN;
-    }
-    if (writerFd) {
-        event.events |= EPOLLOUT;
-    }
-
-    EpollCallback & cb = fdCallbacks_.at(fd);
-    event.data.ptr = &cb;
-
-    int operation = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
-    int res = epoll_ctl(epollFd_, operation, fd, &event);
-    if (res == -1) {
-        string message = (string("epoll_ctl:")
-                          + " modify=" + to_string(modify)
-                          + " fd=" + to_string(fd)
-                          + " readerFd=" + to_string(readerFd)
-                          + " writerFd=" + to_string(writerFd));
-        throw ML::Exception(errno, message);
-    }
-    if (!modify) {
-        numFds_++;
-    }
-}
-
-void
-AsyncWriterSource::
-removeFd(int fd)
-{
-    if (epollFd_ == -1)
-        return;
-
-    int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
-    if (res == -1)
-        throw ML::Exception(errno, "epoll_ctl DEL " + to_string(fd));
-    if (numFds_ == 0) {
-        throw ML::Exception("inconsistent number of fds registered");
-    }
-    numFds_--;
 }
 
 std::vector<std::string>

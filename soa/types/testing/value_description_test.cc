@@ -283,9 +283,25 @@ BOOST_AUTO_TEST_CASE( test_value_description_map )
 
 }
 
+enum SomeSize {
+    SMALL,
+    MEDIUM,
+    LARGE
+};
+CREATE_ENUM_DESCRIPTION(SomeSize);
+SomeSizeDescription::
+SomeSizeDescription()
+{
+    addValue("SMALL", SomeSize::SMALL, "");
+    addValue("MEDIUM", SomeSize::MEDIUM, "");
+    addValue("LARGE", SomeSize::LARGE, "");
+}
+
 struct SomeTestStructure {
     Id someId;
     std::string someText;
+    std::vector<std::string> someStringVector;
+    SomeSize someSize;
 
     SomeTestStructure(Id id = Id(0), std::string text = "nothing") : someId(id), someText(text) {
     }
@@ -305,6 +321,8 @@ SomeTestStructureDescription::
 SomeTestStructureDescription() {
     addField("someId", &SomeTestStructure::someId, "");
     addField("someText", &SomeTestStructure::someText, "");
+    addField("someStringVector", &SomeTestStructure::someStringVector, "");
+    addField("someSize", &SomeTestStructure::someSize, "");
 }
 
 BOOST_AUTO_TEST_CASE( test_structure_description )
@@ -334,6 +352,24 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
         });
 
     BOOST_CHECK_EQUAL(result, data);
+
+    std::shared_ptr<const ValueDescription> vd =
+        ValueDescription::get("SomeTestStructure");
+    BOOST_CHECK_EQUAL(vd->kind, ValueKind::STRUCTURE);
+
+    ValueDescription::FieldDescription fd = vd->getField("someStringVector");
+    BOOST_CHECK_EQUAL(fd.description->kind, ValueKind::ARRAY);
+
+    const ValueDescription * subVdPtr = &(fd.description->contained());
+    BOOST_CHECK_EQUAL(subVdPtr->kind, ValueKind::STRING);
+
+    fd = vd->getField("someSize");
+    BOOST_CHECK_EQUAL(fd.description->kind, ValueKind::ENUM);
+    vector<string> keys = fd.description->getEnumKeys();
+    BOOST_CHECK_EQUAL(keys.size(), 3);
+    BOOST_CHECK_EQUAL(keys[0], "SMALL");
+    BOOST_CHECK_EQUAL(keys[1], "MEDIUM");
+    BOOST_CHECK_EQUAL(keys[2], "LARGE");
 }
 
 struct S1 {

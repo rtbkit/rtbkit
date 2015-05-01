@@ -33,7 +33,8 @@ struct ExchangeConnector;
 /** Describes a creative that a agent has available. */
 
 struct Creative {
-    Creative(int width = 0, int height = 0, std::string name = "", int id = -1);
+    Creative(int width = 0, int height = 0, std::string name = "", int id = -1,
+            const std::string dealId = "");
 
     // Three samples that can be used for testing...
     static const Creative sampleLB;
@@ -80,6 +81,9 @@ struct Creative {
     IncludeExclude<std::string> languageFilter;
     IncludeExclude<CachedRegex<boost::u32regex, Datacratic::UnicodeString> > locationFilter;
     IncludeExclude<std::string> exchangeFilter;
+   
+    // Needed for PMP filter
+    std::string dealId;
 
     struct SegmentInfo {
 

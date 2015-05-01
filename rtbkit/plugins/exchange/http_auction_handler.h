@@ -101,7 +101,8 @@ struct HttpAuctionHandler
     void doEvent(const char * eventName,
                  EventType type = ET_COUNT,
                  float value = 1.0,
-                 const char * units = "");
+                 const char * units = "",
+                 std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     void incNumServingRequest();
     

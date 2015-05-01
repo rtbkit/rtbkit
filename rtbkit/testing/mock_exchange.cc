@@ -155,7 +155,7 @@ MockExchange::Worker::processWinsQueue() {
         if (now.secondsSince(winsQueue.front().timestamp) < winsDelay) return;
 
         Win win = std::move(winsQueue.front());
-        winsQueue.pop_back();
+        winsQueue.pop_front();
 
         wins->sendWin(win.br, win.bid, win.winPrice);
         exchange->recordHit("wins");
@@ -172,7 +172,7 @@ MockExchange::Worker::processEventsQueue() {
         if (now.secondsSince(eventsQueue.front().timestamp) < eventsDelay) return;
 
         Event event = std::move(eventsQueue.front());
-        eventsQueue.pop_back();
+        eventsQueue.pop_front();
 
         events->sendClick(event.br, event.bid);
         exchange->recordHit("clicks");

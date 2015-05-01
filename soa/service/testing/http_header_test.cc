@@ -115,3 +115,10 @@ BOOST_AUTO_TEST_CASE(test_http_header_query_parser_g6)
     BOOST_CHECK_EQUAL(parser.queryParams[2].second, "=");
     BOOST_CHECK_EQUAL(parser.queryParams[3].second, "");
 }
+
+BOOST_AUTO_TEST_CASE(test_http_header_space_as_plus)
+{
+    auto header = generateParser("/?arg1=1+2");
+
+    testQueryParam(header, "arg1", "1 2");
+}

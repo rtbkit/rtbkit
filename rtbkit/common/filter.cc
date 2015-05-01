@@ -57,7 +57,15 @@ biddableSpots()
     return biddable;
 }
 
+FilterState::FilterReasons&
+FilterState::getFilterReasons(){
+    return this->filterReasons_;
+}
 
+void
+FilterState::resetFilterReasons(){
+    this->filterReasons_.clear();
+}
 
 /******************************************************************************/
 /* FILTER REGISTRY                                                            */

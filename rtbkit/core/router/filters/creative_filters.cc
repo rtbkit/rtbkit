@@ -13,8 +13,14 @@ using namespace ML;
 
 namespace RTBKIT {
 
+
+/******************************************************************************/
+/* CREATIVE SEGMENTS FILTER                                                   */
+/******************************************************************************/
+
 void
-CreativeSegmentsFilter::filter(FilterState& state) const
+CreativeSegmentsFilter::
+filter(FilterState& state) const
 {
     unordered_set<string> toCheck = excludeIfNotPresent;
 
@@ -40,14 +46,15 @@ CreativeSegmentsFilter::filter(FilterState& state) const
     }
 }
 
-void CreativeSegmentsFilter::setCreative(unsigned configIndex,
-        unsigned crIndex, const Creative& creative, bool value)
+void
+CreativeSegmentsFilter::
+setCreative(unsigned configIndex, unsigned crIndex, const Creative& creative, bool value)
 {
     for (const auto& entry : creative.segments) {
         auto& segment = data[entry.first];
 
-        segment.ie.addInclude(configIndex, crIndex, entry.second.include);
-        segment.ie.addExclude(configIndex, crIndex, entry.second.exclude);
+        segment.ie.setInclude(configIndex, crIndex, value, entry.second.include);
+        segment.ie.setExclude(configIndex, crIndex, value, entry.second.exclude);
 
         if (entry.second.excludeIfNotPresent) {
             if (value && segment.excludeIfNotPresent.empty())
@@ -78,6 +85,7 @@ struct InitFilters
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeNameFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeExchangeFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeSegmentsFilter>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativePMPFilter>();
     }
 
 } initFilters;

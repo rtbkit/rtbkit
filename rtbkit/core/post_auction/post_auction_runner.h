@@ -11,6 +11,7 @@
 #include <boost/program_options/options_description.hpp>
 #include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "rtbkit/core/banker/local_banker.h"
 #include "soa/service/service_utils.h"
 
 namespace RTBKIT {
@@ -38,13 +39,18 @@ struct PostAuctionRunner {
     int analyticsConnections;
 
     std::string forwardAuctionsUri;
+    std::string localBankerUri;
+    bool localBankerDebug;
+    std::string bankerChoice;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());
 
     std::shared_ptr<ServiceProxies> proxies;
-    std::shared_ptr<SlaveBanker> banker;
+    std::shared_ptr<Banker> banker;
+    std::shared_ptr<SlaveBanker> slaveBanker;
+    std::shared_ptr<LocalBanker> localBanker;
     std::shared_ptr<PostAuctionService> postAuctionLoop;
 
     void init();

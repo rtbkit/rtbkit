@@ -28,9 +28,10 @@
 #include <fstream>
 #include <memory>
 #include <map>
+#include <utility>
+
 
 namespace ML {
-
 
 /*****************************************************************************/
 /* FILTER OSTREAM                                                            */
@@ -109,6 +110,38 @@ public:
     
     void close();
 
+    /* The next four overrides only take care of handling the deferred
+       exception flag, when an exception occurs. They otherwise execute their
+       std::ostream equivalent. */
+    filter_ostream & operator << (std::ostream & (*f) (std::ostream &))
+    {
+        try {
+            f(*this);
+        }
+        catch (...) {
+            this->clearDeferredFailure();
+            throw;
+        }
+        return *this; 
+    }
+
+    template<typename T> filter_ostream & operator << (T && data)
+    {
+        try {
+            std::ostream & stdStream(*this);
+            stdStream << std::forward<T>(data);
+        }
+        catch (...) {
+            this->clearDeferredFailure();
+            throw;
+        }
+        return *this;
+    }
+
+    filter_ostream & put(char_type data);
+    filter_ostream & write(const char_type * data, std::streamsize count);
+    filter_ostream & flush();
+
     std::string status() const;
 
     /* notifies that an exception occurred in the streambuf */
@@ -117,7 +150,18 @@ public:
         deferredFailure = true;
     }
 
+    bool hasDeferredFailure()
+        const
+    {
+        return deferredFailure;
+    }
+
 private:
+    void clearDeferredFailure()
+    {
+        deferredFailure = false;
+    }
+
     std::unique_ptr<std::ostream> stream;
     std::unique_ptr<std::streambuf> sink;
     std::atomic<bool> deferredFailure;
