@@ -35,7 +35,8 @@ DefaultDescription()
                 = context.expectJson();
         };
 
-    addField("id", &BidRequest::id, "Bid Request ID");
+    addField("id", &BidRequest::id, "Bid Request ID",
+             new StringIdDescription());
     addField("imp", &BidRequest::imp, "Impressions");
     //addField("context", &BidRequest::context, "Context of bid request");
     addField("site", &BidRequest::site, "Information about site the request is on");
@@ -57,7 +58,8 @@ DefaultDescription()
 DefaultDescription<Impression>::
 DefaultDescription()
 {
-    addField("id", &Impression::id, "Impression ID within bid request");
+    addField("id", &Impression::id, "Impression ID within bid request",
+             new StringIdDescription());
     addField("banner", &Impression::banner, "Banner information if a banner ad");
     addField("video", &Impression::video, "Video information if a video ad");
     addField("displaymanager", &Impression::displaymanager, "Display manager that renders the ad");
@@ -75,7 +77,8 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Content>::
 DefaultDescription()
 {
-    addField("id", &Content::id, "Unique identifier representing the content");
+    addField("id", &Content::id, "Unique identifier representing the content",
+             new StringIdDescription());
     addField("episode", &Content::episode, "Unique identifier representing the episode");
     addField("title", &Content::title, "Title of the content");
     addField("series", &Content::series, "Series to which the content belongs");
@@ -105,11 +108,11 @@ DefaultDescription()
              new FormatListDescription());
     addField<List<int>>("h", &Banner::h, "Height of ad in pixels",
              new FormatListDescription());
-    addField("hmin", &Banner::id, "Ad minimum height");
-    addField("hmax", &Banner::pos, "Ad maximum height");
-    addField("wmin", &Banner::id, "Ad minimum width");
-    addField("wmax", &Banner::pos, "Ad maximum width");
-    addField("id", &Banner::id, "Ad ID");
+    addField("hmin", &Banner::hmin, "Ad minimum height");
+    addField("hmax", &Banner::hmax, "Ad maximum height");
+    addField("wmin", &Banner::wmin, "Ad minimum width");
+    addField("wmax", &Banner::wmax, "Ad maximum width");
+    addField("id", &Banner::id, "Ad ID", new StringIdDescription());
     addField("pos", &Banner::pos, "Ad position");
     addField("btype", &Banner::btype, "Blocked creative types");
     addField("battr", &Banner::battr, "Blocked creative attributes");
@@ -150,7 +153,8 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Publisher>::
 DefaultDescription()
 {
-    addField("id", &Publisher::id, "Unique ID representing the publisher/producer");
+    addField("id", &Publisher::id, "Unique ID representing the publisher/producer",
+            new StringIdDescription());
     addField("name", &Publisher::name, "Publisher/producer name");
     addField("cat", &Publisher::cat, "Content categories");
     addField("domain", &Publisher::domain, "Domain name of publisher");
@@ -160,7 +164,8 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Context>::
 DefaultDescription()
 {
-    addField("id", &Context::id, "Site or app ID on the exchange");
+    addField("id", &Context::id, "Site or app ID on the exchange",
+            new StringIdDescription());
     addField("name", &Context::name, "Site or app name");
     addField("domain", &Context::domain, "Site or app domain");
     addField("cat", &Context::cat, "IAB content categories for the site/app");
@@ -246,7 +251,7 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Segment>::
 DefaultDescription()
 {
-    addField("id", &Segment::id, "Segment ID");
+    addField("id", &Segment::id, "Segment ID", new StringIdDescription());
     addField("name", &Segment::name, "Segment name");
     addField("value", &Segment::value, "Segment value");
     addField("ext", &Segment::ext, "Extensions to the protocol go here");
@@ -257,7 +262,7 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Data>::
 DefaultDescription()
 {
-    addField("id", &Data::id, "Segment ID");
+    addField("id", &Data::id, "Segment ID", new StringIdDescription());
     addField("name", &Data::name, "Segment name");
     addField("segment", &Data::segment, "Data segment");
     addField("ext", &Data::ext, "Extensions to the protocol go here");
@@ -269,8 +274,9 @@ DefaultDescription()
 DefaultDescription<OpenRTB::User>::
 DefaultDescription()
 {
-    addField("id", &User::id, "Exchange specific user ID");
-    addField("buyeruid", &User::buyeruid, "Seat specific user ID");
+    addField("id", &User::id, "Exchange specific user ID", new StringIdDescription());
+    addField("buyeruid", &User::buyeruid, "Seat specific user ID",
+            new StringIdDescription());
     addField("yob", &User::yob, "Year of birth");
     addField("gender", &User::gender, "Gender");
     ValueDescriptionT<CSList> * kwdesc = new Utf8CommaSeparatedListDescription();
@@ -303,6 +309,9 @@ DefaultDescription()
     addField("crid", &Bid::crid, "Creative ID",
              new StringIdDescription());
     addField("attr", &Bid::attr, "Creative attributes");
+    addField("dealid", &Bid::dealid, "Deal Id for PMP Auction");
+    addField("w", &Bid::w, "width of ad in pixels");
+    addField("h", &Bid::h, "height of ad in pixels");
     addField("ext", &Bid::ext, "Extensions");
 }
 

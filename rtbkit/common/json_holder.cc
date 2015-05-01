@@ -71,10 +71,25 @@ std::ostream & operator << (std::ostream & stream, const JsonHolder & json)
 
 namespace Datacratic {
 
+struct StdUtf8StringDescription : public DefaultDescription<std::string>
+{
+    virtual void parseJsonTyped(std::string * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectStringUtf8().rawString();
+    }
+
+    virtual void printJsonTyped(const std::string * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeStringUtf8(Datacratic::UnicodeString(*val));
+    }
+};
+
 DefaultDescription<RTBKIT::JsonHolder>::
 DefaultDescription()
 {
-    addField("str", &RTBKIT::JsonHolder::str, "");
+    addField("str", &RTBKIT::JsonHolder::str, "", new StdUtf8StringDescription);
 }
 
 } // namespace Datacratic

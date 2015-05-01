@@ -9,11 +9,17 @@
 #pragma once
 
 #include "rtbkit/common/auction_events.h"
-#include "soa/service/service_base.h"
-#include "soa/service/zmq_endpoint.h"
+
+namespace Datacratic {
+
+struct ServiceProxies;
+struct ZmqMultipleNamedClientBusProxy;
+
+}
 
 namespace RTBKIT {
 
+struct EventForwarder;
 
 /******************************************************************************/
 /* POST AUCTION PROXY                                                         */
@@ -28,6 +34,7 @@ namespace RTBKIT {
  */
 struct PostAuctionProxy
 {
+    PostAuctionProxy(Datacratic::ServiceBase& parent);
     PostAuctionProxy(std::shared_ptr<Datacratic::ServiceProxies> proxies);
 
     void init();
@@ -36,16 +43,21 @@ struct PostAuctionProxy
     bool isConnected() const;
 
     // Sends an auction to the post auction loop.
-    void sendAuction(SubmittedAuctionEvent auction);
+    void sendAuction(std::shared_ptr<SubmittedAuctionEvent> auction);
 
     // Sends an event to the post auction loop.
-    void sendEvent(PostAuctionEvent event);
+    void sendEvent(std::shared_ptr<PostAuctionEvent> event);
 
 private:
-    size_t shards;
-    std::shared_ptr<Datacratic::ServiceProxies> proxies;
-    Datacratic::ZmqMultipleNamedClientBusProxy toPostAuction;
+    void initZMQ();
+    void initHTTP();
 
+    Datacratic::ServiceBase* parent;
+    std::shared_ptr<Datacratic::ServiceProxies> proxies;
+
+    size_t shards;
+    std::unique_ptr<Datacratic::ZmqMultipleNamedClientBusProxy> zmq;
+    std::vector< std::shared_ptr<EventForwarder> > http;
 };
 
 } // namespace RTBKIT

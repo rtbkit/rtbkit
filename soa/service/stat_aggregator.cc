@@ -13,6 +13,7 @@
 #include "jml/arch/atomic_ops.h"
 #include "jml/utils/floating_point.h"
 #include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/exc_check.h"
 #include <boost/tuple/tuple.hpp>
 #include <algorithm>
 
@@ -89,9 +90,13 @@ read(const std::string & prefix)
 /*****************************************************************************/
 
 GaugeAggregator::
-GaugeAggregator(Verbosity verbosity)
+GaugeAggregator(Verbosity verbosity, const std::vector<int>& extra)
     : verbosity(verbosity), values(new ML::distribution<float>())
+    , extra(extra)
 {
+    if (verbosity == Outcome)
+        ExcCheck(this->extra.size() > 0, "Can not construct with empty percentiles");
+
     values->reserve(100);
 }
 
@@ -177,9 +182,9 @@ read(const std::string & prefix)
 
         if (verbosity == Outcome) {
             addMetric("count", values->size());
-            addMetric("upper_90", percentile(90));
-            addMetric("upper_95", percentile(95));
-            addMetric("upper_98", percentile(98));
+            for (int pct: extra) {
+                addMetric(ML::format("upper_%d", pct).c_str(), percentile(pct));
+            }
         }
     }
 

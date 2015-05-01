@@ -12,6 +12,7 @@ $(eval $(call library,exchange,$(LIBRTB_EXCHANGE_SOURCES),$(LIBRTB_EXCHANGE_LINK
 $(eval $(call library,openrtb_exchange,openrtb_exchange_connector.cc,exchange bid_test_utils openrtb_bid_request))
 $(eval $(call library,rubicon_exchange,rubicon_exchange_connector.cc,openrtb_exchange))
 $(eval $(call library,mopub_exchange,mopub_exchange_connector.cc,openrtb_exchange))
+$(eval $(call library,smaato_exchange,smaato_exchange_connector.cc,openrtb_exchange))
 $(eval $(call library,bidswitch_exchange,bidswitch_exchange_connector.cc,openrtb_exchange))
 $(eval $(call library,nexage_exchange,nexage_exchange_connector.cc,openrtb_exchange))
 $(eval $(call library,appnexus_exchange,appnexus_exchange_connector.cc,exchange bid_test_utils appnexus_bid_request))

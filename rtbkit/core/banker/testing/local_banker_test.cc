@@ -12,7 +12,9 @@
 #include <boost/test/unit_test.hpp>
 #include "rtbkit/common/account_key.h"
 #include "jml/arch/timers.h"
+#include "jml/utils/exc_assert.h"
 #include "soa/types/date.h"
+#include "soa/service/service_base.h"
 #include "rtbkit/common/currency.h"
 
 #include "rtbkit/core/banker/local_banker.h"
@@ -24,8 +26,9 @@ using namespace RTBKIT;
 
 BOOST_AUTO_TEST_CASE( test_local_banker )
 {
-    LocalBanker rBanker(ROUTER, "router");
-    LocalBanker pBanker(POST_AUCTION, "pal");
+    auto proxies = make_shared<ServiceProxies>();
+    LocalBanker rBanker(proxies, ROUTER, "router");
+    LocalBanker pBanker(proxies, POST_AUCTION, "pal");
     rBanker.init("http://127.0.0.1:27890");
     pBanker.init("http://127.0.0.1:27890");
     rBanker.start();
@@ -41,8 +44,8 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
         string key = ss.str();
         AccountKey rkey(key);
         AccountKey pkey(key);
-        rBanker.addAccount(rkey);
-        pBanker.addAccount(pkey);
+        rBanker.addSpendAccount(rkey, {}, nullptr);
+        pBanker.addSpendAccount(pkey, {}, nullptr);
 
         routerAccounts[i] = rkey;
         palAccounts[i] = pkey;
@@ -59,30 +62,61 @@ BOOST_AUTO_TEST_CASE( test_local_banker )
 
     ML::sleep(1.0);
 
-    rBanker.reauthorize();
+    rBanker.sync();
 
     Amount bidPrice = MicroUSD(2);
     for (auto key : routerAccounts) {
-        auto allowed = rBanker.bid(key, bidPrice);
+        bool allowed = rBanker.authorizeBid(key, "", bidPrice);
         cout << key.toString() << " bid: " << allowed << endl;
     }
 
-    rBanker.reauthorize();
+    rBanker.sync();
 
     ML::sleep(1.0);
 
-    pBanker.spendUpdate();
+    pBanker.sync();
 
     Amount winPrice = MicroUSD(2);
     for (auto key : palAccounts) {
-        auto allowed = pBanker.win(key, winPrice);
-        cout << key.toString() << " win: " << allowed << endl;
+        pBanker.winBid(key, "", winPrice);
     }
 
-    pBanker.spendUpdate();
+    pBanker.sync();
+
+    auto acc = pBanker.accounts.accounts[AccountKey("test10:account10:pal")];
+    acc.pal->imp = 0;
+    pBanker.accounts.accounts[AccountKey("test10:account10:pal")] = acc;
+
+    pBanker.sync();
 
     ML::sleep(2.0);
 
     rBanker.shutdown();
     pBanker.shutdown();
+}
+
+
+BOOST_AUTO_TEST_CASE( test_router_accumulate )
+{
+    auto proxies = make_shared<ServiceProxies>();
+    LocalBanker rBanker(proxies, ROUTER, "router");
+    // Max spend rate per sec set to 10,000 USD/1M
+    rBanker.setSpendRate(MicroUSD(10000));
+
+    string key = "parent:child:router";
+
+    rBanker.accounts.addFromJsonString("{\"name\":\"" + key + "\",\"type\":\"Router\","
+            "\"parent\":\"parent:sub\",\"rate\":1000,\"balance\":0}");
+
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 0);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(1000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 1000);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(0));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 1000);
+    rBanker.accounts.accumulateBalance(key, MicroUSD(9000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 10000);
+    // should stay at 10,000 since it's the spend per sec max.
+    rBanker.accounts.accumulateBalance(key, MicroUSD(1000));
+    ExcAssertEqual(rBanker.accounts.getBalance(key).value, 10000);
+
 }

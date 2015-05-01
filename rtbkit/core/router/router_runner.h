@@ -43,6 +43,8 @@ struct RouterRunner {
     float maxBidPrice;
     std::string bankerUri;
     std::string localBankerUri;
+    bool localBankerDebug;
+    std::string bankerChoice;
 
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
     int slowModeTolerance;
@@ -56,7 +58,8 @@ struct RouterRunner {
                    = boost::program_options::options_description());
 
     std::shared_ptr<ServiceProxies> proxies;
-    std::shared_ptr<SlaveBanker> banker;
+    std::shared_ptr<Banker> banker;
+    std::shared_ptr<SlaveBanker> slaveBanker;
     std::shared_ptr<LocalBanker> localBanker;
     std::shared_ptr<Router> router;
     Json::Value exchangeConfig;

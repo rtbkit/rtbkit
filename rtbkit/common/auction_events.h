@@ -113,6 +113,8 @@ ML::DB::Store_Reader & operator
     >> (ML::DB::Store_Reader & store,
         std::shared_ptr<PostAuctionEvent> & event);
 
+CREATE_STRUCTURE_DESCRIPTION(PostAuctionEvent)
+
 
 /******************************************************************************/
 /* CAMPAIGN EVENTS                                                            */
@@ -242,4 +244,8 @@ struct DeliveryEvent
 };
 
 } // namespace RTBKIT
+
+namespace Datacratic {
+template<> struct DefaultDescription<PostAuctionEventType>;
+}
 

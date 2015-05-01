@@ -21,7 +21,7 @@
 */
 
 #ifndef __db__nested_archive_h__
-#define __db__nested_arhcive_h__
+#define __db__nested_archive_h__
 
 #include "persistent.h"
 #include <sstream>

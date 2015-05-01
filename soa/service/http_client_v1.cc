@@ -22,8 +22,8 @@
 #include "jml/utils/guard.h"
 #include "jml/utils/string_functions.h"
 
-#include "soa/service/message_loop.h"
-#include "soa/service/http_header.h"
+#include "message_loop.h"
+#include "http_header.h"
 
 #include "http_client_v1.h"
 
@@ -67,10 +67,12 @@ translateError(CURLcode curlError)
     return error;
 }
 
-}
+} // file scope
 
 
-/* HTTPCLIENT */
+/****************************************************************************/
+/* HTTP CLIENT V1                                                           */
+/****************************************************************************/
 
 HttpClientV1::
 HttpClientV1(const string & baseUrl, int numParallel, int queueSize)
@@ -128,35 +130,6 @@ HttpClientV1(const string & baseUrl, int numParallel, int queueSize)
 }
 
 HttpClientV1::
-HttpClientV1(HttpClientV1 && other)
-    noexcept
-    : HttpClientImpl(move(other)),
-      baseUrl_(move(other.baseUrl_)),
-      expect100Continue_(move(other.expect100Continue_)),
-      tcpNoDelay_(move(other.tcpNoDelay_)),
-      noSSLChecks_(move(other.noSSLChecks_)),
-      fd_(other.fd_),
-      wakeup_(move(other.wakeup_)),
-      timerFd_(other.timerFd_),
-      connectionStash_(move(other.connectionStash_)),
-      avlConnections_(move(other.avlConnections_)),
-      nextAvail_(other.nextAvail_),
-      queue_(move(other.queue_))
-{
-    other.fd_ = -1;
-    other.timerFd_ = -1;
-
-    /* the move operator of Curl::Multi is dubious but our multi handle is not
-       supposed to be active at this point, therefore we do not need to move it */
-    ::CURLM ** handle = (::CURLM **) &multi_;
-    handle_ = *handle;
-    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETFUNCTION, socketCallback);
-    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
-    ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
-    ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
-}
-
-HttpClientV1::
 ~HttpClientV1()
 {
     cleanupFds();
@@ -164,16 +137,16 @@ HttpClientV1::
 
 void
 HttpClientV1::
-enableSSLChecks(bool value)
+enableDebug(bool value)
 {
-    noSSLChecks_ = !value;
+    debug(value);
 }
 
 void
 HttpClientV1::
-sendExpect100Continue(bool value)
+enableSSLChecks(bool value)
 {
-    expect100Continue_ = value;
+    noSSLChecks_ = !value;
 }
 
 void
@@ -188,29 +161,6 @@ HttpClientV1::
 enablePipelining(bool value)
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, value ? 1 : 0);
-}
-
-HttpClientV1 &
-HttpClientV1::
-operator = (HttpClientV1 && other)
-    noexcept
-{
-    AsyncEventSource::operator = (move(other));
-    baseUrl_ = move(other.baseUrl_);
-    expect100Continue_ = move(other.expect100Continue_);
-    tcpNoDelay_ = move(other.tcpNoDelay_);
-    noSSLChecks_ = move(other.noSSLChecks_);
-    fd_ = other.fd_;
-    other.fd_ = -1;
-    wakeup_ = move(other.wakeup_);
-    timerFd_ = other.timerFd_;
-    other.timerFd_ = -1;
-    connectionStash_ = move(other.connectionStash_);
-    avlConnections_ = move(other.avlConnections_);
-    nextAvail_ = other.nextAvail_;
-    queue_ = move(other.queue_);
-
-    return *this;
 }
 
 void
@@ -379,8 +329,7 @@ handleWakeupEvent()
         for (auto & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks_, expect100Continue_, tcpNoDelay_,
-                          debug_);
+            conn->perform(noSSLChecks_, tcpNoDelay_, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -589,7 +538,7 @@ HttpConnection()
 void
 HttpClientV1::
 HttpConnection::
-perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debug)
+perform(bool noSSLChecks, bool tcpNoDelay, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -625,9 +574,9 @@ perform(bool noSSLChecks, bool withExpect100Continue, bool tcpNoDelay, bool debu
         curlHeaders.push_back("Content-Type: "
                               + request_->content_.contentType);
 
-        if (!withExpect100Continue) {
-            curlHeaders.push_back("Expect:");
-        }
+        /* Disable "Expect: 100 Continue" header that curl sets automatically
+           for uploads larger than 1 Kbyte */
+        curlHeaders.push_back("Expect:");
     }
     easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
 

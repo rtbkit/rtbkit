@@ -196,7 +196,6 @@ initConnections(size_t shard)
 
     LOG(print) << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
-    loop.addSource("PostAuctionService::logger", logger);
 
     auctions.onEvent = std::bind(&PostAuctionService::doAuction, this, _1);
     loop.addSource("PostAuctionService::auctions", auctions);
@@ -251,9 +250,9 @@ PostAuctionService::
 initRestEndpoint()
 {
     const auto& params = getServices()->params;
-    if (!params.isMember("ports") ||
-            !params["ports"].isMember("postAuctionLoopREST.zmq") ||
-            !params["ports"].isMember("postAuctionLoopREST.http"))
+    if (!params.isMember("portRanges") ||
+            !params["portRanges"].isMember("postAuctionREST.zmq") ||
+            !params["portRanges"].isMember("postAuctionREST.http"))
     {
         return;
     }
@@ -278,6 +277,15 @@ initRestEndpoint()
             this,
             JsonParam< std::shared_ptr< SubmittedAuctionEvent> >("", "auction to submit"));
 
+    addRouteSync(
+            versionNode,
+            "/events",
+            {"POST"},
+            "Submit and auction to the PAL",
+            &PostAuctionService::doEvent,
+            this,
+            JsonParam< std::shared_ptr< PostAuctionEvent> >("", "event to submit"));
+
     addSource("PostAuctionService::restEndpoint", *restEndpoint);
 }
 
@@ -289,7 +297,7 @@ forwardAuctions(const std::string& uri)
     ExcCheck(!uri.empty(), "empty forwarding uri");
 
     LOG(print) << "forwarding all bids to: " << uri << endl;
-    forwarder.reset(new EventForwarder(*this, uri));
+    forwarder.reset(new EventForwarder(*this, uri, "forwarder"));
 }
 
 
@@ -298,6 +306,7 @@ PostAuctionService::
 start(std::function<void ()> onStop)
 {
     loop.start(onStop);
+    logger.start();
     monitorProviderClient.start();
     loopMonitor.start();
     matcher->start();
@@ -335,9 +344,13 @@ doConfigChange(
 
     banker->addSpendAccount(config->account, Amount(),
             [=] (std::exception_ptr error, ShadowAccount && acount) {
-                if(error) logException(error, "Banker addSpendAccount");
+                try {
+                    if(error)
+                        logException(error, "Banker addSpendAccount");
+                }
+                catch (ML::Exception const & e) {
+                }
             });
-    if (localBanker) localBanker->addAccount(config->account);
 }
 
 void

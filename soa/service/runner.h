@@ -20,7 +20,7 @@
 #include "soa/types/date.h"
 #include "soa/types/value_description.h"
 
-#include "epoller.h"
+#include "epoll_loop.h"
 #include "runner_common.h"
 #include "sink.h"
 
@@ -98,7 +98,7 @@ CREATE_ENUM_DESCRIPTION_NAMED(RunResultStateDescription, RunResult::State);
     controlling the input, output and error streams of the subprocess.
 */
 
-struct Runner: public Epoller {
+struct Runner: public EpollLoop {
     typedef std::function<void (const RunResult & result)> OnTerminate;
 
     Runner();
@@ -109,11 +109,19 @@ struct Runner: public Epoller {
     /* Close stdin at launch time if stdin sink was not queried. */
     bool closeStdin;
 
-    /** Run the subprocess. */
+    /** Run a program asynchronously, requiring to be attached to a
+     * MessageLoop. */
     void run(const std::vector<std::string> & command,
              const OnTerminate & onTerminate = nullptr,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
+
+    /** Run a program synchronously. This method does not need any preliminary
+     * registration to a MessageLoop. */
+    RunResult runSync(const std::vector<std::string> & command,
+                      const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                      const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                      const std::string & stdInData = "");
 
     /** Kill the subprocess with the given signal, then wait for it to
         terminate.
@@ -161,6 +169,11 @@ struct Runner: public Epoller {
     double duration() const;
 
 private:
+    void runImpl(const std::vector<std::string> & command,
+                 const OnTerminate & onTerminate = nullptr,
+                 const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                 const std::shared_ptr<InputSink> & stdErrSink = nullptr);
+
     struct Task {
         Task();
 
@@ -187,12 +200,9 @@ private:
     };
 
     void prepareChild();
-    Epoller::HandleEventResult
-    handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
                             int & fd, std::shared_ptr<InputSink> & sink);
-    void handleWakeup(const struct epoll_event & event);
 
     void attemptTaskTermination();
 
@@ -206,8 +216,6 @@ private:
         -3 means the child has exited
     */
     pid_t childPid_;
-
-    ML::Wakeup_Fd wakeup_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     std::shared_ptr<InputSink> stdOutSink_;
@@ -227,16 +235,17 @@ private:
     Runner object and using it to run a single command.
 */
 
-/** Execute a command synchronously using the specified message loop. */
-RunResult execute(MessageLoop & loop,
-                  const std::vector<std::string> & command,
+/** Execute a command synchronously. */
+RunResult execute(const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
 
-/** Execute a command synchronously using its own message loop. */
-RunResult execute(const std::vector<std::string> & command,
+/** (Deprecated) Execute a command synchronously using the specified message
+ * loop. */
+RunResult execute(MessageLoop & loop,
+                  const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",

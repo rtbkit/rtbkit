@@ -120,7 +120,7 @@ Router(ServiceBase & parent,
        Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
-      postAuctionEndpoint(parent.getServices()),
+      postAuctionEndpoint(*this),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
@@ -172,7 +172,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, services),
       shutdown_(false),
-      postAuctionEndpoint(services),
+      postAuctionEndpoint(*this),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
@@ -321,13 +321,6 @@ setBanker(const std::shared_ptr<Banker> & newBanker)
 {
     banker = newBanker;
     monitorProviderClient.addProvider(banker.get());
-}
-
-void
-Router::
-setLocalBanker(const std::shared_ptr<LocalBanker> & newBanker)
-{
-    localBanker = newBanker;
 }
 
 void
@@ -2052,8 +2045,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             slowModePeriodicSpentReached = false;
         }
 
-        if (!banker->authorizeBid(config.account, auctionKey, price)
-                || failBid(budgetErrorRate))
+        if (!banker->authorizeBid(config.account, auctionKey, price) || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
 
@@ -2064,8 +2056,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
             continue;
         }
-        
-        if (localBanker) localBanker->bid(config.account, price);
         
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
@@ -2078,6 +2068,10 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                             bid.price.toString().c_str(),
                             (double)bid.priority));
 
+        std::string meta;
+        if (!bid.ext.isNull()) meta = bid.ext.toStringNoNewLine();
+        else meta = message.meta;
+
         Auction::Response response(
                 Auction::Price(bid.price, bid.priority),
                 creative.id,
@@ -2085,7 +2079,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 config.test,
                 agent,
                 bids,
-                message.meta,
+                meta,
                 info.config,
                 config.visitChannels,
                 bid.creativeIndex,
@@ -2595,12 +2589,15 @@ configure(const std::string & agent, AgentConfig & config)
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
         {
             //cerr << "got spend account for " << agent << ac << endl;
-            if (exc)
-                logException(exc, "Banker addAccount");
+            try {
+                if (exc)
+                    logException(exc, "Banker addAccount");
+            }
+            catch(ML::Exception const & e) {
+            }
         };
 
     banker->addSpendAccount(config.account, Amount(), onDone);
-    if (localBanker) localBanker->addAccount(config.account);
 }
 
 Json::Value
@@ -2761,18 +2758,19 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     string auctionKey = auction->id.toString()
                         + "-" + adSpotId.toString()
                         + "-" + bid.agent;
+
     banker->detachBid(bid.account, auctionKey);
 
     if (connectPostAuctionLoop) {
-        SubmittedAuctionEvent event;
-        event.auctionId = auction->id;
-        event.adSpotId = adSpotId;
-        event.lossTimeout = auction->lossAssumed;
-        event.augmentations = auction->agentAugmentations[bid.agent];
-        event.bidRequest(auction->request);
-        event.bidRequestStr = auction->requestStr;
-        event.bidRequestStrFormat = auction->requestStrFormat ;
-        event.bidResponse = bid;
+        auto event = std::make_shared<SubmittedAuctionEvent>();
+        event->auctionId = auction->id;
+        event->adSpotId = adSpotId;
+        event->lossTimeout = auction->lossAssumed;
+        event->augmentations = auction->agentAugmentations[bid.agent];
+        event->bidRequest(auction->request);
+        event->bidRequestStr = auction->requestStr;
+        event->bidRequestStrFormat = auction->requestStrFormat ;
+        event->bidResponse = bid;
 
         postAuctionEndpoint.sendAuction(event);
     }

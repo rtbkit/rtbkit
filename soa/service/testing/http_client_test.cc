@@ -26,17 +26,22 @@ namespace {
 
 typedef tuple<HttpClientError, int, string> ClientResponse;
 
-#define CALL_MEMBER_FN(object, pointer)  ((object)->*(pointer))
+#define CALL_MEMBER_FN(object, pointer)  (object.*(pointer))
 
 /* sync request helpers */
 template<typename Func>
 ClientResponse
-doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
+doRequest(MessageLoop & loop,
+          const string & baseUrl, const string & resource,
           Func func,
-          const RestParams &headers = RestParams(),
+          const RestParams & queryParams, const RestParams & headers,
           int timeout = -1)
 {
     ClientResponse response;
+
+    auto client = make_shared<HttpClient>(baseUrl, 4);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
 
     int done(false);
     auto onResponse = [&] (const HttpRequest & rq,
@@ -54,20 +59,16 @@ doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
         ML::futex_wake(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    auto client = make_shared<HttpClient>(baseUrl, 4);
-    HttpClient *ptr = client.get();
-    loop.addSource("httpClient", client);
-    client->waitConnectionState(AsyncEventSource::CONNECTED);
 
-    CALL_MEMBER_FN(ptr, func)(resource, cbs, RestParams(), headers,
-                timeout);
+    CALL_MEMBER_FN(*client, func)(resource, cbs, queryParams, headers,
+                                  timeout);
 
     while (!done) {
         int oldDone = done;
         ML::futex_wait(done, oldDone);
     }
 
-    loop.removeSource(ptr);
+    loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     return response;
@@ -76,27 +77,24 @@ doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
 ClientResponse
 doGetRequest(MessageLoop & loop,
              const string & baseUrl, const string & resource,
+             const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
              int timeout = -1)
 {
-    return doRequest(loop, baseUrl, resource,
-              &HttpClient::get,
-              headers,
-              timeout);
+    return doRequest(loop, baseUrl, resource, &HttpClient::get,
+                     queryParams, headers, timeout);
 }
 
 ClientResponse
 doDeleteRequest(MessageLoop & loop,
-               const string & baseUrl, const string & resource,
-               const RestParams & headers = RestParams(),
-               int timeout = -1)
+                const string & baseUrl, const string & resource,
+                const RestParams & queryParams = RestParams(),
+                const RestParams & headers = RestParams(),
+                int timeout = -1)
 {
-    return doRequest(loop, baseUrl, resource,
-              &HttpClient::del,
-              headers,
-              timeout);
+    return doRequest(loop, baseUrl, resource, &HttpClient::del,
+                     queryParams, headers, timeout);
 }
-
 
 ClientResponse
 doUploadRequest(MessageLoop & loop,
@@ -105,8 +103,12 @@ doUploadRequest(MessageLoop & loop,
                 const string & body, const string & type)
 {
     ClientResponse response;
-    int done(false);
 
+    auto client = make_shared<HttpClient>(baseUrl, 4);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+    int done(false);
     auto onResponse = [&] (const HttpRequest & rq,
                            HttpClientError error,
                            int status,
@@ -122,9 +124,6 @@ doUploadRequest(MessageLoop & loop,
         ML::futex_wake(done);
     };
 
-    auto client = make_shared<HttpClient>(baseUrl, 4);
-    loop.addSource("httpClient", client);
-    client->waitConnectionState(AsyncEventSource::CONNECTED);
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     HttpRequest::Content content(body, type);
     if (isPut) {
@@ -138,7 +137,7 @@ doUploadRequest(MessageLoop & loop,
         int oldDone = done;
         ML::futex_wait(done, oldDone);
     }
-    
+
     loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
@@ -164,43 +163,52 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
     service.waitListening();
 
 #if 0
-    /* FIXME: this test does not work because the Datacratic router silently
-     * either drops packets to unreachable host or the arp timeout is very
-     * high */
-    /* request to bad ip */
+    /* request to bad ip
+       Note: if the ip resolution timeout is very high on the router, the
+       Watchdog timeout might trigger first */
     {
+        ::fprintf(stderr, "request to bad ip\n");
         string baseUrl("http://123.234.12.23");
         auto resp = doGetRequest(loop, baseUrl, "/");
-        BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientError::COULD_NOT_CONNECT);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::CouldNotConnect);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 #endif
 
-    /* FIXME: this test does not work because the Datacratic name service
-     * always returns something */
 #if 0
-    /* request to bad hostname */
+    /* request to bad hostname
+       Note: will fail when the name service returns a "default" value for all
+       non resolved hosts */
     {
+        ::fprintf(stderr, "request to bad hostname\n");
         string baseUrl("http://somewhere.lost");
         auto resp = doGetRequest(loop, baseUrl, "/");
-        BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientError::HostNotFound);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::HostNotFound);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 #endif
 
     /* request with timeout */
     {
+        ::fprintf(stderr, "request with timeout\n");
         string baseUrl("http://127.0.0.1:" + to_string(service.port()));
-        auto resp = doGetRequest(loop, baseUrl, "/timeout", {}, 1);
-        BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientError::Timeout);
+        auto resp = doGetRequest(loop, baseUrl, "/timeout", {}, {}, 1);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::Timeout);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
+    }
+
+    /* request connection close */
+    {
+        ::fprintf(stderr, "testing behaviour with connection: close\n");
+        string baseUrl("http://127.0.0.1:" + to_string(service.port()));
+        auto resp = doGetRequest(loop, baseUrl, "/connection-close");
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
+        BOOST_CHECK_EQUAL(get<1>(resp), 204);
     }
 
     /* request to /nothing -> 404 */
     {
+        ::fprintf(stderr, "request with 404\n");
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/nothing");
@@ -210,6 +218,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
 
     /* request to /coucou -> 200 + "coucou" */
     {
+        ::fprintf(stderr, "request with 200\n");
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/coucou");
@@ -221,7 +230,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
     /* headers and cookies */
     {
         string baseUrl("http://127.0.0.1:" + to_string(service.port()));
-        auto resp = doGetRequest(loop, baseUrl, "/headers",
+        auto resp = doGetRequest(loop, baseUrl, "/headers", {},
                                  {{"someheader", "somevalue"}});
         Json::Value expBody;
         expBody["accept"] = "*/*";
@@ -230,6 +239,17 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         Json::Value jsonBody = Json::parse(get<2>(resp));
         BOOST_CHECK_EQUAL(jsonBody, expBody);
     }
+
+    /* query-params */
+    {
+        string baseUrl("http://127.0.0.1:" + to_string(service.port()));
+        auto resp = doGetRequest(loop, baseUrl, "/query-params",
+                                 {{"value", "hello"}});
+        string body = get<2>(resp);
+        BOOST_CHECK_EQUAL(body, "?value=hello");
+    }
+
+    service.shutdown();
 }
 #endif
 
@@ -258,6 +278,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
         BOOST_CHECK_EQUAL(jsonBody["payload"], "post body");
         BOOST_CHECK_EQUAL(jsonBody["type"], "application/x-nothing");
     }
+
+    service.shutdown();
 }
 #endif
 
@@ -287,9 +309,12 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
     BOOST_CHECK_EQUAL(jsonBody["verb"], "PUT");
     BOOST_CHECK_EQUAL(jsonBody["payload"], bigBody);
     BOOST_CHECK_EQUAL(jsonBody["type"], "application/x-nothing");
+
+    service.shutdown();
 }
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( http_test_client_delete )
 {
     cerr << "client_delete" << endl;
@@ -305,76 +330,165 @@ BOOST_AUTO_TEST_CASE( http_test_client_delete )
     loop.start();
 
     string baseUrl("http://127.0.0.1:" + to_string(service.port()));
-    auto resp = doDeleteRequest(loop, baseUrl, "/deleteMe", {}, 1);
+    auto resp = doDeleteRequest(loop, baseUrl, "/deleteMe", {}, {}, 1);
 
     BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
     BOOST_CHECK_EQUAL(get<1>(resp), 200);
+
+    service.shutdown();
 }
+#endif
 
 #if 1
-/* Ensures that all requests are correctly performed under load.
-   Not a performance test. */
-BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
+BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
 {
-    cerr << "stress_test\n";
-    // ML::Watchdog watchdog(300);
+    cerr << "client_put_multi\n";
     auto proxies = make_shared<ServiceProxies>();
-    HttpGetService service(proxies);
-
-    service.addResponse("GET", "/", 200, "coucou");
+    HttpUploadService service(proxies);
     service.start();
-    service.waitListening();
+
+    string baseUrl("http://127.0.0.1:"
+                   + to_string(service.port()));
 
     MessageLoop loop;
     loop.start();
 
-    string baseUrl("http://127.0.0.1:" + to_string(service.port()));
+    auto client = make_shared<HttpClient>(baseUrl);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
 
-    auto client = make_shared<HttpClient>(baseUrl, 4);
-    auto & clientRef = *client.get();
-    loop.addSource("httpClient", client);
+    size_t maxRequests(500);
+    int done(0);
 
-    int maxReqs(10000), numReqs(0), missedReqs(0);
-    int numResponses(0);
+    auto makeBody = [&] (size_t i) {
+        int multiplier = (i < maxRequests / 2) ? -2 : 2;
+        size_t bodySize = 2000 + multiplier * i;
+        string body = ML::format("%.4x", bodySize);
+        size_t rndSize = bodySize - body.size();
+        body += randomString(rndSize);
 
-    auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientError errorCode, int status,
-                       string && headers, string && body) {
-        // cerr << ("* onResponse " + to_string(numResponses)
-        //          + ": " + to_string(get<1>(resp))
-        //          + "\n\n\n");
-        // cerr << "    body =\n/" + get<2>(resp) + "/\n";
-        numResponses++;
-        // if ((numResponses & 0xff) == 0 || numResponses > 9980) {
-        //     ::fprintf(stderr, "responses: %d\n", numResponses);
-        // }
-        if (numResponses == numReqs) {
-            ML::futex_wake(numResponses);
+        return body;
+    };
+
+    for (size_t i = 0; i < maxRequests; i++) {
+        auto sendBody = makeBody(i);
+        auto onResponse = [&, sendBody] (const HttpRequest & rq,
+                                         HttpClientError error,
+                                         int status,
+                                         string && headers,
+                                         string && body) {
+            BOOST_CHECK_EQUAL(error, HttpClientError::None);
+            BOOST_CHECK_EQUAL(status, 200);
+            Json::Value jsonBody = Json::parse(body);
+            BOOST_CHECK_EQUAL(jsonBody["verb"], "PUT");
+            BOOST_CHECK_EQUAL(jsonBody["payload"], sendBody);
+            BOOST_CHECK_EQUAL(jsonBody["type"], "text/plain");
+            done++;
+            if (done == maxRequests) {
+                ML::futex_wake(done);
+            }
+        };
+
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+        HttpRequest::Content content(sendBody, "text/plain");
+        while (!client->put("/", cbs, content)) {
+            ML::sleep(0.2);
         }
     };
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
 
-    while (numReqs < maxReqs) {
-        if (clientRef.get("/", cbs)) {
-            numReqs++;
-            // if ((numReqs & 0xff) == 0 || numReqs > 9980) {
-            //     cerr << "requests performed: " + to_string(numReqs) + "\n";
-            // }
-        }
-        else {
-            missedReqs++;
-        }
-    }
-    cerr << "performed all requests: " + to_string(maxReqs) + "\n";
-    cerr << " missedReqs: " + to_string(missedReqs) + "\n";
-
-    while (numResponses < maxReqs) {
-        int old(numResponses);
-        ML::futex_wait(numResponses, old);
+    while (done < maxRequests) {
+        int oldDone = done;
+        ML::futex_wait(done, oldDone);
     }
 
-    loop.removeSource(client.get());
-    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
+    loop.shutdown();
+    service.shutdown();
+}
+#endif
+
+#if 1
+/* Ensures that all requests are correctly performed under load, including
+   when "Connection: close" is encountered once in a while.
+   Not a performance test. */
+BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
+{
+    cerr << "stress_test\n";
+    // const int mask = 0x3ff; /* mask to use for displaying counts */
+    // ML::Watchdog watchdog(300);
+    auto proxies = make_shared<ServiceProxies>();
+    auto doStressTest = [&] (int numParallel) {
+        ::fprintf(stderr, "stress test with %d parallel connections\n",
+                  numParallel);
+
+        HttpGetService service(proxies);
+        service.start();
+        service.waitListening();
+
+        string baseUrl("http://127.0.0.1:"
+                       + to_string(service.port()));
+
+        MessageLoop loop;
+        loop.start();
+
+        auto client = make_shared<HttpClient>(baseUrl, numParallel);
+        loop.addSource("client", client);
+        client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+        int maxReqs(30000), numReqs(0), missedReqs(0);
+        int numResponses(0);
+
+        auto onDone = [&] (const HttpRequest & rq,
+                           HttpClientError errorCode, int status,
+                           string && headers, string && body) {
+            numResponses++;
+
+            BOOST_CHECK_EQUAL(errorCode, HttpClientError::None);
+            BOOST_CHECK_EQUAL(status, 200);
+
+            int bodyNbr;
+            try {
+                bodyNbr = stoi(body);
+            }
+            catch (...) {
+                ::fprintf(stderr, "exception when parsing body: %s\n",
+                          body.c_str());
+                throw;
+            }
+
+            if (numResponses == numReqs) {
+                ML::futex_wake(numResponses);
+            }
+        };
+
+        while (numReqs < maxReqs) {
+            const char * url = "/counter";
+            auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+            if (client->get(url, cbs)) {
+                numReqs++;
+                // if ((numReqs & mask) == 0 || numReqs == maxReqs) {
+                //     ::fprintf(stderr, "performed %d requests\n", numReqs);
+                // }
+            }
+            else {
+                missedReqs++;
+            }
+        }
+
+        ::fprintf(stderr, "all requests performed, awaiting responses...\n");
+        while (numResponses < maxReqs) {
+            int old(numResponses);
+            ML::futex_wait(numResponses, old);
+        }
+        ::fprintf(stderr, "performed %d requests; missed: %d\n",
+                  maxReqs, missedReqs);
+
+        loop.shutdown();
+        service.shutdown();
+    };
+
+    doStressTest(1);
+    doStressTest(8);
+    doStressTest(128);
 }
 #endif
 
@@ -441,8 +555,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 #endif
 
 #if 1
-/* Ensure that an infinite number of requests can be queued, even from within
- * callbacks. */
+/* Ensure that an infinite number of requests can be queued when queue size is
+ * 0, even from within callbacks. */
 BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
 {
     static const int maxLevel(4);
@@ -461,7 +575,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    auto client = make_shared<HttpClient>(baseUrl, 4);
+    auto client = make_shared<HttpClient>(baseUrl, 4, 0);
     loop.addSource("client", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
 
@@ -492,120 +606,148 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
         cerr << "requests done: " + to_string(done) + "\n";
     }
 
-    loop.removeSource(client.get());
-    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
-
+    loop.shutdown();
     service.shutdown();
 }
 #endif
 
 #if 1
-BOOST_AUTO_TEST_CASE( test_http_client_expect_100_continue )
+/* Test connection restoration after a timeout occurs. */
+BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
 {
-    ML::Watchdog watchdog(10);
-    cerr << "client_expect_100_continue" << endl;
-
+    ML::Watchdog watchdog(30);
     auto proxies = make_shared<ServiceProxies>();
 
-    HttpUploadService service(proxies);
+    HttpGetService service(proxies);
+    service.addResponse("GET", "/", 200, "coucou");
     service.start();
-
-    string baseUrl("http://127.0.0.1:"
-                   + to_string(service.port()));
-
-    auto client = make_shared<HttpClient>(baseUrl, 4);
-    client->debug(true);
-    client->sendExpect100Continue(true);
+    service.waitListening();
 
     MessageLoop loop;
-    loop.addSource("HttpClient", client);
     loop.start();
 
-    HttpHeader sentHeaders;
+    string baseUrl("http://127.0.0.1:" + to_string(service.port()));
 
-    auto getClientHeader = [&] (const string & body,
-                                const string & headerKey) {
-        Json::Value jsonValue = Json::parse(body);
-        return jsonValue["headers"][headerKey].asString();
+    auto client = make_shared<HttpClient>(baseUrl, 1);
+    client->enableDebug(true);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+    int done(0);
+    auto onDone = [&] (const HttpRequest & rq,
+                       HttpClientError errorCode, int status,
+                       string && headers, string && body) {
+        done++;
+        ML::futex_wake(done);
     };
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+    client->get("/timeout", cbs, {}, {}, 1);
+    client->get("/", cbs, {}, {}, 1);
 
-    {
-        int done(false);
-        string body;
-        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-            [&] (const HttpRequest &, HttpClientError error,
-                 int statusCode, std::string &&,
-                 std::string && newBody)
-        {
-            BOOST_CHECK_EQUAL(error, HttpClientError::None);
-            BOOST_CHECK_EQUAL(statusCode, 200);
-            body = move(newBody);
-            done = true;
-            ML::futex_wake(done);
-        });
-
-        const std::string& smallPayload = randomString(20);
-        HttpRequest::Content content(smallPayload, "application/x-nothing");
-        client->post("/post-test", callbacks, content);
-
-        while (!done) {
-            ML::futex_wait(done, false);
-        }
-
-        BOOST_CHECK_EQUAL(getClientHeader(body, "expect"), "");
+    while (done < 2) {
+        ML::futex_wait(done, done);
     }
 
+    loop.shutdown();
+    service.shutdown();
+}
+#endif
+
+#if 1
+/* Test connection restoration after the server closes the connection, under
+ * various circumstances. */
+BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
+{
+    ML::Watchdog watchdog(30);
+    auto proxies = make_shared<ServiceProxies>();
+
+    HttpGetService service(proxies);
+    service.portToUse = 8080;
+    service.addResponse("GET", "/", 200, "coucou");
+    service.start();
+    service.waitListening();
+
+    MessageLoop loop;
+    loop.start();
+
+    string baseUrl("http://127.0.0.1:" + to_string(service.port()));
+
+    /* response sent, "Connection: close" header */
     {
-        int done(false);
-        string body;
-        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-                [&](const HttpRequest&, HttpClientError error,
-                    int statusCode, std::string &&,
-                    std::string&& newBody)
-        {
-            BOOST_CHECK_EQUAL(error, HttpClientError::None);
-            body = move(newBody);
-            done = true;
+        cerr << "* connection-close\n";
+        auto client = make_shared<HttpClient>(baseUrl, 1);
+        loop.addSource("client", client);
+        client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+        int done(0);
+        auto onDone = [&] (const HttpRequest & rq,
+                           HttpClientError errorCode, int status,
+                           string && headers, string && body) {
+            done++;
             ML::futex_wake(done);
-        });
+        };
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+        client->get("/connection-close", cbs);
+        client->get("/", cbs);
 
-        const std::string& bigPayload = randomString(2024);
-        HttpRequest::Content content(bigPayload, "application/x-nothing");
-        client->post("/post-test", callbacks, content);
-
-        while (!done) {
-            ML::futex_wait(done, false);
+        while (done < 2) {
+            ML::futex_wait(done, done);
         }
 
-        BOOST_CHECK_EQUAL(getClientHeader(body, "expect"), "100-continue");
+        loop.removeSourceSync(client.get());
     }
 
-    client->sendExpect100Continue(false);
-
+    /* response sent, no "Connection: close" header */
     {
-        int done(false);
-        string body;
-        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-                [&](const HttpRequest&, HttpClientError error,
-                    int statusCode, std::string&&, std::string&& newBody)
-        {
-            BOOST_CHECK_EQUAL(error, HttpClientError::None);
-            body = move(newBody);
-            done = true;
+        cerr << "* no connection-close\n";
+        auto client = make_shared<HttpClient>(baseUrl, 1);
+        loop.addSource("client", client);
+        client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+        int done(0);
+        auto onDone = [&] (const HttpRequest & rq,
+                           HttpClientError errorCode, int status,
+                           string && headers, string && body) {
+            done++;
             ML::futex_wake(done);
-        });
+        };
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+        client->get("/quiet-connection-close", cbs);
+        client->get("/", cbs);
 
-        const std::string& bigPayload = randomString(2024);
-        HttpRequest::Content content(bigPayload, "application/x-nothing");
-        client->post("/post-test", callbacks, content);
-
-        while (!done) {
-            ML::futex_wait(done, false);
+        while (done < 2) {
+            ML::futex_wait(done, done);
         }
 
-        BOOST_CHECK_EQUAL(getClientHeader(body, "expect"), "");
+        loop.removeSourceSync(client.get());
     }
 
+    /* response not sent */
+    {
+        cerr << "* no response at all\n";
+        auto client = make_shared<HttpClient>(baseUrl, 1);
+        loop.addSource("client", client);
+        client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+        int done(0);
+        auto onDone = [&] (const HttpRequest & rq,
+                           HttpClientError errorCode, int status,
+                           string && headers, string && body) {
+            done++;
+            ML::futex_wake(done);
+        };
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+        client->get("/abrupt-connection-close", cbs);
+        client->get("/", cbs);
+
+        while (done < 2) {
+            ML::futex_wait(done, done);
+        }
+
+        loop.removeSourceSync(client.get());
+    }
+
+    loop.shutdown();
     service.shutdown();
 }
 #endif

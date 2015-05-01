@@ -27,8 +27,8 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 Creative::
-Creative(int width, int height, std::string name, int id)
-    : format(width, height), name(name), id(id)
+Creative(int width, int height, std::string name, int id, const std::string dealId)
+    : format(width, height), name(name), id(id), dealId(dealId)
 {
 }
 
@@ -50,6 +50,9 @@ fromJson(const Json::Value & val)
         id = val["id"].asInt();
     if (id == -1)
         throw ML::Exception("creatives require an ID to be specified");
+
+    if (val.isMember("dealId"))
+        dealId = val["dealId"].asString();
 
     providerConfig = val["providerConfig"];
 
@@ -91,6 +94,8 @@ toJson() const
         }
         result["segmentFilter"] = segmentInfo;
     }
+    if (!dealId.empty())
+        result["dealId"] = dealId;
 
     return result;
 }

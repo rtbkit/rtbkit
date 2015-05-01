@@ -28,6 +28,7 @@ struct HttpService : public ServiceBase, public HttpEndpoint
                                    const std::string & payload) = 0;
 
     int portToUse;
+    std::atomic<size_t> numReqs;
 };
 
 struct HttpTestConnHandler : HttpConnectionHandler
@@ -56,7 +57,6 @@ struct HttpGetService : public HttpService
     void addResponse(const std::string & verb, const std::string & resource,
                      int code, const std::string & body);
 
-    std::atomic<int> numReqs;
     std::map<std::string, TestResponse> responses_;
 };
 

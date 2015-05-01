@@ -17,8 +17,8 @@ $(eval $(call library,logger,$(LIBLOGGER_SOURCES),$(LIBLOGGER_LINK)))
 LIBLOG_METRICS_SOURCES := \
 	kvp_logger_interface.cc easy_kvp_logger.cc \
     logger_metrics_interface.cc logger_metrics_term.cc
- 
- LIBLOG_METRICS_LINK := \
+
+LIBLOG_METRICS_LINK := \
     boost_filesystem boost_program_options types
 
 $(eval $(call library,log_metrics,$(LIBLOG_METRICS_SOURCES),$(LIBLOG_METRICS_LINK)))

@@ -290,7 +290,7 @@ handleWinRq(const HttpHeader & header,
 
     if(response.valid) {
         publishWin(bidRequestId, impId, winPrice, timestamp, Json::Value(), userIds,
-                   AccountKey(), Date());
+                   AccountKey(passback), Date());
         publisher_.publish("WIN", timestamp.print(3), bidRequestIdStr,
                            impIdStr, winPrice.toString());
         analytics_.publish("WIN", timestamp.print(3), bidRequestIdStr,

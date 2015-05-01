@@ -329,3 +329,27 @@ BOOST_AUTO_TEST_CASE( test_compound_id )
 {
     Id id(Id("hello"), Id("world"));
 }
+
+#if ID_HASH_AS_STRING
+BOOST_AUTO_TEST_CASE( test_hash_as_string )
+{
+    /* COMPOUND */
+    {
+        Id typical(string("hello:big:world"), Id::STR);
+        Id id(Id("hello"), Id("big:world"));
+        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
+    }
+
+    /* BIGDEC */
+    {
+        Id typical(string("12345678"), Id::STR);
+        BOOST_CHECK_EQUAL(typical.type, Id::STR);
+        Id id(12345678);
+        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
+
+        id = Id("12345678");
+        BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
+        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
+    }
+}
+#endif

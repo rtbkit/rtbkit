@@ -84,8 +84,13 @@ public:
 
         {
             "bidrequest.user.id",
-            [](const Context& ctx)
-            { return ctx.bidrequest.user->id.toString(); }
+            [](const Context& ctx) -> std::string
+            {
+                if ( ctx.bidrequest.user){
+                    return ctx.bidrequest.user->id.toString();
+                }
+                return "";
+            }
         },
 
         {
@@ -372,7 +377,7 @@ CreativeConfiguration<CreativeData>::getAssociatedCallable(
         return [this, getter](const Context & context) {
             Json::Reader reader;
             Json::Value val;
-            if (!reader.parse(context.response.meta, val)) {
+            if (!reader.parse(context.response.meta.rawString(), val)) {
                 std::cerr << "Failed to parse meta information for exchange:"
                           << this->exchange_
                           << ", meta: " << context.response.meta << std::endl;

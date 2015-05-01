@@ -296,11 +296,21 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         else recordHit("bidResult.%s.auctionAlreadyFinished", typeStr);
 
         if (event->type == PAE_WIN) {
-            // Late win with auction still around
-            banker->forceWinBid(info.bid.account, winPrice, LineItems());
-            if (localBanker) localBanker->win(info.bid.account, winPrice);
+            info.bid.wcm.data["win"] = meta.toJson();
+            Amount price = info.bid.wcm.evaluate(
+                    info.bid.bidData.bidForSpot(info.spotIndex), winPrice);
 
-            info.forceWin(timestamp, winPrice, winPrice, meta.toString());
+            recordOutcome(winPrice.value, "accounts.%s.winPrice.%s",
+                    info.bid.account.toString('.'), winPrice.getCurrencyStr());
+
+            recordOutcome(price.value, "accounts.%s.winCostPrice.%s",
+                    info.bid.account.toString('.'), price.getCurrencyStr());
+
+
+            // Late win with auction still around
+            banker->forceWinBid(info.bid.account, price, LineItems());
+
+            info.forceWin(timestamp, price, winPrice, meta.toString());
 
             finished.get(key) = info;
 
@@ -311,9 +321,9 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
 
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
-            recordOutcome(winPrice.value,
+            recordOutcome(price.value,
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
-                          typeStr, winPrice.getCurrencyStr());
+                          typeStr, price.getCurrencyStr());
 
             auto winLatency = Date::now().secondsSince(info.auctionTime);
             recordOutcome(winLatency * 1000.0, "winLatencyMs");
@@ -380,7 +390,6 @@ doReallyLateWin(const std::shared_ptr<PostAuctionEvent>& event)
 {
     if (!event->account.empty()) {
         banker->forceWinBid(event->account, event->winPrice, LineItems());
-        if (localBanker) localBanker->win(event->account, event->winPrice);
     }
 
     recordHit("bidResult.%s.unmatched", RTBKIT::print(event->type));
@@ -565,7 +574,6 @@ doBidResult(
 
         auto transId = makeBidId(auctionId, adSpotId, agent);
         banker->winBid(account, transId, price, LineItems());
-        if (localBanker) localBanker->win(account, price);
 
         auto winLatency = Date::now().secondsSince(submission.bidRequest->timestamp);
         recordOutcome(winLatency * 1000.0, "winLatencyMs");

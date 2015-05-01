@@ -106,7 +106,7 @@ private:
             auto auction = makeAuction();
             feed.sendAuction(auction);
 
-            if (auction.auctionId.hash() % 7 == 0)
+            if (auction->auctionId.hash() % 7 == 0)
                 feed.sendEvent(makeWin(auction));
 
             std::this_thread::sleep_for(std::chrono::milliseconds(config.pauseMs));
@@ -147,35 +147,37 @@ private:
         return bid;
     }
 
-    SubmittedAuctionEvent makeAuction() const
+    std::shared_ptr<SubmittedAuctionEvent>
+    makeAuction() const
     {
-        SubmittedAuctionEvent event;
+        auto event = std::make_shared<SubmittedAuctionEvent>();
         static size_t counter = 0;
 
-        event.auctionId = Id((size_t(this) << 32) + counter++);
-        event.adSpotId = Id(1);
-        event.lossTimeout = Date::now().plusSeconds(config.lossTimeout);
-        event.bidRequestStr = makeBidRequest(event.auctionId);
-        event.bidRequestStrFormat = "datacratic";
-        event.bidResponse = {};
-        event.bidResponse = makeBid();
+        event->auctionId = Id((size_t(this) << 32) + counter++);
+        event->adSpotId = Id(1);
+        event->lossTimeout = Date::now().plusSeconds(config.lossTimeout);
+        event->bidRequestStr = makeBidRequest(event->auctionId);
+        event->bidRequestStrFormat = "datacratic";
+        event->bidResponse = {};
+        event->bidResponse = makeBid();
 
         return event;
     }
 
 
-    PostAuctionEvent makeWin(const SubmittedAuctionEvent& auction) const
+    std::shared_ptr<PostAuctionEvent>
+    makeWin(std::shared_ptr<SubmittedAuctionEvent> auction) const
     {
-        PostAuctionEvent event;
+        auto event = std::make_shared<PostAuctionEvent>();
 
-        event.type = PAE_WIN;
-        event.auctionId = auction.auctionId;
-        event.adSpotId = auction.adSpotId;
-        event.winPrice = USD_CPM(1);
-        event.timestamp = Date::now();
-        event.uids = {};
-        event.account = auction.bidResponse.account;
-        event.bidTimestamp = Date::now();
+        event->type = PAE_WIN;
+        event->auctionId = auction->auctionId;
+        event->adSpotId = auction->adSpotId;
+        event->winPrice = USD_CPM(1);
+        event->timestamp = Date::now();
+        event->uids = {};
+        event->account = auction->bidResponse.account;
+        event->bidTimestamp = Date::now();
 
         return event;
     }

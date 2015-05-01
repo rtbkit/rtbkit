@@ -220,6 +220,10 @@ struct ValueDescription {
         throw ML::Exception("type doesn't support fields");
     }
 
+    virtual const std::vector<std::string> getEnumKeys() const {
+        throw ML::Exception("type is not an enum");
+    }
+
     // Storage to cache Javascript converters
     mutable JSConverters * jsConverters;
     mutable bool jsConvertersInitialized;
@@ -1190,6 +1194,14 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         print.insert(make_pair(value, name));
 
         // TODO: description
+    }
+
+    virtual const std::vector<std::string> getEnumKeys() const {
+        std::vector<std::string> res;
+        for (const auto it: print) {
+            res.push_back(it.second);
+        }
+        return res;
     }
 
     std::unordered_map<std::string, Enum> parse;
