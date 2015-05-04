@@ -28,11 +28,12 @@ struct CreativeIdsExchangeFilter
                 }) != end(value);
             }
             else if (value.isObject()) {
+                char id[32];
+                snprintf(id, sizeof(id)-1, "%d", (int) config.externalId);
                 for (auto it = value.begin(), end = value.end(); it != end; ++it) {
-                    const auto& key = it.key();
+                    auto key = it.memberNameC();
                     try {
-                        const int id = stoi(key.asString());
-                        if (id == config.externalId) {
+                        if (strcmp(id, key) == 0) {
                             const auto& crids = *it;
                             return find_if(crids.begin(), crids.end(), [&](const Json::Value& value) {
                                 return value.isIntegral() && value.asInt() == creative.id;
