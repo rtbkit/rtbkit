@@ -41,6 +41,7 @@ LIBSERVICES_SOURCES := \
 	passive_endpoint.cc \
 	chunked_http_endpoint.cc \
 	epoller.cc \
+	epoll_loop.cc \
 	http_header.cc \
 	port_range_service.cc \
 	service_base.cc \
@@ -62,6 +63,8 @@ LIBSERVICES_SOURCES := \
 	zookeeper.cc \
 	http_client.cc \
 	http_client_v1.cc \
+	http_client_v2.cc \
+	http_parsers.cc \
 	http_rest_proxy.cc \
 	xml_helpers.cc \
 	nprobe.cc \

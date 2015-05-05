@@ -5,8 +5,8 @@
 
 #pragma once
 
-#import "rtbkit/common/plugin_table.h"
-#import <string>
+#include "rtbkit/common/plugin_table.h"
+#include <string>
 
 namespace RTBKIT {
 

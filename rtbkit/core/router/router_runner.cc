@@ -18,6 +18,8 @@
 #include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "rtbkit/core/banker/local_banker.h"
+#include "rtbkit/core/banker/split_banker.h"
 #include "soa/service/process_stats.h"
 #include "jml/arch/timers.h"
 #include "jml/utils/file_functions.h"
@@ -48,9 +50,11 @@ RouterRunner() :
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     lossSeconds(15.0),
     noPostAuctionLoop(false),
+    noBidProb(false),
     logAuctions(false),
     logBids(false),
     maxBidPrice(40),
+    localBankerDebug(false),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
@@ -76,6 +80,8 @@ doOptions(int argc, char ** argv,
          "number of seconds allowed to bid normally since last successful monitor check") 
         ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
          "don't connect to the post auction loop")
+        ("no-bidprob", bool_switch(&noBidProb),
+         "don't use bid probability to sample the traffic")
         ("log-uri", value<vector<string> >(&logUris),
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
@@ -93,7 +99,13 @@ doOptions(int argc, char ** argv,
         ("analytics,a", bool_switch(&analyticsOn),
          "Send data to analytics logger.")
         ("analytics-connections", value<int>(&analyticsConnections),
-         "Number of connections for the analytics publisher.");
+         "Number of connections for the analytics publisher.")
+        ("local-banker", value<string>(&localBankerUri),
+         "address of where the local banker can be found.")
+        ("local-banker-debug", bool_switch(&localBankerDebug),
+         "enable local banker debug for more precise tracking by account")
+        ("banker-choice", value<string>(&bankerChoice),
+         "split or local banker can be chosen.");
 
     options_description all_opt = opts;
     all_opt
@@ -140,8 +152,10 @@ init()
     }
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
+    auto enableBidProbability = !noBidProb;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
+                                      enableBidProbability,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
                                       slowModeTimeout, amountSlowModeMoneyLimit);
@@ -157,7 +171,29 @@ init()
     }
     router->init();
 
-    banker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
+    slaveBanker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
+    if (localBankerUri != "") {
+        localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
+        localBanker->init(localBankerUri);
+        localBanker->setDebug(localBankerDebug);
+        localBanker->setSpendRate(bankerArgs.spendRate());
+    }
+    if (localBanker && bankerChoice == "split") {
+        unordered_set<string> campaignSet;
+        if (proxies->params.isMember("goBankerCampaigns")) {
+            Json::Value campaigns = proxies->params["goBankerCampaigns"];
+            if (campaigns.isArray()) {
+                for (auto cmp : campaigns) {
+                    campaignSet.insert(cmp.asString());
+                }
+            }
+        }
+        banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
+    } else if (localBanker && bankerChoice == "local") {
+        banker = localBanker;
+    } else {
+        banker = slaveBanker;
+    }
 
     router->setBanker(banker);
     router->bindTcp();
@@ -167,7 +203,8 @@ void
 RouterRunner::
 start()
 {
-    banker->start();
+    slaveBanker->start();
+    if (localBanker) localBanker->start();
     router->start();
 
     // Start all exchanges
@@ -180,7 +217,8 @@ RouterRunner::
 shutdown()
 {
     router->shutdown();
-    banker->shutdown();
+    slaveBanker->shutdown();
+    if (localBanker) localBanker->shutdown();
 }
 
 int main(int argc, char ** argv)

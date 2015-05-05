@@ -45,20 +45,42 @@ parseBidRequest(HttpAuctionHandler &connection,
         for (const auto &imp: request->imp) {
             if (!failure.ok()) break;
 
-            if (!imp.ext.isMember("external-ids")) {
+            if (!imp.ext.isMember("external-ids") && !imp.ext.isMember("creative-ids")) {
                 fail(failure, [&] {
                     connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
-                        ML::format("The impression '%s' requires the 'external-ids' extension field",
+                        ML::format("The impression '%s' requires the 'external-ids' or 'creative-ids' extension field",
                                    imp.id.toString()));
                 });
             }
             else {
-                if(!imp.ext["external-ids"].isArray()) {
+                if(imp.ext.isMember("external-ids") && !imp.ext["external-ids"].isArray()) {
                     fail(failure, [&] {
                         connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
                             ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
                                    imp.id.toString()));
                     });
+                } else if (imp.ext.isMember("creative-ids")) {
+                    const auto& ids = imp.ext["creative-ids"];
+                    if (!ids.isObject()) {
+                        fail(failure, [&] {
+                            connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                                ML::format("The impression '%s' requires the 'creative-ids' extension field as a dictionnary of str -> integer",
+                                    imp.id.toString()));
+                        });
+                    }
+
+
+                    for (const auto& creatives: ids) {
+                        if (!creatives.isArray()) {
+                            fail(failure, [&] {
+                                connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                                    ML::format("The impression '%s' requires the 'creative-ids' to format creatives as an array of integer",
+                                        imp.id.toString()));
+                            });
+                            break;
+                        }
+                    }
+
                 }
             }
         }
@@ -122,7 +144,7 @@ struct AtInit
     AtInit()
     {
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
-        RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeIdsExchangeFilter>();
     }
 } atInit;
 

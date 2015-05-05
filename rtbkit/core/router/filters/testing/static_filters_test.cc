@@ -202,6 +202,88 @@ BOOST_AUTO_TEST_CASE( segmentFilter_excludeIfNotPresent )
     doCheck(r3, "ex0", { 1 });
 }
 
+/** Simple test to check that all a config will fail if one of its segment
+    fails. Nothing to interesting really.
+ */
+BOOST_AUTO_TEST_CASE( segmentFilter_filter_reasons )
+{
+    SegmentsFilter filter;
+    ConfigSet mask;
+
+    auto checkReasons = [&] (std::map<std::string, std::list<int>> exp,
+          BidRequest & br, ConfigSet mask){
+        FilterExchangeConnector conn("conn");
+        CreativeMatrix activeConfigs;
+        for (size_t i = mask.next(); i < mask.size(); i = mask.next(i+1))
+            activeConfigs.setConfig(i, 1);
+
+        FilterState state(br, &conn, activeConfigs);
+        filter.filter(state);
+        FilterState::FilterReasons rs =  state.getFilterReasons();
+
+        for (auto & seg_configs : exp){
+            auto it = rs.find(seg_configs.first);
+            BOOST_CHECK(it != rs.end());
+            BOOST_CHECK_EQUAL(it->second.count(), seg_configs.second.size());
+            for ( auto & conf_id : seg_configs.second){
+                BOOST_CHECK(it->second[conf_id] == 1);
+            }
+        }
+
+    };
+
+    AgentConfig c0;
+    add(c0, "seg1", false, segment(1), segment(), ie<string>());
+
+    AgentConfig c1;
+    add(c1, "seg1", false, segment(), segment(1), ie<string>());
+    add(c1, "seg2", false, segment(2), segment(), ie<string>());
+
+    AgentConfig c2;
+    add(c2, "seg1", false, segment(), segment(1), ie<string>());
+
+    AgentConfig c3;
+
+    addConfig(filter, 0, c0); mask.set(0);
+    addConfig(filter, 1, c1); mask.set(1);
+    addConfig(filter, 2, c2); mask.set(2);
+    addConfig(filter, 3, c3); mask.set(3);
+
+    BidRequest r0;
+    add(r0, "seg1", segment(1));
+    add(r0, "seg2", segment(2));
+
+    BidRequest r1;
+    add(r1, "seg1", segment(2));
+
+    BidRequest r2;
+    add(r2, "seg1", segment(2));
+    add(r2, "seg2", segment(0));
+
+
+    std::map<std::string, std::list<int>> exp;
+    exp["seg1"].push_back(1);
+    exp["seg1"].push_back(2);
+
+    title("SegmentFilter-reasons-1");
+    exp.clear();
+    exp["seg1"].push_back(1);
+    exp["seg1"].push_back(2);
+    checkReasons(exp, r0, mask);
+
+    title("SegmentFilter-reasons-2");
+    exp.clear();
+    exp["seg1"].push_back(0);
+    checkReasons(exp, r1, mask);
+
+    title("SegmentFilter-reasons-3");
+    exp.clear();
+    exp["seg1"].push_back(0);
+    exp["seg2"].push_back(1);
+    checkReasons(exp, r2, mask);
+}
+
+
 /** The logic being tested here is a little wonky.
 
     Short version, the result of a single segment filter should be ignored

@@ -137,10 +137,7 @@
                     "root": ".",
                     "path": "build/x86_64/bin/mock_exchange_runner",
                     "arg": [
-                        "-b", "st2.staging:12339",
-                        "-b", "st3.staging:12339",
-                        "-w", "st1.staging:12340",
-                        "-t", "8"
+                        "-f", "rtbkit/examples/mock-exchange-config.json"
                     ],
                     "log": true
                 }

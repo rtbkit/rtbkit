@@ -25,7 +25,7 @@ AdServerConnector::
 AdServerConnector(const string & serviceName,
                   const shared_ptr<Datacratic::ServiceProxies> & proxy)
     : ServiceBase(serviceName, proxy),
-      toPostAuctionService_(proxy)
+      toPostAuctionService_(*this)
 {
 }
 
@@ -82,16 +82,16 @@ publishWin(const Id & bidRequestId,
     recordHit("receivedEvent");
     recordHit("event.WIN");
 
-    PostAuctionEvent event;
-    event.type = PAE_WIN;
-    event.auctionId = bidRequestId;
-    event.adSpotId = impId;
-    event.winPrice = winPrice;
-    event.timestamp = timestamp;
-    event.metadata = winMeta;
-    event.uids = ids;
-    event.account = account;
-    event.bidTimestamp = bidTimestamp;
+    auto event = std::make_shared<PostAuctionEvent>();
+    event->type = PAE_WIN;
+    event->auctionId = bidRequestId;
+    event->adSpotId = impId;
+    event->winPrice = winPrice;
+    event->timestamp = timestamp;
+    event->metadata = winMeta;
+    event->uids = ids;
+    event->account = account;
+    event->bidTimestamp = bidTimestamp;
 
     toPostAuctionService_.sendEvent(event);
 }
@@ -108,14 +108,14 @@ publishLoss(const Id & bidRequestId,
     recordHit("receivedEvent");
     recordHit("event.LOSS");
 
-    PostAuctionEvent event;
-    event.type = PAE_LOSS;
-    event.auctionId = bidRequestId;
-    event.adSpotId = impId;
-    event.timestamp = timestamp;
-    event.metadata = lossMeta;
-    event.account = account;
-    event.bidTimestamp = bidTimestamp;
+    auto event = std::make_shared<PostAuctionEvent>();
+    event->type = PAE_LOSS;
+    event->auctionId = bidRequestId;
+    event->adSpotId = impId;
+    event->timestamp = timestamp;
+    event->metadata = lossMeta;
+    event->account = account;
+    event->bidTimestamp = bidTimestamp;
 
     toPostAuctionService_.sendEvent(event);
 }
@@ -132,14 +132,14 @@ publishCampaignEvent(const string & label,
     recordHit("receivedEvent");
     recordHit("event." + label);
 
-    PostAuctionEvent event;
-    event.type = PAE_CAMPAIGN_EVENT;
-    event.label = label;
-    event.auctionId = bidRequestId;
-    event.adSpotId = impId;
-    event.timestamp = timestamp;
-    event.uids = ids;
-    event.metadata = impressionMeta;
+    auto event = std::make_shared<PostAuctionEvent>();
+    event->type = PAE_CAMPAIGN_EVENT;
+    event->label = label;
+    event->auctionId = bidRequestId;
+    event->adSpotId = impId;
+    event->timestamp = timestamp;
+    event->uids = ids;
+    event->metadata = impressionMeta;
 
     toPostAuctionService_.sendEvent(event);
 }

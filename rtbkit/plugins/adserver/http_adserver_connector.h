@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <initializer_list>
 
 #include "soa/service/http_endpoint.h"
 #include "soa/service/json_endpoint.h"
@@ -75,16 +76,18 @@ struct HttpAdServerHttpEndpoint : public Datacratic::HttpEndpoint {
     /* carbon logging */
     typedef std::function<void (const char * eventName,
                                 EventType,
-                                float)> OnEvent;
+                                float,
+                                std::initializer_list<int>)> OnEvent;
     OnEvent onEvent;
 
     void doEvent(const char * eventName, EventType type = ET_COUNT,
-                 float value = 1.0, const char * units = "")
+                 float value = 1.0, const char * units = "",
+                 std::initializer_list<int> extra = DefaultOutcomePercentiles)
       const
     {
         if (onEvent) {
             std::string prefixedName(name() + "." + eventName);
-            onEvent(prefixedName.c_str(), type, value);
+            onEvent(prefixedName.c_str(), type, value, extra);
         }
     }
 

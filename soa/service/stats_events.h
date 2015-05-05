@@ -18,6 +18,8 @@ enum EventType {
     ET_OUTCOME       ///< Represents the outcome of an experiment
 };
 
+static constexpr std::initializer_list<int> DefaultOutcomePercentiles =
+    { 90, 95, 98 };
 
 } // namespace Datacratic
 

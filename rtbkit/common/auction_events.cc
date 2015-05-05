@@ -93,6 +93,28 @@ namespace RTBKIT {
 COMPACT_PERSISTENT_ENUM_IMPL(PostAuctionEventType);
 }
 
+namespace Datacratic {
+
+template<>
+struct DefaultDescription<PostAuctionEventType> :
+        public ValueDescriptionI<PostAuctionEventType, ValueKind::ATOM>
+{
+    virtual void
+    parseJsonTyped(PostAuctionEventType * val, JsonParsingContext & ctx) const
+    {
+        *val = static_cast<PostAuctionEventType>(ctx.expectInt());
+    }
+
+    virtual void
+    printJsonTyped(const PostAuctionEventType * val, JsonPrintingContext & ctx) const
+    {
+        ctx.writeInt(*val);
+    }
+};
+
+}
+
+
 /*****************************************************************************/
 /* POST AUCTION EVENT                                                        */
 /*****************************************************************************/
@@ -254,6 +276,21 @@ operator >> (DB::Store_Reader & store, shared_ptr<PostAuctionEvent> & event)
     event.reset(new PostAuctionEvent());
     event->reconstitute(store);
     return store;
+}
+
+PostAuctionEventDescription::
+PostAuctionEventDescription() {
+    addField("type", &PostAuctionEvent::type, "");
+    addField("label", &PostAuctionEvent::label, "");
+    addField("auctionId", &PostAuctionEvent::auctionId, "");
+    addField("adSpotId", &PostAuctionEvent::adSpotId, "");
+    addField("timestamp", &PostAuctionEvent::timestamp, "");
+    addField("metadata", &PostAuctionEvent::metadata, "");
+    addField("account", &PostAuctionEvent::account, "");
+    addField("winPrice", &PostAuctionEvent::winPrice, "");
+    addField("uids", &PostAuctionEvent::uids, "");
+    addField("channels", &PostAuctionEvent::channels, "");
+    addField("bidTimestamp", &PostAuctionEvent::bidTimestamp, "");
 }
 
 

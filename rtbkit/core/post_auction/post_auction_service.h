@@ -20,6 +20,7 @@
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/rest_request_router.h"
 #include "rtbkit/common/analytics_publisher.h"
+#include "rtbkit/core/banker/local_banker.h"
 
 namespace RTBKIT {
 
@@ -323,6 +324,11 @@ private:
     std::unique_ptr<RestRequestRouter> restRouter;
 
     std::shared_ptr<EventForwarder> forwarder;
+
+    size_t totalEvents;
+    size_t orphanEvents;
+    std::vector<double> orphanRatios;
+
 };
 
 } // namespace RTBKIT

@@ -23,6 +23,8 @@ typedef std::unordered_map< std::string, bool > ChannelFilter;
 
 struct AnalyticsPublisher : public Datacratic::MessageLoop {
 
+    AnalyticsPublisher() : initialized(false) {}
+
     void init(const std::string & baseUrl, const int numConnections);
     bool initialized;
 

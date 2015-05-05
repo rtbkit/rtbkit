@@ -126,6 +126,51 @@ filter_ostream::
 
 filter_ostream &
 filter_ostream::
+put(char_type data)
+{
+    try {
+        std::ostream::put(data);
+    }
+    catch (...) {
+        clearDeferredFailure();
+        throw;
+    }
+
+    return *this;
+}
+
+filter_ostream &
+filter_ostream::
+write(const char_type * data, std::streamsize count)
+{
+    try {
+        std::ostream::write(data, count);
+    }
+    catch (...) {
+        clearDeferredFailure();
+        throw;
+    }
+
+    return *this;
+}
+
+filter_ostream &
+filter_ostream::
+flush()
+{
+    try {
+        std::ostream::flush();
+    }
+    catch (...) {
+        clearDeferredFailure();
+        throw;
+    }
+
+    return *this;
+}
+
+filter_ostream &
+filter_ostream::
 operator = (filter_ostream && other)
 {
     exceptions(ios::goodbit);
@@ -436,8 +481,8 @@ close()
     stream.reset();
     sink.reset();
     options.clear();
-    if (deferredFailure) {
-        deferredFailure = false;
+    if (hasDeferredFailure()) {
+        clearDeferredFailure();
         exceptions(ios::badbit | ios::failbit);
         setstate(ios::badbit);
     }

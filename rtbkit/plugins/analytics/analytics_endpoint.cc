@@ -171,8 +171,10 @@ listChannels() const
 {
     boost::shared_lock<boost::shared_mutex> lock(access);
     Json::Value response(Json::objectValue);
-    for (const auto & channel : channelFilter)
+    for (const auto & channel : channelFilter) {
         response[channel.first] = channel.second;
+        //cout << channel.first << " " << channel.second << endl;
+    }
     return response;
 }
 

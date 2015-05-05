@@ -175,6 +175,17 @@ struct SlaveBanker : public Banker, public MessageLoop {
                                           lineItems);
     }
 
+    /**
+     * Commit a given Amount to the given accounts
+     * This function is built to commit special
+     * currencies (clicks, impressions, ...) without
+     * affecting any other attribute of the account
+     */
+    void commitEvent(const AccountKey & account, const Amount & amountToCommit)
+    {
+        accounts.commitEvent(account,amountToCommit);
+    }
+
     virtual void forceWinBid(const AccountKey & account,
                              Amount amountPaid,
                              const LineItems & lineItems)
@@ -347,15 +358,17 @@ public:
     std::shared_ptr<SlaveBanker> makeBanker(
             std::shared_ptr<ServiceProxies> proxies, const std::string& accountSuffix) const;
 
+    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
+            std::shared_ptr<ServiceProxies> proxies) const;
+
+    Amount spendRate() const;
+
     static Logging::Category print;
     static Logging::Category trace;
     static Logging::Category error;
 
-    std::shared_ptr<ApplicationLayer> makeApplicationLayer(
-            std::shared_ptr<ServiceProxies> proxies) const;
-
 private:
-    std::string spendRate;
+    std::string spendRateStr;
     double syncRate;
     bool batched;
 

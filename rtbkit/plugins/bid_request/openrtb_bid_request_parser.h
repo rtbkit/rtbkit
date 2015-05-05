@@ -90,6 +90,9 @@ struct OpenRTBBidRequestParser2point1 : OpenRTBBidRequestParser {
                           {4, "ORMMA"}
         };
     };
+
+    private:
+        virtual void onDevice(OpenRTB::Device& device);
 };
 
 struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {

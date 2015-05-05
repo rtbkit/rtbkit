@@ -204,8 +204,14 @@ struct Id {
     uint64_t hash() const
     {
         if (type == NONE || type == NULLID) return 0;
+#if ID_HASH_AS_STRING
+        if (type == STR)
+            return CityHash64(str, len);
+        return complexHash();
+#else
         if (JML_UNLIKELY(type >= STR)) return complexHash();
         return Hash128to64(std::make_pair(val1, val2));
+#endif
     }
 
     bool complexEqual(const Id & other) const;

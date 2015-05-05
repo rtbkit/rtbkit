@@ -190,11 +190,11 @@ fromJson(ML::Parse_Context& context)
 /* BIDS                                                                       */
 /******************************************************************************/
 
-const Bid&
+Bid&
 Bids::
-bidForSpot(int spotIndex) const
+bidForSpot(int spotIndex)
 {
-    for (const Bid& bid : *this) {
+    for (Bid& bid : *this) {
         if (bid.spotIndex == spotIndex) return bid;
     }
 
@@ -329,7 +329,7 @@ parseJsonTyped(Bids *val, JsonParsingContext &context) const{
 void
 DefaultDescription<Bids>::
 printJsonTyped(const Bids *val, JsonPrintingContext &context) const{
-  context.writeString(val->toJsonStr());
+  context.writeJson(val->toJson());
 }
 
 bool

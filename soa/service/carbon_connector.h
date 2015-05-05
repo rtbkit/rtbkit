@@ -60,7 +60,8 @@ struct MultiAggregator {
     /** Record, generic version. */
     void record(const std::string & stat,
                 EventType type = ET_COUNT,
-                float value = 1.0);
+                float value = 1.0,
+                std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     /** Simplest interface: record that a particular event occurred.  The
         stat will record the total count for each second.  Lock-free and
@@ -91,12 +92,14 @@ struct MultiAggregator {
     
     /** Record that a given value from an independent process. The stat will
         record the mean, mininum, maxixmum outcome over the second as well as
-        the 90th, 95th and 98th percentiles and the number of outcomes.
+        the percentiles specified by the last argument, defaulting to the
+        90th, 95th and 98th percentiles and the number of outcomes.
 
         Lock-free (except the first time it's called for each name) and thread
         safe.
     */
-    void recordOutcome(const std::string & stat, float value);
+    void recordOutcome(const std::string & stat, float value,
+            const std::vector<int>& percentiles = DefaultOutcomePercentiles);
 
     /** Dump synchronously (taking the lock).  This should only be used in
         testing or debugging, not when connected to Carbon.
@@ -146,8 +149,44 @@ private:
     /** Look for the aggregator for this given stat.  If it doesn't exist,
         then initialize it from the given function.
     */
+    template<typename... Args>
     StatAggregator & getAggregator(const std::string & stat,
-                                   StatAggregator * (*createFn) ());
+                                   StatAggregator * (*createFn) (Args...),
+                                   Args&&... args)
+    {
+        if (!lookupCache.get())
+            lookupCache.reset(new LookupCache());
+
+        auto found = lookupCache->find(stat);
+        if (found != lookupCache->end())
+            return *found->second->second;
+
+        // Get the read lock to look for the aggregator
+        std::unique_lock<Lock> guard(lock);
+
+        auto found2 = stats.find(stat);
+
+        if (found2 != stats.end()) {
+            guard.unlock();
+
+            (*lookupCache)[stat] = found2;
+
+            return *found2->second;
+        }
+
+        guard.unlock();
+
+        // Get the write lock to add it to the aggregator
+        std::unique_lock<Lock> guard2(lock);
+
+        // Add it in
+        found2 = stats.insert(
+                make_pair(stat, std::shared_ptr<StatAggregator>(createFn(std::forward<Args>(args)...)))).first;
+
+        guard2.unlock();
+        (*lookupCache)[stat] = found2;
+        return *found2->second;
+    }
     
     std::unique_ptr<std::thread> dumpingThread;
 

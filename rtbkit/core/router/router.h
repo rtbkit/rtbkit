@@ -107,6 +107,7 @@ struct Router : public ServiceBase,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
+           bool enableBidProbability = true,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
@@ -117,6 +118,7 @@ struct Router : public ServiceBase,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
+           bool enableBidProbability = true,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
@@ -203,6 +205,9 @@ struct Router : public ServiceBase,
     {
         exchange.onNewAuction  = [=] (std::shared_ptr<Auction> a) { this->injectAuction(a, secondsUntilLossAssumed_); };
         exchange.onAuctionDone = [=] (std::shared_ptr<Auction> a) { this->onAuctionDone(a); };
+        exchange.onAuctionError = [=] (const std::string & channel,
+                                       std::shared_ptr<Auction> auction,
+                                       const std::string message) { this->onAuctionError(channel, auction, message); };
     }
 
     /** Register the exchange with the router and make it take ownership of it */
@@ -498,6 +503,11 @@ public:
     /** An auction finished. */
     void onAuctionDone(std::shared_ptr<Auction> auction);
 
+    /** An auction error. */
+    void onAuctionError(const std::string & channel,
+                        std::shared_ptr<Auction> auction,
+                        const std::string & message);
+
     /** Got a configuration message; update our internal data structures */
     void doConfig(const std::string & agent,
                   std::shared_ptr<const AgentConfig> config);
@@ -527,6 +537,7 @@ public:
     double bidsErrorRate;
     double budgetErrorRate;
     bool connectPostAuctionLoop;
+    bool enableBidProbability;
 
 
     /*************************************************************************/
