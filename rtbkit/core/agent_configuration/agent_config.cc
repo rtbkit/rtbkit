@@ -735,6 +735,9 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "errorFormat") {
             RTBKIT::fromJson(newConfig.errorFormat, *it);
         }
+        else if (it.memberName() == "ext") {
+            newConfig.ext = *it;
+        }
         else throw Exception("unknown config option: %s",
                              it.memberName().c_str());
     }
@@ -875,10 +878,15 @@ toJson(bool includeCreatives) const
     if (!providerConfig.isNull()) {
         result["providerConfig"] = providerConfig;
     }
+
     result["winFormat"] = RTBKIT::toJson(winFormat);
     result["lossFormat"] = RTBKIT::toJson(lossFormat);
     result["errorFormat"] = RTBKIT::toJson(errorFormat);
     
+    if (!ext.isNull()) {
+        result["ext"] = ext;
+    }
+
     return result;
 }
 

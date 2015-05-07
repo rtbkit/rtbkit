@@ -413,6 +413,9 @@ struct AgentConfig {
 
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
+
+    /** custom extensions */
+    Json::Value ext;
 };
 
 
