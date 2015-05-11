@@ -425,6 +425,8 @@ handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
     if (result.result == BS_WIN) {
         recordLevel(int64_t(MicroUSD(result.secondPrice)), "winPrice");
         recordCount(int64_t(MicroUSD(result.secondPrice)), "winPriceTotal");
+        Bid bid = result.ourBid.bidForSpot(result.spotNum);
+        recordLevel(int64_t(MicroUSD(bid.price)), "bidPriceOnWin");
     }
 
     callback(result);
