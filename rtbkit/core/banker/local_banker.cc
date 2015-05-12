@@ -514,7 +514,7 @@ getProviderIndicators() const
     MonitorIndicator ind;
     ind.serviceName = accountSuffix;
     ind.status = syncOk;
-    ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
+    ind.message = string() + "Sync with LocalBanker: " + (syncOk ? "OK" : "ERROR");
 
     return ind;
 }
