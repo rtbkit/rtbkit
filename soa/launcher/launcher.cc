@@ -79,7 +79,11 @@ int main(int argc, char ** argv)
     }
 
     if(bin.empty()) {
-        bin = getenv("BIN");
+        auto env = getenv("BIN");
+        if(env) {
+            bin = env;
+        }
+
         if(bin.empty()) {
             bin = "./build/x86_64/bin";
         }
