@@ -13,3 +13,4 @@ $(eval $(call test,openrtb_exchange_connector_test,openrtb_exchange bid_test_uti
 $(eval $(call test,rtbkit_exchange_connector_test,rtbkit_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
 $(eval $(call test,casale_exchange_connector_test,casale_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
 $(eval $(call test,creative_ids_exchange_filter_test,static_filters rtbkit_exchange,boost))
+$(eval $(call test,spotx_exchange_connector_test,spotx_exchange bid_test_utils bidding_agent rtb_router agents_bidder,boost))
