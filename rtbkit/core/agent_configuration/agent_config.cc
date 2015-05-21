@@ -89,16 +89,21 @@ fromJson(const Json::Value & val)
         }
     }
 
-    const std::string type_ = val["type"].asString();
-    if (type_ == "video") {
-        duration = val["duration"].asUInt();
-        bitrate = val["bitrate"].asUInt();
-        type = Type::Video;
-    } else if (type_ == "image") {
+    if (val.isMember("type")) {
+        const std::string type_ = val["type"].asString();
+        if (type_ == "video") {
+            duration = val["duration"].asUInt();
+            bitrate = val["bitrate"].asUInt();
+            type = Type::Video;
+        } else if (type_ == "image") {
+            type = Type::Image;
+        }
+        else {
+            throw ML::Exception("Unknown type '%s'", type_.c_str());
+        }
+    } else {
+        // For backward compatibility, take 'Image' by default
         type = Type::Image;
-    }
-    else {
-        throw ML::Exception("Unknown type '%s'", type_.c_str());
     }
 
 }
