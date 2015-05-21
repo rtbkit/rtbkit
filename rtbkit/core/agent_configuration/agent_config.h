@@ -30,9 +30,16 @@ struct ExchangeConnector;
 /* CREATIVE                                                                  */
 /*****************************************************************************/
 
-/** Describes a creative that a agent has available. */
+/** Describes a creative that an agent has available.
+
+    A creative is a general-purpose entity that can represent either an image
+    or a video
+ */
 
 struct Creative {
+
+    enum class Type { Image, Video };
+
     Creative(int width = 0, int height = 0, std::string name = "", int id = -1,
             const std::string dealId = "");
 
@@ -49,6 +56,10 @@ struct Creative {
     /// Purely for information (used internally)
     std::string name;
     int id;
+
+    /// Video creative information
+    uint32_t duration;
+    uint64_t bitrate;
 
     /// Configuration values; per provider
     /// eg: OpenRTB, ...
@@ -109,6 +120,15 @@ struct Creative {
     /** Is this creative biddable on the given exchange and protocol version? */
     bool biddable(const std::string & exchange,
                   const std::string & protocolVersion) const;
+
+    static Creative image(int width, int height, std::string name = "", int id = -1, std::string dealId = "");
+    static Creative video(int width, int height, uint32_t duration, uint64_t bitrate,
+                std::string name = "", int id = -1, std::string dealId = "");
+
+private:
+    Type type;
+
+    std::string typeString() const;
 };
 
 
