@@ -19,8 +19,8 @@
 
 using namespace RTBKIT;
 
-static constexpr const char* SampleBR = R"JSON(
-     {"id":"96525f60c48e4a4e316d4cf4f8e11d97","imp":[{"id":"1","tagid":"http://local.search.spotxchange.com/vast/2.0/94240?content_page_url=google.com","video":{"mimes":["video/x-flv","video/mp4"],"linearity":1,"minduration":1,"maxduration":60,"delivery":[2],"companionad":[{"w ":300,"h":250,"id":"1"}],"companiontype":[1,2,3],"ext":{"initiationtype":0,"spxplayersize":0},"protocols":[2,5]},"secure":0,"pmp":{"private_auction":0}}],"device":{"dnt":0,"devicetype":2,"ua":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.103Safari/537.36","ip":"165.236.183.1","geo":{"region":"US-CO"},"make":"Google","model":"Chrome -Windows","os":"Windows 7","osv":"NT 6.1","dpidsha1":"","dpidmd5":""},"at":2,"tmax":500,"site":{"domain":"google.com","page":"http://google.com","content":{"videoquality":0},"ext":{"channelid":"94240","isiframe":"U"},"publisher":{"id":"94239","domain":"google.com"}},"user":{"id":"56d1b3c5a4bbc465f4cdf51b000b905f"}})JSON";
+constexpr const char* SampleBR = R"JSON(
+     {"id":"96525f60c48e4a4e316d4cf4f8e11d97","imp":[{"id":"1","tagid":"http://local.search.spotxchange.com/vast/2.0/94240?content_page_url=google.com","video":{"mimes":["video/x-flv","video/mp4"], "w": 300, "h": 250, "linearity":1,"minduration":1,"maxduration":60,"delivery":[2],"companionad":[{"w ":300,"h":250,"id":"1"}],"companiontype":[1,2,3],"ext":{"initiationtype":0,"spxplayersize":0},"protocols":[2,5]},"secure":0,"pmp":{"private_auction":0}}],"device":{"dnt":0,"devicetype":2,"ua":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.103Safari/537.36","ip":"165.236.183.1","geo":{"region":"US-CO"},"make":"Google","model":"Chrome -Windows","os":"Windows 7","osv":"NT 6.1","dpidsha1":"","dpidmd5":""},"at":2,"tmax":500,"site":{"domain":"google.com","page":"http://google.com","content":{"videoquality":0},"ext":{"channelid":"94240","isiframe":"U"},"publisher":{"id":"94239","domain":"google.com"}},"user":{"id":"56d1b3c5a4bbc465f4cdf51b000b905f"}})JSON";
 
 BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
 {
@@ -114,6 +114,8 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
         auto response = exchangeConnection.read();
         HttpHeader header;
         header.parse(response);
+
+        BOOST_CHECK_EQUAL(header.resource, "200");
 
     });
 
