@@ -12,6 +12,10 @@ using namespace Datacratic;
 
 namespace RTBKIT {
 
+Logging::Category SpotXExchangeConnector::print("SpotXExchangeConnector");
+Logging::Category SpotXExchangeConnector::warning("SpotXExchangeConnector Warning",
+                     SpotXExchangeConnector::print);
+
 /*****************************************************************************/
 /* SPOTX EXCHANGE CONNECTOR                                                  */
 /*****************************************************************************/
@@ -45,6 +49,10 @@ SpotXExchangeConnector::initCreativeConfiguration()
             Datacratic::jsonDecode(value, info.adm);
             if (info.adm.empty()) {
                 throw std::invalid_argument("adm is required");
+            }
+
+            if (info.adm.find("$MBR") == std::string::npos) {
+                LOG(warning) << "The adm does not contain the $MBR macro, SpotX might flag the response as invalid" << std::endl;
             }
 
             return true;

@@ -9,6 +9,7 @@
 
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/common/creative_configuration.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
 
@@ -48,6 +49,9 @@ struct SpotXExchangeConnector : public OpenRTBExchangeConnector {
         std::string adm;
         std::vector<std::string> adomain;
     };
+
+    static Logging::Category print;
+    static Logging::Category warning;
 
     typedef CreativeConfiguration<CreativeInfo> SpotXCreativeConfiguration;
 
