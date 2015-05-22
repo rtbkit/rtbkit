@@ -37,8 +37,7 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
     config.bidProbability = 1;
     config.account = { "campaign", "strategy" };
 
-    Creative cr1(300, 250, "cr1", 1);
-    config.creatives.push_back(cr1);
+    config.creatives.push_back(Creative::video(300, 250, 10, 16000, "cr1", 1));
 
     config.providerConfig["spotx"]["seat"] = 3812;
 
