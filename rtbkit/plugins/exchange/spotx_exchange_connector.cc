@@ -100,9 +100,20 @@ SpotXExchangeConnector::getCampaignCompatibility(
         return result;
     }
 
+    std::string seatName;
+    if (provConf.isMember("seatName")) {
+        const auto value = provConf["seatName"];
+        if (!value.isString()) {
+            result.setIncompatible(
+                ML::format("providerConfig.%s.seatName must be a string", name), includeReasons);
+        }
+        seatName = value.asString();
+    }
+
     auto info = std::make_shared<CampaignInfo>(); 
     auto value = seat.asString();
     info->seat = Id(value);
+    info->seatName = std::move(seatName);
 
     result.info = info;
     return result;
@@ -152,6 +163,7 @@ SpotXExchangeConnector::setSeatBid(
     if (seatIndex == -1) {
         OpenRTB::SeatBid sbid;
         sbid.seat = Id(campaignInfo->seat);
+        sbid.ext = getSeatBidExtension(campaignInfo);
 
         response.seatbid.push_back(std::move(sbid));
 
@@ -180,6 +192,18 @@ SpotXExchangeConnector::setSeatBid(
 
     bid.adomain = creativeInfo->adomain;
     bid.adm = creativeConfig.expand(creativeInfo->adm, context);
+}
+
+Json::Value
+SpotXExchangeConnector::getSeatBidExtension(const CampaignInfo* info) const
+{
+    if (JML_LIKELY(info->seatName.empty())) {
+        return { };
+    }
+
+    Json::Value value;
+    value["seatname"] = info->seatName;
+    return value;
 }
 
 } // namespace RTBKIT

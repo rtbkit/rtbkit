@@ -34,6 +34,9 @@ struct SpotXExchangeConnector : public OpenRTBExchangeConnector {
     struct CampaignInfo {
         ///< ID of the bidder seat on whose behalf the bid is made
         Datacratic::Id seat;
+
+        ///< Name of the bidder seat on whose behalf the bid is made
+        std::string seatName;
     };
 
     ExchangeCompatibility
@@ -62,6 +65,8 @@ private:
     void setSeatBid(const Auction& auction,
                     int spotNum,
                     OpenRTB::BidResponse& response) const;
+
+    Json::Value getSeatBidExtension(const CampaignInfo* info) const;
 
     SpotXCreativeConfiguration creativeConfig;
 
