@@ -10,6 +10,7 @@
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/common/creative_configuration.h"
 #include "soa/service/logs.h"
+#include "soa/types/id.h"
 
 namespace RTBKIT {
 
@@ -32,7 +33,7 @@ struct SpotXExchangeConnector : public OpenRTBExchangeConnector {
 
     struct CampaignInfo {
         ///< ID of the bidder seat on whose behalf the bid is made
-        uint64_t seat;
+        Datacratic::Id seat;
     };
 
     ExchangeCompatibility

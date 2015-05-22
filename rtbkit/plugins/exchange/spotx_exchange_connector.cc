@@ -94,16 +94,15 @@ SpotXExchangeConnector::getCampaignCompatibility(
     }
 
     const auto& seat = provConf["seat"];
-    if (!seat.isIntegral()) {
+    if (!seat.isString()) {
         result.setIncompatible(
-                ML::format("providerConfig.%s.seat is not merdiumint or unsigned", name),
-                includeReasons);
+            ML::format("providerConfig.%s.seat must be a string", name), includeReasons);
         return result;
     }
 
-    uint64_t value = seat.asUInt();
     auto info = std::make_shared<CampaignInfo>(); 
-    info->seat = value;
+    auto value = seat.asString();
+    info->seat = Id(value);
 
     result.info = info;
     return result;
