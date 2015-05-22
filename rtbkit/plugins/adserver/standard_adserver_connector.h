@@ -25,20 +25,6 @@ namespace RTBKIT {
 
 using namespace std;
 
-struct StandardAdServerArguments : ServiceProxyArguments
-{
-    boost::program_options::options_description makeProgramOptions();
-    void validate();
-
-    int winPort;
-    int eventsPort;
-
-    bool verbose;
-
-    bool analyticsOn;
-    int analyticsConnections;
-};
-
 struct StandardAdServerConnector : public HttpAdServerConnector
 {
     StandardAdServerConnector(shared_ptr<Datacratic::ServiceProxies> & proxy,
@@ -46,7 +32,6 @@ struct StandardAdServerConnector : public HttpAdServerConnector
     StandardAdServerConnector(std::string const & serviceName, std::shared_ptr<Datacratic::ServiceProxies> const & proxy,
                               Json::Value const & json);
 
-    void init(StandardAdServerArguments & ssConfig);
     void init(int winsPort, int eventsPort);
     void start();
     void shutdown();
