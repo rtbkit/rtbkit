@@ -20,6 +20,7 @@
    String manipulation functions.
 */
 
+#define __STDC_FORMAT_MACROS 1
 #include "string_functions.h"
 #include <inttypes.h>
 #include <stdarg.h>
