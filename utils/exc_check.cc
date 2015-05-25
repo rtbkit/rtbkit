@@ -18,7 +18,7 @@ Check_Failure(const std::string & msg)
 
 Check_Failure::
 Check_Failure(const char * msg, ...)
-    : Exception(msg)
+    : Exception("%s", msg)
 {
 }
 

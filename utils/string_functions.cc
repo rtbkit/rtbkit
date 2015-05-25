@@ -21,6 +21,7 @@
 */
 
 #include "string_functions.h"
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include "jml/arch/exception.h"
@@ -191,7 +192,7 @@ antoi(const char * start, const char * end, int base)
         if (digit > base) {
             intptr_t offset = ptr - start;
             throw ML::Exception("digit '%c' (%d) exceeds base '%d'"
-                                " at offset '%d'",
+                                " at offset '%" PRIdPTR "'",
                                 *ptr, digit, base, offset);
         }
         result = result * base + digit;
