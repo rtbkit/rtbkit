@@ -291,6 +291,8 @@ runWorkerThread()
             if (shutdown_)
                 return;
 
+        getrusage(RUSAGE_THREAD, &resourceUsage);
+
         // At this point, we've done as much work as we can (there is no more
         // work to do).  We will now sleep for the maximum allowable delay
         // time minus the time we spent working.  This allows us to batch up
