@@ -18,7 +18,7 @@ Assertion_Failure(const std::string & msg)
 
 Assertion_Failure::
 Assertion_Failure(const char * msg, ...)
-    : Exception(msg)
+    : Exception("%s", msg)
 {
 }
 

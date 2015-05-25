@@ -311,13 +311,13 @@ preindex(const Feature & label, const std::vector<Feature> & features)
 void Training_Data::preindex(const Feature & label)
 {
     return;
-    throw Exception("STUB", __PRETTY_FUNCTION__);
+    throw Exception("STUB: %s", __PRETTY_FUNCTION__);
 }
 
 void Training_Data::preindex_features()
 {
     return;
-    throw Exception("STUB", __PRETTY_FUNCTION__);
+    throw Exception("STUB: %s", __PRETTY_FUNCTION__);
 }
     
 vector<std::shared_ptr<Training_Data> >
