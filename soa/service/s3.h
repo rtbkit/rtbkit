@@ -136,7 +136,7 @@ struct S3Api : public AwsApi {
         {
             if (downloaded > size) {
                 throw ML::Exception("excessive adjustment size:"
-                                    " downloaded %zu size %" PRId64,
+                                    " downloaded %zu size %lu",
                                      downloaded, size);
             }
             offset += downloaded;
