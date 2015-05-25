@@ -102,7 +102,7 @@ struct ExchangeConnector: public ServiceBase {
         if (prob < 0 || prob > 1)
             throw ML::Exception("invalid probability for "
                                 "setBidRequestProbability: "
-                                "%f is not between 0 and 1");
+                                "%f is not between 0 and 1", prob);
         this->acceptAuctionProbability = prob;
     }
 

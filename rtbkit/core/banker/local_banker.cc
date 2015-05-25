@@ -25,6 +25,7 @@ LocalBanker::LocalBanker(shared_ptr<ServiceProxies> services, GoAccountType type
           spendRate(MicroUSD(100000)),
           syncRate(0.5),
           reauthRate(1.0),
+          bidCountRate(10.0),
           reauthorizeInProgress(false),
           reauthorizeSkipped(0),
           spendUpdateInProgress(false),
@@ -49,6 +50,9 @@ LocalBanker::init(const string & bankerUrl,
     auto reauthorizePeriodic = [&] (uint64_t wakeups) {
         reauthorize();
     };
+    auto bidCountsPeriodic = [&] (uint64_t wakeups) {
+        sendBidCounts();
+    };
     auto spendUpdatePeriodic = [&] (uint64_t wakeups) {
         spendUpdate();
     };
@@ -64,8 +68,10 @@ LocalBanker::init(const string & bankerUrl,
         }
     };
 
-    if (type == ROUTER)
+    if (type == ROUTER) {
         addPeriodic("localBanker::reauthorize", reauthRate, reauthorizePeriodic);
+        addPeriodic("localBanker::bidCounts", bidCountRate, bidCountsPeriodic);
+    }
 
     if (type == POST_AUCTION)
         addPeriodic("localBanker::spendUpdate", syncRate, spendUpdatePeriodic);
@@ -380,6 +386,58 @@ LocalBanker::reauthorize()
 }
 
 void
+LocalBanker::sendBidCounts()
+{
+    if (bidCountsInProgress) {
+        this->recordHit("bidCounts.inProgress");
+        bidCountsSkipped++;
+        if (bidCountsSkipped > 3) {
+            this->recordHit("bidCounts.forceRetry");
+        } else {
+            return;
+        }
+    }
+    bidCountsInProgress = true;
+    bidCountsSkipped = 0;
+    const Date sentTime = Date::now();
+    this->recordHit("bidCounts.attempt");
+
+    auto onResponse = [&, sentTime] (const HttpRequest &req,
+            HttpClientError error,
+            int status,
+            string && headers,
+            string && body)
+    {
+        bidCountsInProgress = false;
+        const Date recieveTime = Date::now();
+        double latencyMs = recieveTime.secondsSince(sentTime) * 1000;
+        this->recordLevel(latencyMs, "bidCountsLatencyMs");
+
+        if (status != 200) {
+            cout << "bidCounts::" << endl
+                 << "status: " << status << endl
+                 << "error:  " << error << endl
+                 << "body:   " << body << endl
+                 << "url:    " << req.url_ << endl;
+            this->recordHit("bidCounts.failure");
+        } else {
+            this->recordHit("bidCounts.success");
+        }
+    };
+
+    auto const &cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    Json::Value payload(Json::objectValue);
+    {
+        std::lock_guard<std::mutex> guard(this->mutex);
+        for (auto it : accounts.accounts) {
+            payload[it.first.toString()] = it.second.router->bidsLastPeriod;
+            it.second.router->bidsLastPeriod = 0;
+        }
+    }
+    httpClient->post("/bidCounts", cbs, payload, {}, {}, 1.0);
+}
+
+void
 LocalBanker::setRate(const AccountKey &key)
 {
     const Date sentTime = Date::now();
@@ -456,7 +514,7 @@ getProviderIndicators() const
     MonitorIndicator ind;
     ind.serviceName = accountSuffix;
     ind.status = syncOk;
-    ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
+    ind.message = string() + "Sync with LocalBanker: " + (syncOk ? "OK" : "ERROR");
 
     return ind;
 }

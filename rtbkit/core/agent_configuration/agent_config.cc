@@ -29,7 +29,28 @@ namespace RTBKIT {
 Creative::
 Creative(int width, int height, std::string name, int id, const std::string dealId)
     : format(width, height), name(name), id(id), dealId(dealId)
+    , type(Type::Image)
 {
+}
+
+Creative
+Creative::
+image(int width, int height, std::string name, int id, std::string dealId)
+{
+    Creative creative(width, height, name, id, dealId);
+    creative.type = Creative::Type::Image;
+    return creative;
+}
+
+Creative
+Creative::
+video(int width, int height, uint32_t duration, uint64_t bitrate, std::string name, int id, std::string dealId)
+{
+    Creative creative(width, height, name, id, dealId);
+    creative.duration = duration;
+    creative.bitrate = bitrate;
+    creative.type = Creative::Type::Video;
+    return creative;
 }
 
 void
@@ -67,6 +88,24 @@ fromJson(const Json::Value & val)
             segments[source].fromJson(*jt);
         }
     }
+
+    if (val.isMember("type")) {
+        const std::string type_ = val["type"].asString();
+        if (type_ == "video") {
+            duration = val["duration"].asUInt();
+            bitrate = val["bitrate"].asUInt();
+            type = Type::Video;
+        } else if (type_ == "image") {
+            type = Type::Image;
+        }
+        else {
+            throw ML::Exception("Unknown type '%s'", type_.c_str());
+        }
+    } else {
+        // For backward compatibility, take 'Image' by default
+        type = Type::Image;
+    }
+
 }
 
 Json::Value
@@ -74,6 +113,7 @@ Creative::
 toJson() const
 {
     Json::Value result;
+    result["type"] = typeString();
     result["format"] = format.toJson();
     result["name"] = name;
     if (id != -1)
@@ -96,6 +136,11 @@ toJson() const
     }
     if (!dealId.empty())
         result["dealId"] = dealId;
+
+    if (type == Type::Video) {
+        result["duration"] = duration;
+        result["bitrate"] = bitrate;
+    }
 
     return result;
 }
@@ -121,6 +166,19 @@ biddable(const std::string & exchange,
          const std::string & protocolVersion) const
 {
     return true;
+}
+
+std::string
+Creative::
+typeString() const {
+    switch (type) {
+    case Type::Image:
+        return "image";
+    case Type::Video:
+        return "video";
+    }
+
+    return "unknown";
 }
 
 Json::Value jsonPrint(const Creative & c)

@@ -357,8 +357,8 @@ checkMessageSize(const std::vector<std::string>& msg, int expectedSize)
         return;
 
     string msgStr = boost::lexical_cast<string>(msg);
-    throw ML::Exception("Message of wrong size: size=%d, expected=%d, msg=%s",
-            msg.size(), expectedSize, msgStr.c_str());
+    throw ML::Exception("Message of wrong size: size=%zu, expected=%d, msg=%s",
+                        msg.size(), expectedSize, msgStr.c_str());
 }
 
 void
@@ -399,9 +399,9 @@ handleBidRequest(const std::string & fromRouter,
 
     recordHit("requests");
 
-    ExcCheck(!requests.count(id), "seen multiple requests with same ID");
     {
         lock_guard<mutex> guard (requestsLock);
+        ExcCheck(!requests.count(id), "seen multiple requests with same ID");
 
         requests[id].timestamp = Date::now();
         requests[id].fromRouter = fromRouter;
@@ -425,6 +425,8 @@ handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
     if (result.result == BS_WIN) {
         recordLevel(int64_t(MicroUSD(result.secondPrice)), "winPrice");
         recordCount(int64_t(MicroUSD(result.secondPrice)), "winPriceTotal");
+        Bid bid = result.ourBid.bidForSpot(result.spotNum);
+        recordLevel(int64_t(MicroUSD(bid.price)), "bidPriceOnWin");
     }
 
     callback(result);
