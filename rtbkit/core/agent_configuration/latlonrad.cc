@@ -30,7 +30,8 @@ LatLonRad::createFromJson(const Json::Value & val) {
         llr.radius = val["radius"].asDouble();
     } else {
         throw ML::Exception("Error parsing LatLonRad. It should have lat, "
-                "long and radius. There was given: ", val.asCString());
+                            "long and radius. There was given: %s",
+                            val.asCString());
     }
 
     return llr;

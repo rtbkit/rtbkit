@@ -357,8 +357,8 @@ checkMessageSize(const std::vector<std::string>& msg, int expectedSize)
         return;
 
     string msgStr = boost::lexical_cast<string>(msg);
-    throw ML::Exception("Message of wrong size: size=%d, expected=%d, msg=%s",
-            msg.size(), expectedSize, msgStr.c_str());
+    throw ML::Exception("Message of wrong size: size=%zu, expected=%d, msg=%s",
+                        msg.size(), expectedSize, msgStr.c_str());
 }
 
 void
