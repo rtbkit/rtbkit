@@ -63,6 +63,9 @@ namespace Datacratic {
 
 inline std::string dtoa(double floatVal)
 {
+    if (floatVal == 0.0)
+        return "0.0";
+
     // Use dtoa to make sure we print a value that will be converted
     // back to the same on input, without printing more digits than
     // necessary.
