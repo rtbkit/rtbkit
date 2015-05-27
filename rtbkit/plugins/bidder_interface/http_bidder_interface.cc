@@ -334,6 +334,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              }
 
                              auto &bidInfo = bidsToSubmit[agent];
+                             theBid.spotIndex = spotIndex;
                              bidInfo.bids.bidForSpot(spotIndex) = theBid;
                          }
                      }
