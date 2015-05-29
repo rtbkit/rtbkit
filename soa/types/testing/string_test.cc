@@ -9,6 +9,7 @@
 #include <boost/regex/icu.hpp>
 #include <boost/regex.hpp>
 #include "soa/jsoncpp/json.h"
+#include "soa/types/dtoa.h"
 #include "jml/arch/format.h"
 
 using namespace std;
@@ -116,4 +117,22 @@ BOOST_AUTO_TEST_CASE( test_u32_string )
     Utf32String plainAscii { "Plain Ascii" };
     BOOST_CHECK_EQUAL(plainAscii.extractAscii(), "Plain Ascii");
 
+}
+
+BOOST_AUTO_TEST_CASE( test_basic_dtoa )
+{
+    double value = 365.0;
+    BOOST_CHECK_EQUAL(dtoa(value) , "365");
+
+    value = 0.0;
+    BOOST_CHECK_EQUAL(dtoa(value) , "0");
+
+    value = 10.1;
+    BOOST_CHECK_EQUAL(dtoa(value) , "10.1");
+
+    value = -10.1;
+    BOOST_CHECK_EQUAL(dtoa(value) , "-10.1");
+
+    value = -1089000000000;
+    BOOST_CHECK_EQUAL(dtoa(value) , "-1.089e12");
 }
