@@ -23,7 +23,13 @@ namespace ML {
 
 struct Check_Failure: public Exception {
     Check_Failure(const std::string & msg);
-    Check_Failure(const char * msg, ...);
+
+    template<typename... Args>
+    Check_Failure(const char * msg, Args &&... args)
+        : Exception(msg, std::forward<Args>(args)...)
+    {
+    }
+
     Check_Failure(const char * assertion,
                   const char * function,
                   const char * file,
