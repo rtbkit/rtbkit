@@ -118,7 +118,6 @@ spinup(int num_threads, bool synchronous)
     threadsActive_ = 0;
 
     totalSleepTime.resize(num_threads, 1.0);
-    resourceUsage.resize(num_threads);
 
     for (unsigned i = 0;  i < num_threads;  ++i) {
         boost::thread * thread
@@ -172,7 +171,7 @@ shutdown()
 
         for (const auto & it: transportMapping) {
             auto transport = it.first.get();
-            cerr << "shutting down transport " << transport->status() << endl;
+            // cerr << "shutting down transport " << transport->status() << endl;
             transport->closeAsync();
         }
     }
@@ -660,9 +659,27 @@ void
 EndpointBase::
 doMinLatencyPolling(int threadNum, int numThreads)
 {
+    bool wasBusy = false;
+    Date sleepStart = Date::now();
+
     while (!shutdown_) {
-        getrusage(RUSAGE_THREAD, &resourceUsage[threadNum]);
-        handleEvents(0, 4, handleEvent);
+        // Busy loop polling which reduces the latency jitter caused by
+        // the fancy polling scheme below. Should eventually be replaced
+        // something a little less CPU intensive.
+        Date beforePoll = Date::now();
+        bool isBusy = handleEvents(0, 4, handleEvent) > 0;
+
+        // This ensures that our load sampling mechanism is still somewhat
+        // meaningfull even though we never sleep.
+        if (wasBusy != isBusy) {
+
+            if (wasBusy && !isBusy) sleepStart = beforePoll;
+
+            // We don't want to include the time we spent doing stuff.
+            else totalSleepTime[threadNum] += beforePoll - sleepStart;
+
+            wasBusy = isBusy;
+        }
     }
 }
 
@@ -715,7 +732,7 @@ doMinCpuPolling(int threadNum, int numThreads)
 int
 EndpointBase::
 modePollTimeout(enum PollingMode mode)
-const
+    const
 {
     return (mode == MIN_CPU_POLLING) ? 1000 : 0;
 }

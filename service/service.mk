@@ -63,6 +63,8 @@ LIBSERVICES_SOURCES := \
 	zookeeper.cc \
 	http_client.cc \
 	http_client_v1.cc \
+	http_client_v2.cc \
+	http_parsers.cc \
 	http_rest_proxy.cc \
 	xml_helpers.cc \
 	nprobe.cc \
