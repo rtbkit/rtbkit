@@ -263,7 +263,7 @@ notifyNewTransport(const std::shared_ptr<TransportBase> & transport)
 
     int fd = transport->getHandle();
     if (fd < 0)
-        throw Exception("notifyNewTransport: fd %d out of range");
+        throw Exception("notifyNewTransport: fd %d out of range", fd);
 
     startPolling(epollData);
 

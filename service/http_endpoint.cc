@@ -86,7 +86,7 @@ handleData(const std::string & data)
     }
     
     if (readState != HEADER) {
-        throw Exception("invalid read state %d handling data '%s' for %08xp",
+        throw Exception("invalid read state %d handling data '%s' for %p",
                         readState, data.c_str(), this);
     }
     
