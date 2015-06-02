@@ -36,6 +36,8 @@ public:
         int spotNum;
     };
 
+    enum class Verbosity { Verbose, Quiet };
+
     typedef std::function<std::string &(std::string &)> ExpanderFilterCallable;
     typedef std::map<std::string, ExpanderFilterCallable> ExpanderFilterMap;
     typedef std::function<std::string(const Context &)> ExpanderCallable;
@@ -176,7 +178,8 @@ public:
 
     RTBKIT::ExchangeConnector::ExchangeCompatibility
     handleCreativeCompatibility(const Creative& creative,
-                                const bool includeReasons) const;
+                                const bool includeReasons,
+                                Verbosity verbosity = Verbosity::Quiet) const;
 
     std::string expand(const std::string& templateString,
                        const Context& context) const;
@@ -226,7 +229,7 @@ const std::string CreativeConfiguration<CreativeData>::VARIABLE_MARKER_END = "}"
 template <typename CreativeData>
 RTBKIT::ExchangeConnector::ExchangeCompatibility
 CreativeConfiguration<CreativeData>::handleCreativeCompatibility(
-    const Creative& creative, const bool includeReasons) const
+    const Creative& creative, const bool includeReasons, Verbosity verbosity) const
 {
 
     RTBKIT::ExchangeConnector::ExchangeCompatibility result;
@@ -244,30 +247,19 @@ CreativeConfiguration<CreativeData>::handleCreativeCompatibility(
 
     for (const auto & pair : fields_) {
         const auto & field = pair.second;
-        const auto & value = [&]() -> const Json::Value & {
-            auto const & value = config[field.getName()];
-            if (field.isRequired()) {
-                return value;
-            }
+        auto value = field.extractJsonValue(config);
 
-            if (value == Json::Value::null) {
-                return field.getDefaultValue();
-            } else {
-                return value;
-            }
-        }();
-
-        if (value == Json::Value::null) {
-            auto message =
-                exchange_ + ": " + creative.name + " does not have the " +
-                std::string(field.isRequired() ? "required" : "optional") +
-                "configuration variable: " + field.getName();
+        if (value.isNull()) {
+            std::ostringstream oss;
+            oss << "test" << ": " << creative.name << " does not have the "
+                << (field.isRequired() ? "required" : "optional")
+                << " configuration variable '" << field.getName() << "'";
 
             if (field.isRequired()) {
-                result.setIncompatible(message, includeReasons);
+                result.setIncompatible(oss.str(), includeReasons);
                 return result;
-            } else {
-                std::cerr << message << std::endl;
+            } else if (verbosity == Verbosity::Verbose) {
+                std::cerr << oss.str() << std::endl;
             }
 
         } else {
