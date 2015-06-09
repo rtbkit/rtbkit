@@ -42,7 +42,7 @@ timevalDescription::
 timevalDescription()
 {
     addField("tv_sec", &timeval::tv_sec, "seconds");
-    addField("tv_usec", &timeval::tv_usec, "micro seconds");
+    addField("tv_usec", &timeval::tv_usec, "micro seconds", (long)0);
 }
 
 rusageDescription::
@@ -50,20 +50,20 @@ rusageDescription()
 {
     addField("utime", &rusage::ru_utime, "user CPU time used");
     addField("stime", &rusage::ru_stime, "system CPU time used");
-    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
-    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
-    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
-    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
-    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
-    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
-    addField("nswap", &rusage::ru_nswap, "swaps");
-    addField("inblock", &rusage::ru_inblock, "block input operations");
-    addField("oublock", &rusage::ru_oublock, "block output operations");
-    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
-    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
-    addField("nsignals", &rusage::ru_nsignals, "signals received");
-    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
-    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
+    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size", (long)0);
+    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size", (long)0);
+    addField("idrss", &rusage::ru_idrss, "integral unshared data size", (long)0);
+    addField("isrss", &rusage::ru_isrss, "integral unshared stack size", (long)0);
+    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)", (long)0);
+    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)", (long)0);
+    addField("nswap", &rusage::ru_nswap, "swaps", (long)0);
+    addField("inblock", &rusage::ru_inblock, "block input operations", (long)0);
+    addField("oublock", &rusage::ru_oublock, "block output operations", (long)0);
+    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent", (long)0);
+    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received", (long)0);
+    addField("nsignals", &rusage::ru_nsignals, "signals received", (long)0);
+    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches", (long)0);
+    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches", (long)0);
 }
 
 
