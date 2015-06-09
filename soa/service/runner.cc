@@ -599,24 +599,45 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     ::memcpy(slash, appendStr, appendSize);
     slash[appendSize] = '\0';
 
+    vector<string> preArgs = { /*"gdb", "--tty", "/dev/pts/48", "--args"*/ /*"../strace-code/strace", "-b", "execve", "-ftttT", "-o", "runner_helper.strace"*/ };
+
+
     // Set up the arguments before we fork, as we don't want to call malloc()
     // from the fork, and it can be called from c_str() in theory.
     len = command.size();
-    char * argv[len + 3];
+    char * argv[len + 3 + preArgs.size()];
 
-    argv[0] = exeBuffer;
+    for (unsigned i = 0;  i < preArgs.size();  ++i)
+        argv[i] = (char *)preArgs[i].c_str();
+
+    int idx = preArgs.size();
+
+    argv[idx++] = exeBuffer;
 
     size_t channelsSize = 4*2*4+3+1;
     char channels[channelsSize];
     fds.encodeToBuffer(channels, channelsSize);
-    argv[1] = channels;
+    argv[idx++] = channels;
 
     for (int i = 0; i < len; i++) {
-        argv[2+i] = (char *) command[i].c_str();
+        argv[idx++] = (char *) command[i].c_str();
     }
-    argv[2+len] = nullptr;
+    argv[idx++] = nullptr;
 
-    int res = execv(argv[0], argv);
+    std::vector<char *> env;
+
+    char * const * p = environ;
+
+    while (*p) {
+        env.push_back(*p);
+        ++p;
+    }
+
+    env.push_back(nullptr);
+
+    char * const * envp = &env[0];
+
+    int res = execve(argv[0], argv, envp);
     if (res == -1) {
         dieWithErrno("launching runner helper");
     }
