@@ -2761,6 +2761,8 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
 
     banker->detachBid(bid.account, auctionKey);
 
+    recordHit("accounts.%s.submitted", bid.account.toString('.'));
+
     if (connectPostAuctionLoop) {
         auto event = std::make_shared<SubmittedAuctionEvent>();
         event->auctionId = auction->id;
