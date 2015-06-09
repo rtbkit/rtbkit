@@ -32,6 +32,8 @@
 
 #include "soa/types/basic_value_descriptions.h"
 
+#include <future>
+
 using namespace std;
 using namespace Datacratic;
 
@@ -197,9 +199,34 @@ handleChildStatus(const struct epoll_event & event)
     }
 
     if ((event.events & EPOLLHUP) != 0) {
+        // This happens when the thread that launched the process exits,
+        // and the child process follows.
         removeFd(task_.statusFd, true);
         ::close(task_.statusFd);
         task_.statusFd = -1;
+
+        if (task_.statusState != ProcessState::DONE) {
+
+            cerr << "*************************************************************" << endl;
+            cerr << " HANGUP ON STATUS FD: RUNNER FORK THREAD EXITED?" << endl;
+            cerr << "*************************************************************" << endl;
+            cerr << "state = " << jsonEncode(task_.runResult.state) << endl;
+            cerr << "statusState = " << (int)task_.statusState << endl;
+            cerr << "childPid_ = " << childPid_ << endl;
+
+            // We will never get another event, so we need to clean up 
+            // everything here.
+            childPid_ = -3;
+            ML::futex_wake(childPid_);
+
+            task_.runResult.state = RunResult::PARENT_EXITED;
+            task_.runResult.signum = SIGHUP;
+            task_.statusState = ProcessState::DONE;
+            if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
+                stdInSink_->requestClose();
+            }
+            attemptTaskTermination();
+        }
     }
 }
 
@@ -400,6 +427,43 @@ runImpl(const vector<string> & command,
         const OnTerminate & onTerminate,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink)
+{
+    // Need shared ptr to avoid race between lambda exiting and the
+    // rest of this function, causing done to be destroyed before
+    // set_value() has returned.
+    std::shared_ptr<std::promise<bool> > done(new std::promise<bool>());
+    
+
+    // We run this in the message loop thread, which becomes the parent
+    // of the child process.  This is to avoid problems when the thread
+    // we're calling run from exits, and since it's the parent process of
+    // the fork, causes the subprocess to exit to due to
+    // PR_SET_DEATHSIG being set
+    auto toRun = [&] ()
+        {
+            try {
+                this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
+                done->set_value(true);
+            } JML_CATCH_ALL {
+                done->set_exception(std::current_exception());
+            }
+        };
+
+    // Run it in the message loop thread
+    ExcAssert(parent_->runInMessageLoopThread(toRun));
+    
+    // Wait for the function to finish
+    std::future<bool> future = done->get_future();
+    bool success = future.get();
+    ExcAssert(success);
+}
+
+void
+Runner::
+doRunImpl(const vector<string> & command,
+          const OnTerminate & onTerminate,
+          const shared_ptr<InputSink> & stdOutSink,
+          const shared_ptr<InputSink> & stdErrSink)
 {
     if (running_)
         throw ML::Exception("already running");
@@ -780,6 +844,7 @@ to_string(const RunResult::State & state)
     case RunResult::LAUNCH_ERROR: return "LAUNCH_ERROR";
     case RunResult::RETURNED: return "RETURNED";
     case RunResult::SIGNALED: return "SIGNALED";
+    case RunResult::PARENT_EXITED: return "PARENT_EXITED";
     }
 
     return ML::format("RunResult::State(%d)", state);
@@ -816,6 +881,7 @@ RunResultStateDescription()
              "Command was unable to be launched");
     addValue("RETURNED", RunResult::RETURNED, "Command returned");
     addValue("SIGNALED", RunResult::SIGNALED, "Command exited with a signal");
+    addValue("PARENT_EXITED", RunResult::PARENT_EXITED, "Parent process exited forcing child to die");
 }
 
 
