@@ -94,6 +94,7 @@ void
 ProcessFds::
 closeRemainingFds()
 {
+#if 0
     struct rlimit limits;
     ::getrlimit(RLIMIT_NOFILE, &limits);
 
@@ -104,6 +105,7 @@ closeRemainingFds()
             ::close(fd);
         }
     }
+#endif
 }
 
 void
