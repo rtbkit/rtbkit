@@ -205,7 +205,8 @@ handleChildStatus(const struct epoll_event & event)
         ::close(task_.statusFd);
         task_.statusFd = -1;
 
-        if (task_.statusState != ProcessState::DONE) {
+        if (task_.statusState == ProcessState::RUNNING
+            || task_.statusState == ProcessState::LAUNCHING) {
 
             cerr << "*************************************************************" << endl;
             cerr << " HANGUP ON STATUS FD: RUNNER FORK THREAD EXITED?" << endl;
@@ -398,7 +399,7 @@ runSync(const vector<string> & command,
 {
     RunResult result;
 
-    bool terminated(false);
+    std::atomic<bool> terminated(false);
     auto onTerminate = [&] (const RunResult & newResult) {
         result = newResult;
         terminated = true;
@@ -449,8 +450,12 @@ runImpl(const vector<string> & command,
             }
         };
 
-    // Run it in the message loop thread
-    ExcAssert(parent_->runInMessageLoopThread(toRun));
+    if (parent_) {
+        // Run it in the message loop thread
+        bool res = parent_->runInMessageLoopThread(toRun);
+        ExcAssert(res);
+    }
+    else toRun();
     
     // Wait for the function to finish
     std::future<bool> future = done->get_future();
