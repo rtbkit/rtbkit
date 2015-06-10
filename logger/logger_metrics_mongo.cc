@@ -68,6 +68,10 @@ logInCategory(const string & category, const Json::Value & json)
         for (auto it = v.begin(); it != v.end(); ++it) {
             string memberName = it.memberName();
             if (v[memberName].isObject()) {
+                if (memberName.find(".") != std::string::npos) {
+                    throw ML::Exception("mongo does not support dotted keys,"
+                            " hence \"%s\" is invalid", memberName.c_str());
+                }
                 stack.push_back(memberName);
                 doit(v[memberName]);
                 stack.pop_back();
@@ -139,6 +143,10 @@ logInCategory(const std::string & category,
     stringstream newCat;
     newCat << category;
     for (const string & part: path) {
+        if (part.find(".") != std::string::npos) {
+            throw ML::Exception("mongo does not support dotted keys,"
+                    " hence \"%s\" is invalid", part.c_str());
+        }
         newCat << "." << part;
     }
     string newCatStr = newCat.str();
