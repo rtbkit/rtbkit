@@ -589,7 +589,7 @@ void HttpBidderInterface::sendPingMessage(
 }
 
 void HttpBidderInterface::registerLoopMonitor(LoopMonitor *monitor) const {
-    monitor->addMessageLoop("httpBidderInterfaceLoop", &loop);
+    monitor->addMessageLoop(serviceName(), &loop);
 }
 
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
