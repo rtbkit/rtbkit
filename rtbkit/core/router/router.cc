@@ -1930,6 +1930,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
     auctionInfo.auction->addDataSources(bids.dataSources);
 
+    this->recordLevel(bids.size(), "bidsPerBidRequest");
+
     for (int i = 0; i < bids.size(); ++i) {
 
         Bid bid = bids[i];
@@ -2157,8 +2159,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
 
     }
-
-    this->recordCount(info.stats->bids, "bidsPerBidRequest");
 
     if (numValidBids > 0) {
         if (logBids)
