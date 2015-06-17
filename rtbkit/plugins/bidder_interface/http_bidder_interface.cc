@@ -334,6 +334,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              }
 
                              auto &bidInfo = bidsToSubmit[agent];
+                             theBid.spotIndex = spotIndex;
                              bidInfo.bids.bidForSpot(spotIndex) = theBid;
                          }
                      }
@@ -391,7 +392,12 @@ void HttpBidderInterface::sendWinLossMessage(
         content["userIds"] = event.uids.toJsonArray();
         // ratio cannot be casted to json::value ...
         content["price"] = (double) getAmountIn<CPM>(event.winPrice);
+        content["account"] = event.response.account.toJson();
+        content["creative-id"] = event.response.creativeId;
 
+        auto& ext = content["ext"];
+        ext["external-id"] = agentConfig->externalId;
+        ext["creative-index"] = event.response.agentCreativeIndex;
         //requestStr["passback"];
     }
     else if (adserverWinFormat == FMT_DATACRATIC) {
@@ -456,6 +462,12 @@ void HttpBidderInterface::sendCampaignEventMessage(
         content["bidRequestId"] = event.auctionId.toString();
         content["impid"] = event.impId.toString();
         content["type"] = event.label;
+        content["account"] = event.response.account.toJson();
+        content["creative-id"] = event.response.creativeId;
+
+        auto& ext = content["ext"];
+        ext["external-id"] = agentConfig->externalId;
+        ext["creative-index"] = event.response.agentCreativeIndex;
     }
     else if (adserverEventFormat == FMT_DATACRATIC) {
         content["id"] = event.auctionId.toString();
