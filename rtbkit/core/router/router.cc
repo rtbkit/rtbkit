@@ -629,12 +629,7 @@ run()
 
             std::pair<std::string, std::shared_ptr<const AgentConfig> > config;
             while (configBuffer.tryPop(config)) {
-                if (!config.second) {
-                    cerr << "agent " << config.first << " lost configuration" << endl;
-                }
-                else {
-                    doConfig(config.first, config.second);
-                }
+                doConfig(config.first, config.second);
             }
 
             recordTime("doConfig", atStart);
@@ -2494,34 +2489,42 @@ doConfig(const std::string & agent,
          std::shared_ptr<const AgentConfig> config)
 {
     RouterProfiler profiler(dutyCycleCurrent.nsConfig);
-    //const string fName = "Router::doConfig:";
-    logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
-    logMessageToAnalytics("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
 
-    // TODO: no need for this...
-    auto newConfig = std::make_shared<AgentConfig>(*config);
-    if (newConfig->roundRobinGroup == "")
-        newConfig->roundRobinGroup = agent;
+    if (!config) {
+        cerr << "agent " << agent << " lost configuration" << endl;
+        filters.removeConfig(agent);
+        auto it = agents.find(agent);
+        ExcAssert(it != std::end(agents));
+        agents.erase(it);
+    } else {
+        AgentInfo & info = agents[agent];
+        logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
+        logMessageToAnalytics("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
 
-    AgentInfo & info = agents[agent];
+        // TODO: no need for this...
+        auto newConfig = std::make_shared<AgentConfig>(*config);
+        if (newConfig->roundRobinGroup == "")
+            newConfig->roundRobinGroup = agent;
 
-    if (info.configured) {
-        unconfigure(agent, *info.config);
-        info.configured = false;
+
+        if (info.configured) {
+            unconfigure(agent, *info.config);
+            info.configured = false;
+        }
+
+        info.config = newConfig;
+        //cerr << "configured " << agent << " strategy : " << info.config->strategy << " campaign "
+        //     <<  info.config->campaign << endl;
+
+        string bidRequestFormat = "jsonRaw";
+        info.setBidRequestFormat(bidRequestFormat);
+
+        configure(agent, *newConfig);
+        info.configured = true;
+        bidder->sendMessage(config, agent, "GOTCONFIG");
+
+        info.filterIndex = filters.addConfig(agent, info);
     }
-
-    info.config = newConfig;
-    //cerr << "configured " << agent << " strategy : " << info.config->strategy << " campaign "
-    //     <<  info.config->campaign << endl;
-
-    string bidRequestFormat = "jsonRaw";
-    info.setBidRequestFormat(bidRequestFormat);
-
-    configure(agent, *newConfig);
-    info.configured = true;
-    bidder->sendMessage(config, agent, "GOTCONFIG");
-
-    info.filterIndex = filters.addConfig(agent, info);
 
     // Broadcast that we have a new agent or it has a new configuration
     updateAllAgents();
