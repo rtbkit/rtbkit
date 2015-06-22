@@ -13,6 +13,8 @@ class CreativeField
 public:
     typedef std::function<bool(const Json::Value &, CreativeData &)> Handler;
 
+    static const char Delimiter = '.';
+
     CreativeField()
     : name_()
     , required_(true)
@@ -80,6 +82,38 @@ public:
     bool isSnippet() const
     {
         return snippet_;
+    }
+
+    Json::Value extractJsonValue(const Json::Value& value) const {
+        if (JML_UNLIKELY(value.isNull())) {
+            return Json::Value::null;
+        }
+
+        auto split = [](const std::string& str, char delim) {
+            std::istringstream iss(str);
+            std::vector<std::string> res;
+
+            std::string elem;
+            while (std::getline(iss, elem, delim)) {
+                res.push_back(elem);
+            }
+            return res;
+        };
+
+        const auto parts = split(name_, Delimiter);
+        ExcAssertGreater(parts.size(), 0);
+        Json::Value currentVal(value);
+        for (const auto& part: parts) {
+            currentVal = currentVal[part];
+
+            if (currentVal.isNull() && required_) {
+                return Json::Value::null;
+            }
+
+        }
+
+        return currentVal.isNull() ? defaultValue_ : currentVal;
+
     }
 
 private:

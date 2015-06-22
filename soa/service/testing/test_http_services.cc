@@ -10,6 +10,7 @@ HttpService(const shared_ptr<ServiceProxies> & proxies)
       HttpEndpoint("http-test-service-ep"),
       portToUse(0), numReqs(0)
 {
+    HttpEndpoint::setPollingMode(EndpointBase::MIN_CPU_POLLING);
 }
 
 HttpService::

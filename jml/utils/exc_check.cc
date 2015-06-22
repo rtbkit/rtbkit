@@ -17,16 +17,10 @@ Check_Failure(const std::string & msg)
 }
 
 Check_Failure::
-Check_Failure(const char * msg, ...)
-    : Exception(msg)
-{
-}
-
-Check_Failure::
 Check_Failure(const char * assertion,
-                  const char * function,
-                  const char * file,
-                  int line)
+              const char * function,
+              const char * file,
+              int line)
     : Exception(format("%s at %s:%d in %s",
                        assertion, file, line, function))
 {

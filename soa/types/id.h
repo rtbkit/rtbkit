@@ -54,6 +54,7 @@ struct Id {
         BASE64_96 = 5,   /// 16 character base64 string
         HEX128LC = 6,    /// 32 character lowercase hex string
         INT64DEC = 7,    /// obsolete type, do not use
+        UUID_CAPS = 8,   /// uuid-ish string eg 0828398C-5965-11E0-84C8-0026B937C8E1
 
         // other integer-encoded values go here
 

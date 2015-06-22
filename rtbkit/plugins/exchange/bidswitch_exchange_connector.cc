@@ -12,6 +12,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
+#include "soa/service/json_codec.h"
 #include "soa/service/logs.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
@@ -32,6 +33,21 @@ Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Co
 /*****************************************************************************/
 /* BIDSWITCH EXCHANGE CONNECTOR                                                */
 /*****************************************************************************/
+
+namespace {
+
+    template<typename T>
+    Json::Value jsonEncode(const std::vector<T>& vec) {
+        Json::Value ret(Json::arrayValue);
+        ret.resize(vec.size());
+        for (typename std::vector<T>::size_type i = 0; i < vec.size(); ++i) {
+            ret[i] = vec[i];
+        }
+
+        return ret;
+    }
+
+}
 
 BidSwitchExchangeConnector::
 BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name)
@@ -55,13 +71,111 @@ BidSwitchExchangeConnector(const std::string & name,
 void
 BidSwitchExchangeConnector::init() {
 
+    #define GENERATE_MACRO_FOR(field) \
+        [](const Json::Value& value, CreativeInfo& data) { \
+            Datacratic::jsonDecode(value, field); \
+            return true; \
+        }
+
+    /* General fields */
+
     // nurl might contain macros
     configuration_.addField(
         "nurl",
-        [](const Json::Value & value, CreativeInfo & data) {
+        [](const Json::Value& value, CreativeInfo& data) {
             Datacratic::jsonDecode(value, data.nurl);
+
+            if (data.nurl.find("${AUCTION_PRICE}") == std::string::npos) {
+                throw std::invalid_argument("The ${AUCTION_PRICE} macro is required");
+            }
             return true;
-        }).optional().snippet();
+        }
+    ).required().snippet();
+
+    configuration_.addField(
+        "adomain",
+        [](const Json::Value& value, CreativeInfo& data) {
+            Datacratic::jsonDecode(value, data.adomain);
+
+            if (data.adomain.empty()) {
+                throw std::invalid_argument("adomain is required");
+            }
+            return true;
+        }
+    ).required();
+
+    configuration_.addField(
+        "adid",
+        [](const Json::Value& value, CreativeInfo& data) {
+            Datacratic::jsonDecode(value, data.adid);
+
+            if (!data.adid) {
+                throw std::invalid_argument("adid is required");
+            }
+            return true;
+        }
+    ).required();
+
+    configuration_.addField(
+        "adm",
+        GENERATE_MACRO_FOR(data.adm)
+    ).optional().snippet();
+
+    configuration_.addField(
+        "advertiser_name",
+        GENERATE_MACRO_FOR(data.ext.advertiserName)
+    ).optional();
+
+    configuration_.addField(
+        "agency_name",
+        GENERATE_MACRO_FOR(data.ext.agencyName)
+    ).optional();
+
+    configuration_.addField(
+        "lpdomain",
+        GENERATE_MACRO_FOR(data.ext.lpDomain)
+    ).optional();
+
+    configuration_.addField(
+        "language",
+        GENERATE_MACRO_FOR(data.ext.language)
+    ).optional();
+
+    configuration_.addField(
+        "vast_url",
+        GENERATE_MACRO_FOR(data.ext.vastUrl)
+    ).optional().snippet();
+
+    configuration_.addField(
+        "duration",
+        GENERATE_MACRO_FOR(data.ext.duration)
+    ).optional();
+
+    /* Google SSP-specific fields */
+
+    configuration_.addField(
+        "google.vendor_type",
+        GENERATE_MACRO_FOR(data.google.vendor_type)
+    ).optional();
+
+    configuration_.addField(
+        "google.attribute",
+        GENERATE_MACRO_FOR(data.google.attribute)
+    ).optional();
+
+    /* YieldOne SSP-specific fields */
+
+    configuration_.addField(
+        "yieldone.creative_type",
+        GENERATE_MACRO_FOR(data.yieldOne.creative_type)
+    ).optional();
+
+    configuration_.addField(
+        "yieldone.creative_category_id",
+        GENERATE_MACRO_FOR(data.yieldOne.creative_category_id)
+    ).optional();
+
+    #undef GENERATE_MACRO_FOR
 }
 
 namespace {
@@ -118,134 +232,84 @@ getCampaignCompatibility(const AgentConfig & config,
     return result;
 }
 
-namespace {
-
-using Datacratic::jsonDecode;
-
-/** Given a configuration field, convert it to the appropriate JSON */
-template<typename T>
-void getAttr(ExchangeConnector::ExchangeCompatibility & result,
-             const Json::Value & config,
-             const char * fieldName,
-             T & field,
-             bool includeReasons) {
-    try {
-        if (!config.isMember(fieldName)) {
-            result.setIncompatible
-            ("creative[].providerConfig.bidswitch." + string(fieldName)
-             + " must be specified", includeReasons);
-            return;
-        }
-
-        const Json::Value & val = config[fieldName];
-
-        jsonDecode(val, field);
-    } catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.bidswitch."
-                               + string(fieldName) + ": error parsing field: "
-                               + exc.what(), includeReasons);
-        return;
-    }
-}
-
-} // file scope
-
 ExchangeConnector::ExchangeCompatibility
 BidSwitchExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const {
-    ExchangeCompatibility result;
-    result.setCompatible();
-
-    auto crinfo = std::make_shared<CreativeInfo>();
-
-    const Json::Value & pconf = creative.providerConfig["bidswitch"];
-
-    // 1.  Must have bidswitch.nurl that includes BidSwitch's macro
-    getAttr(result, pconf, "nurl", crinfo->nurl, includeReasons);
-    if (crinfo->nurl.find("${AUCTION_PRICE}") == string::npos)
-        result.setIncompatible
-        ("creative[].providerConfig.bidswitch.nurl ad markup must contain "
-         "encrypted win price macro ${AUCTION_PRICE}",
-         includeReasons);
-
-    // 2.  Must have creative ID in bidswitch.crid
-    getAttr(result, pconf, "adid", crinfo->adid, includeReasons);
-    if (!crinfo->adid)
-        result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adid is null",
-         includeReasons);
-
-
-    // 3.  Must have AdvertiserDomain in bidswitch.crid
-    getAttr(result, pconf, "adomain", crinfo->adomain, includeReasons);
-    if (crinfo->adomain.empty())
-        result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adomain is null",
-         includeReasons);
-    // Cache the information
-    result.info = crinfo;
-
-    // 4. Check if the creative has a Google subsection.
-    // if so, try to read "vendor type" and "attributes"
-    // we do not enforce anything here. If nothing's configured
-    // here, Adx traffic will be filtered out.
-    if (pconf.isMember("google"))  {
-        const Json::Value & pgconf = pconf["google"];
-        if (pgconf.isMember("vendorType")) {
-            auto ints = stringsToInts(pgconf["vendorType"]);
-            crinfo->Google.vendor_type_ = { std::begin(ints), std::end(ints) };
-        }
-        if (pgconf.isMember("attribute")) {
-            auto ints = stringsToInts(pgconf["attribute"]);
-            crinfo->Google.attribute_ = { std::begin(ints), std::end(ints) };
-        }
-    }
-    
-    // Don't care about result since it's only an optional macro
-    configuration_.handleCreativeCompatibility(creative, includeReasons);
-
-    return result;
+    return configuration_.handleCreativeCompatibility(creative, includeReasons);
 }
 
 namespace {
 
-struct GoogleObject {
+struct GoogleExtension {
     std::set<int32_t> allowed_vendor_type;
     std::vector<std::pair<int,double>> detected_vertical;
     std::set<int32_t> excluded_attribute;
+
+    static GoogleExtension fromJson(const Json::Value& value) {
+        GoogleExtension ge;
+
+        auto parseIntSet = [](std::set<int32_t>& out, const Json::Value& value) {
+            if (value.isNull() || !value.isArray()) return;
+
+            for (auto elem: value) {
+                if (elem.isIntegral()) {
+                    out.insert(elem.asInt());
+                }
+                else {
+                    out.clear();
+                    return;
+                }
+            }
+
+        };
+
+        parseIntSet(ge.allowed_vendor_type, value["allowed_vendor_type"]);
+        parseIntSet(ge.excluded_attribute, value["excluded_attribute"]);
+
+        if (value.isMember("detected_vertical")) {
+            const auto& avt = value["detected_vertical"];
+            if (avt.isArray()) {
+                for (auto ii: avt) {
+                    ge.detected_vertical.push_back (make_pair(ii["id"].asInt(), ii["weight"].asDouble()));
+                }
+            }
+        }
+
+        return ge;
+    }
 };
 
+struct YieldOneExtension {
+    std::vector<std::string> allowed_creative_types;
+    std::vector<int32_t> allowed_creative_category_id;
 
-GoogleObject
-parseGoogleObject(const Json::Value& gobj) {
-    GoogleObject rc;
-    if (gobj.isMember("allowed_vendor_type")) {
-        const auto& avt = gobj["allowed_vendor_type"];
-        if (avt.isArray()) {
-            for (auto ii: avt) {
-                rc.allowed_vendor_type.insert (ii.asInt());
+    static YieldOneExtension fromJson(const Json::Value& value) {
+        YieldOneExtension ye;
+
+        if (value.isMember("allowed_creative_types")) {
+            auto arr = value["allowed_creative_types"];
+            if (arr.isArray()) {
+                ye.allowed_creative_types.reserve(arr.size());
+                for (auto elem: arr) {
+                    ye.allowed_creative_types.push_back(elem.asString());
+                }
             }
         }
-    }
-    if (gobj.isMember("excluded_attribute")) {
-        const auto& avt = gobj["excluded_attribute"];
-        if (avt.isArray()) {
-            for (auto ii: avt) {
-                rc.excluded_attribute.insert (ii.asInt());
+
+        if (value.isMember("allowed_creative_category_id")) {
+            auto arr = value["allowed_creative_category_id"];
+            if (arr.isArray()) {
+                ye.allowed_creative_category_id.reserve(arr.size());
+                for (auto elem: arr) {
+                    ye.allowed_creative_category_id.push_back(elem.asInt());
+                }
             }
         }
+
+        return ye;
     }
-    if (gobj.isMember("detected_vertical")) {
-        const auto& avt = gobj["detected_vertical"];
-        if (avt.isArray()) {
-            for (auto ii: avt) {
-                rc.detected_vertical.push_back ( {ii["id"].asInt(),ii["weight"].asDouble()});
-            }
-        }
-    }
-    return rc;
-}
+};
 
 struct AdtruthObject {
     uint64_t tdl_millis;
@@ -271,7 +335,10 @@ parseAdtruthObject(const Json::Value& adt) {
             rc.dev_insight_map[name] = adt[name].asString();
     }
     return rc;
+
+
 }
+
 }// anonymous
 
 std::shared_ptr<BidRequest>
@@ -293,7 +360,6 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     return res;
 }
-
 
 void
 BidSwitchExchangeConnector::
@@ -344,19 +410,107 @@ setSeatBid(Auction const & auction,
     seatBid.bid.emplace_back();
     auto & b = seatBid.bid.back();
 
+    BidSwitchCreativeConfiguration::Context context {
+        creative,
+        resp,
+        *auction.request,
+        spotNum
+    };
+
     // Put in the variable parts
     b.cid = Id(resp.agent);
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);
-    b.nurl = configuration_.expand(crinfo->nurl, {creative, resp, *auction.request, spotNum});
+    b.nurl = configuration_.expand(crinfo->nurl, context);
     b.adid = crinfo->adid;
     b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;
+
+    if (!crinfo->adm.empty()) b.adm = configuration_.expand(crinfo->adm, context);
+
+    auto& ext = b.ext;
+    if (!crinfo->ext.advertiserName.empty())
+       ext["advertiser_name"] = crinfo->ext.advertiserName;
+    if (!crinfo->ext.agencyName.empty())
+        ext["agency_name"] = crinfo->ext.agencyName;
+    if (!crinfo->ext.lpDomain.empty())
+        ext["lpdomain"] = jsonEncode(crinfo->ext.lpDomain);
+    if (!crinfo->ext.language.empty())
+        ext["language"] = crinfo->ext.language;
+    if (!crinfo->ext.vastUrl.empty())
+        ext["vast_url"] = configuration_.expand(crinfo->ext.vastUrl, context);
+    if (crinfo->ext.duration)
+        ext["duration"] = crinfo->ext.duration;
+
+    auto googleExt = toExt(crinfo->google);
+    if (!googleExt.isNull()) {
+        ext["google"] = std::move(googleExt);
+    }
+
+    auto yieldOneExt = toExt(crinfo->yieldOne);
+    if (!yieldOneExt.isNull()) {
+        ext["yieldone"] = std::move(yieldOneExt);
+    }
+}
+
+Json::Value
+BidSwitchExchangeConnector::
+getResponseExt(
+    const HttpAuctionHandler& connectio,
+    const Auction& auction) const {
+
+    Json::Value ext;
+    ext["protocol"] = "4.0";
+
+    return ext;
+}
+
+template<typename T>
+Json::Value jsonEncode(const std::set<T>& set)
+{
+    Json::Value result(Json::arrayValue);
+    result.resize(set.size());
+
+    for (auto elem: set) {
+        result.append(Datacratic::jsonEncode(elem));
+    }
+    return result;
+}
+
+Json::Value
+BidSwitchExchangeConnector::
+toExt(const CreativeInfo::Google& ginfo) const {
+    Json::Value ext;
+    if (!ginfo.vendor_type.empty()) {
+        ext["vendor_type"] = jsonEncode(ginfo.vendor_type);
+    }
+
+    if (!ginfo.attribute.empty()) {
+        ext["attribute"] = jsonEncode(ginfo.attribute);
+    }
+
+    return ext;
+}
+
+Json::Value
+BidSwitchExchangeConnector::
+toExt(const CreativeInfo::YieldOne& yinfo) const {
+    Json::Value ext;
+    if (!yinfo.creative_type.empty()) {
+        ext["creative_type"] = yinfo.creative_type;
+    }
+
+    if (yinfo.creative_category_id != -1) {
+        ext["creative_category_id"] = yinfo.creative_category_id;
+    }
+
+    return ext;
 }
 
 namespace {
-bool empty_intersection(const set<int32_t>& x, const set<int32_t>& y) {
+template<typename T>
+bool empty_intersection(const set<T>& x, const set<T>& y) {
     auto i = x.begin();
     auto j = y.begin();
     while (i != x.end() && j != y.end()) {
@@ -371,34 +525,88 @@ bool empty_intersection(const set<int32_t>& x, const set<int32_t>& y) {
 }
 }
 
+template<typename T, typename U>
+bool isInVector(const std::vector<T> &vec, U elem)
+{
+    static_assert(std::is_convertible<T, U>::value, "Incompatible types");
+    if (JML_UNLIKELY(vec.empty())) return false;
+
+    using std::find;  using std::begin;  using std::end;
+
+    auto it = find(begin(vec), end(vec), elem);
+    return it != end(vec);
+}
+
 bool
 BidSwitchExchangeConnector::
 bidRequestCreativeFilter(const BidRequest & request,
                          const AgentConfig & config,
                          const void * info) const {
-    // return true for non AdX traffic
+    /* Check for SSP-specific filters */
     const auto& ext = request.ext;
-    if (!ext.isMember("google"))
-        return true;
 
-    const auto& gobj = ext["google"];
-    auto gobj_parsed = parseGoogleObject (gobj);
-    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+    using namespace std;
 
-    // check for attributes
-    if (false==empty_intersection(
-                crinfo->Google.attribute_,
-                gobj_parsed.excluded_attribute)) {
-        this->recordHit ("google.attribute_excluded");
-        return false ;
-    }
+    if (ext.isMember("google")) {
+        const auto& gobj = ext["google"];
+        auto gext = GoogleExtension::fromJson(gobj);
 
-    // check for vendors
-    for (const auto vendor: crinfo->Google.vendor_type_) {
-        if (0==gobj_parsed.allowed_vendor_type.count(vendor)) {
-            this->recordHit ("google.now_allowed_vendor");
+        const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+        // check for attributes
+        if (false == empty_intersection(
+                    crinfo->google.attribute,
+                    gext.excluded_attribute)) {
+            this->recordHit ("google.attribute_excluded");
             return false ;
         }
+
+        auto allowed_vendor_type = std::move(gext.allowed_vendor_type);
+        /* Note that if site.publisher.id or app.publisher.id field value equals to “google_1”
+           then the vendors listed in https://storage.googleapis.com/adx-rtb-dictionaries/gdn-vendors.txt
+           are also allowed for bidding.
+        */
+        const Id google_1("google_1");
+        if (   (request.site && request.site->publisher && request.site->publisher->id == google_1)
+            || (request.app && request.app->publisher && request.app->publisher->id == google_1))
+        {
+            const int32_t gdn_vendors[] = {
+                #define ITEM(id, _) \
+                   id,
+                #include "gdn-vendors.itm"
+                #undef ITEM
+            };
+
+            std::copy(std::begin(gdn_vendors), std::end(gdn_vendors), std::inserter(allowed_vendor_type, allowed_vendor_type.begin()));
+
+        }
+
+        // check for vendors
+        for (const auto vendor: crinfo->google.vendor_type) {
+            if (0 == allowed_vendor_type.count(vendor)) {
+                this->recordHit ("google.not_allowed_vendor");
+                return false ;
+            }
+        }
+        return true;
+
+    } else if (ext.isMember("yieldone")) {
+        const auto& yobj = ext["yieldone"];
+        auto yext = YieldOneExtension::fromJson(yobj);
+
+        const auto crInfo = reinterpret_cast<const CreativeInfo*>(info);
+
+        if (!isInVector(yext.allowed_creative_types, crInfo->yieldOne.creative_type)) {
+            recordHit("yieldOne.not_allowed_creative_type");
+            return false;
+        }
+
+        if (!isInVector(yext.allowed_creative_category_id, crInfo->yieldOne.creative_category_id)) {
+            recordHit("yieldOne.not_allowed_creative_category_id");
+            return false;
+        }
+
+        return true;
     }
 
     return true;

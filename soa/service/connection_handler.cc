@@ -107,7 +107,7 @@ setTransport(TransportBase * transport)
     //     << transport_ << endl;
 
     if (transport_)
-        throw Exception("can't switch transports from %08p to %08p",
+        throw Exception("can't switch transports from %8p to %8p",
                         transport_, transport);
     transport_ = transport;
 }

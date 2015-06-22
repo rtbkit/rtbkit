@@ -32,6 +32,8 @@
 
 #include "soa/types/basic_value_descriptions.h"
 
+#include <future>
+
 using namespace std;
 using namespace Datacratic;
 
@@ -40,7 +42,7 @@ timevalDescription::
 timevalDescription()
 {
     addField("tv_sec", &timeval::tv_sec, "seconds");
-    addField("tv_usec", &timeval::tv_usec, "micro seconds");
+    addField("tv_usec", &timeval::tv_usec, "micro seconds", (long)0);
 }
 
 rusageDescription::
@@ -48,20 +50,20 @@ rusageDescription()
 {
     addField("utime", &rusage::ru_utime, "user CPU time used");
     addField("stime", &rusage::ru_stime, "system CPU time used");
-    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
-    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
-    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
-    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
-    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
-    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
-    addField("nswap", &rusage::ru_nswap, "swaps");
-    addField("inblock", &rusage::ru_inblock, "block input operations");
-    addField("oublock", &rusage::ru_oublock, "block output operations");
-    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
-    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
-    addField("nsignals", &rusage::ru_nsignals, "signals received");
-    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
-    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
+    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size", (long)0);
+    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size", (long)0);
+    addField("idrss", &rusage::ru_idrss, "integral unshared data size", (long)0);
+    addField("isrss", &rusage::ru_isrss, "integral unshared stack size", (long)0);
+    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)", (long)0);
+    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)", (long)0);
+    addField("nswap", &rusage::ru_nswap, "swaps", (long)0);
+    addField("inblock", &rusage::ru_inblock, "block input operations", (long)0);
+    addField("oublock", &rusage::ru_oublock, "block output operations", (long)0);
+    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent", (long)0);
+    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received", (long)0);
+    addField("nsignals", &rusage::ru_nsignals, "signals received", (long)0);
+    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches", (long)0);
+    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches", (long)0);
 }
 
 
@@ -197,9 +199,35 @@ handleChildStatus(const struct epoll_event & event)
     }
 
     if ((event.events & EPOLLHUP) != 0) {
+        // This happens when the thread that launched the process exits,
+        // and the child process follows.
         removeFd(task_.statusFd, true);
         ::close(task_.statusFd);
         task_.statusFd = -1;
+
+        if (task_.statusState == ProcessState::RUNNING
+            || task_.statusState == ProcessState::LAUNCHING) {
+
+            cerr << "*************************************************************" << endl;
+            cerr << " HANGUP ON STATUS FD: RUNNER FORK THREAD EXITED?" << endl;
+            cerr << "*************************************************************" << endl;
+            cerr << "state = " << jsonEncode(task_.runResult.state) << endl;
+            cerr << "statusState = " << (int)task_.statusState << endl;
+            cerr << "childPid_ = " << childPid_ << endl;
+
+            // We will never get another event, so we need to clean up 
+            // everything here.
+            childPid_ = -3;
+            ML::futex_wake(childPid_);
+
+            task_.runResult.state = RunResult::PARENT_EXITED;
+            task_.runResult.signum = SIGHUP;
+            task_.statusState = ProcessState::DONE;
+            if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
+                stdInSink_->requestClose();
+            }
+            attemptTaskTermination();
+        }
     }
 }
 
@@ -371,7 +399,7 @@ runSync(const vector<string> & command,
 {
     RunResult result;
 
-    bool terminated(false);
+    std::atomic<bool> terminated(false);
     auto onTerminate = [&] (const RunResult & newResult) {
         result = newResult;
         terminated = true;
@@ -400,6 +428,47 @@ runImpl(const vector<string> & command,
         const OnTerminate & onTerminate,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink)
+{
+    // Need shared ptr to avoid race between lambda exiting and the
+    // rest of this function, causing done to be destroyed before
+    // set_value() has returned.
+    std::shared_ptr<std::promise<bool> > done(new std::promise<bool>());
+    
+
+    // We run this in the message loop thread, which becomes the parent
+    // of the child process.  This is to avoid problems when the thread
+    // we're calling run from exits, and since it's the parent process of
+    // the fork, causes the subprocess to exit to due to
+    // PR_SET_DEATHSIG being set
+    auto toRun = [&] ()
+        {
+            try {
+                this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
+                done->set_value(true);
+            } JML_CATCH_ALL {
+                done->set_exception(std::current_exception());
+            }
+        };
+
+    if (parent_) {
+        // Run it in the message loop thread
+        bool res = parent_->runInMessageLoopThread(toRun);
+        ExcAssert(res);
+    }
+    else toRun();
+    
+    // Wait for the function to finish
+    std::future<bool> future = done->get_future();
+    bool success = future.get();
+    ExcAssert(success);
+}
+
+void
+Runner::
+doRunImpl(const vector<string> & command,
+          const OnTerminate & onTerminate,
+          const shared_ptr<InputSink> & stdOutSink,
+          const shared_ptr<InputSink> & stdErrSink)
 {
     if (running_)
         throw ML::Exception("already running");
@@ -599,24 +668,45 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     ::memcpy(slash, appendStr, appendSize);
     slash[appendSize] = '\0';
 
+    vector<string> preArgs = { /*"gdb", "--tty", "/dev/pts/48", "--args"*/ /*"../strace-code/strace", "-b", "execve", "-ftttT", "-o", "runner_helper.strace"*/ };
+
+
     // Set up the arguments before we fork, as we don't want to call malloc()
     // from the fork, and it can be called from c_str() in theory.
     len = command.size();
-    char * argv[len + 3];
+    char * argv[len + 3 + preArgs.size()];
 
-    argv[0] = exeBuffer;
+    for (unsigned i = 0;  i < preArgs.size();  ++i)
+        argv[i] = (char *)preArgs[i].c_str();
+
+    int idx = preArgs.size();
+
+    argv[idx++] = exeBuffer;
 
     size_t channelsSize = 4*2*4+3+1;
     char channels[channelsSize];
     fds.encodeToBuffer(channels, channelsSize);
-    argv[1] = channels;
+    argv[idx++] = channels;
 
     for (int i = 0; i < len; i++) {
-        argv[2+i] = (char *) command[i].c_str();
+        argv[idx++] = (char *) command[i].c_str();
     }
-    argv[2+len] = nullptr;
+    argv[idx++] = nullptr;
 
-    int res = execv(argv[0], argv);
+    std::vector<char *> env;
+
+    char * const * p = environ;
+
+    while (*p) {
+        env.push_back(*p);
+        ++p;
+    }
+
+    env.push_back(nullptr);
+
+    char * const * envp = &env[0];
+
+    int res = execve(argv[0], argv, envp);
     if (res == -1) {
         dieWithErrno("launching runner helper");
     }
@@ -759,6 +849,7 @@ to_string(const RunResult::State & state)
     case RunResult::LAUNCH_ERROR: return "LAUNCH_ERROR";
     case RunResult::RETURNED: return "RETURNED";
     case RunResult::SIGNALED: return "SIGNALED";
+    case RunResult::PARENT_EXITED: return "PARENT_EXITED";
     }
 
     return ML::format("RunResult::State(%d)", state);
@@ -795,6 +886,7 @@ RunResultStateDescription()
              "Command was unable to be launched");
     addValue("RETURNED", RunResult::RETURNED, "Command returned");
     addValue("SIGNALED", RunResult::SIGNALED, "Command exited with a signal");
+    addValue("PARENT_EXITED", RunResult::PARENT_EXITED, "Parent process exited forcing child to die");
 }
 
 

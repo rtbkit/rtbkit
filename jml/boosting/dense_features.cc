@@ -806,6 +806,7 @@ get_sizes(Parse_Context & context,
     return boost::make_tuple(row_count, var_count, header);
 }
 
+#if 0
 boost::tuple<size_t, size_t, string>
 get_sizes(const std::string & filename,
           vector<unsigned> & row_start_ofs)
@@ -814,6 +815,7 @@ get_sizes(const std::string & filename,
 
     return get_sizes(context, row_start_ofs);
 }
+#endif
 
 } // file scope
 

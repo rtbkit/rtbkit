@@ -1577,6 +1577,7 @@ struct BidRequestJS
                            "protocolVersion", v8::DontDelete);
         registerRWProperty(&BidRequest::exchange, "exchange", v8::DontDelete);
         registerRWProperty(&BidRequest::provider, "provider", v8::DontDelete);
+        registerRWProperty(&BidRequest::ext, "ext", v8::DontDelete);
 
         static DefaultDescription<BidRequest> desc;
 

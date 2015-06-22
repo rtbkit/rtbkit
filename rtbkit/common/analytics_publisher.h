@@ -40,7 +40,8 @@ struct AnalyticsPublisher : public Datacratic::MessageLoop {
         if (!live) return;
 
         std::lock_guard<std::mutex> lock(mu);
-        if (channelFilter.find(channel) == channelFilter.end()) return;
+        auto it = channelFilter.find(channel);
+        if (it == channelFilter.end() || !it->second) return;
 
         std::stringstream ss;
         make_message(ss, args...);

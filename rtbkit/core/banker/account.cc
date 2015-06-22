@@ -35,7 +35,7 @@ const std::string AccountTypeToString(enum AccountType type) {
         return "spend";
         break;
     default:
-        throw ML::Exception("unknown account type " + type);
+        throw ML::Exception("unknown account type %d", type);
     }
 }
 

@@ -108,8 +108,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
               + std::to_string(c.format.height)
               + "&price=${AUCTION_PRICE}\"/>";
         c.providerConfig["bidswitch"]["adid"] = c.name;
-        c.providerConfig["bidswitch"]["google"]["vendorType"] = "";
-        c.providerConfig["bidswitch"]["google"]["attribute"] = "";
+        c.providerConfig["bidswitch"]["google"]["vendor_type"] = Json::parse("[42, 43]");
+        c.providerConfig["bidswitch"]["google"]["attribute"] = Json::parse("[3, 4]");
 
 
     }

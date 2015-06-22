@@ -68,7 +68,8 @@ struct RunResult {
         UNKNOWN,        ///< State is not known
         LAUNCH_ERROR,   ///< Command was unable to be launched
         RETURNED,       ///< Command returned
-        SIGNALED        ///< Command exited with a signal
+        SIGNALED,       ///< Command exited with a signal
+        PARENT_EXITED   ///< Parent exited, killing the child
     };
         
     State state;
@@ -173,6 +174,15 @@ private:
                  const OnTerminate & onTerminate = nullptr,
                  const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                  const std::shared_ptr<InputSink> & stdErrSink = nullptr);
+
+    /** Implementation of the runImpl function, which is called inside the
+        message loop thread so that it knows the parent thread will not
+        go away and cause issues with death signals of the child process.
+    */
+    void doRunImpl(const std::vector<std::string> & command,
+                   const OnTerminate & onTerminate = nullptr,
+                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                   const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
     struct Task {
         Task();
