@@ -669,6 +669,7 @@ doMinLatencyPolling(int threadNum, int numThreads)
             }
             i = 0;
         }
+        ++i;
         handleEvents(0, 4, handleEvent);
     }
 }
