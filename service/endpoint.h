@@ -107,7 +107,12 @@ struct EndpointBase : public Epoller {
         Can be polled regularly to determine the duty cycle of the loop.
      */
     std::vector<double> totalSleepSeconds() const { return totalSleepTime; }
-    std::vector<rusage> getResourceUsage() const { return resourceUsage; }
+    std::vector<rusage> getResourceUsage() const {
+        std::vector<rusage> result;
+        std::lock_guard<std::mutex> guard(usageLock);
+        result = resourceUsage;
+        return std::move(result);
+    }
 
     /** Thing to notify when a connection is closed.  Will be called
         before the normal cleanup.
@@ -274,6 +279,7 @@ private:
 
     std::vector<double> totalSleepTime;
     std::vector<rusage> resourceUsage;
+    mutable std::mutex usageLock;
 
     /** Run a thread to handle events. */
     void runEventThread(int threadNum, int numThreads);

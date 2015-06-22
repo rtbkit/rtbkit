@@ -661,7 +661,11 @@ EndpointBase::
 doMinLatencyPolling(int threadNum, int numThreads)
 {
     while (!shutdown_) {
-        getrusage(RUSAGE_THREAD, &resourceUsage[threadNum]);
+        {
+            std::lock_guard<std::mutex> guard(usageLock);
+            getrusage(RUSAGE_THREAD, &resourceUsage[threadNum]);
+        }
+
         handleEvents(0, 4, handleEvent);
     }
 }
