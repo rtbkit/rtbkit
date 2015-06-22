@@ -660,12 +660,15 @@ void
 EndpointBase::
 doMinLatencyPolling(int threadNum, int numThreads)
 {
+    int i = 0;
     while (!shutdown_) {
-        {
-            std::lock_guard<std::mutex> guard(usageLock);
-            getrusage(RUSAGE_THREAD, &resourceUsage[threadNum]);
+        if (i >= 100) {
+            {
+                std::lock_guard<std::mutex> guard(usageLock);
+                getrusage(RUSAGE_THREAD, &resourceUsage[threadNum]);
+            }
+            i = 0;
         }
-
         handleEvents(0, 4, handleEvent);
     }
 }
