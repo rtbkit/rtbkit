@@ -48,10 +48,12 @@ struct CreativeFormatFilter : public CreativeFilter<CreativeFormatFilter>
         // The 0x0 format means: match anything.
         CreativeMatrix creatives = get(Format(0,0));
 
-        for (const auto& format : imp.formats)
-            creatives |= get(format);
+        if(!(imp.formats.empty())){
+            for (const auto& format : imp.formats)
+                creatives |= get(format);
 
-        state.narrowCreativesForImp(impIndex, creatives);
+            state.narrowCreativesForImp(impIndex, creatives);
+        }
     }
 
 

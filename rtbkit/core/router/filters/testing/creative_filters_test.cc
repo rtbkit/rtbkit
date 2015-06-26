@@ -48,6 +48,8 @@ BOOST_AUTO_TEST_CASE( testFormatFilter )
     addImp(r0, OpenRTB::AdPosition::ABOVE, { {300, 300} });
     addImp(r0, OpenRTB::AdPosition::ABOVE, { {400, 400} });
 
+    BidRequest r1;
+    addImp(r1, OpenRTB::AdPosition::ABOVE, {}); //Empty format bid request
 
     title("format-1");
     addConfig(filter, 0, c0, creatives);
@@ -59,6 +61,9 @@ BOOST_AUTO_TEST_CASE( testFormatFilter )
     check(filter, r0, creatives, 3, { {0},    {},    {0} });
     check(filter, r0, creatives, 4, { {0}                });
 
+    //Test empty format bid request
+    //Empty format is a wild card, all filters should pass.
+    check(filter, r1, creatives, 0, { {0, 1}, {0,1}, {0} });
 
     title("format-2");
     removeConfig(filter, 0, c0, creatives);
