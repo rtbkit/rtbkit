@@ -549,6 +549,7 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 }
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( test_timeval_value_description )
 {
     /* printing */
@@ -571,7 +572,9 @@ BOOST_AUTO_TEST_CASE( test_timeval_value_description )
         BOOST_CHECK_EQUAL(tv.tv_usec, 3456);
     }
 }
+#endif
 
+#if 1
 /* This test ensures that running a program from a thread does not cause the
  * program to be killed when the thread exits, due to prctl PR_SET_PDEATHSIG
  * (http://man7.org/linux/man-pages/man2/prctl.2.html) being active when
@@ -616,3 +619,22 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
     BOOST_CHECK_EQUAL(runResult.returnCode, 0);
     BOOST_CHECK_EQUAL(runResult.signum, -1);
 }
+#endif
+
+#if 1
+/* This test ensures that onTerminate is called with the appropriate RunResult
+ * when the runWrapper process fails. */
+BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
+{
+    signal(SIGCHLD, SIG_DFL);
+
+    Runner::runnerHelper = "/this/executable/does/not/exist";
+
+    auto runResult = execute({"/bin/sleep", "1"});
+
+    BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
+    BOOST_CHECK_EQUAL(runResult.returnCode, -1);
+    BOOST_CHECK_EQUAL(runResult.signum, -1);
+    BOOST_CHECK_EQUAL(runResult.processStatus(), 127); /* "command not found" */
+}
+#endif
