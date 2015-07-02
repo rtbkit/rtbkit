@@ -651,8 +651,7 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
         ExcAssert(res != NULL);
         len = ::strlen(exeBuffer);
         static const char * appendStr = "/" BIN "/runner_helper";
-        size_t appendSize = ::strlen(appendStr);
-        ::memcpy(&exeBuffer[len], appendStr, appendSize);
+        ::strcpy(&exeBuffer[len], appendStr);
     }
 
     {
