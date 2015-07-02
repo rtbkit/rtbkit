@@ -33,7 +33,6 @@
 #include "soa/types/basic_value_descriptions.h"
 
 #include <future>
-#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace Datacratic;
@@ -646,12 +645,15 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
 
     // Find runner_helper path
     char exeBuffer[16384];
-    string path = boost::filesystem::current_path().string()
-                  + "/" BIN "/runner_helper";
-    ssize_t len = path.length();
-    ExcAssert(len < 16384);
-    path.copy(exeBuffer, 16384);
-    exeBuffer[len] = '\0';
+    ssize_t len;
+    {
+        char * res = getcwd(exeBuffer, 16384);
+        ExcAssert(res != NULL);
+        len = ::strlen(exeBuffer);
+        static const char * appendStr = "/" BIN "/runner_helper";
+        size_t appendSize = ::strlen(appendStr);
+        ::memcpy(&exeBuffer[len], appendStr, appendSize);
+    }
 
     {
         // Make sure the deduced path is right
