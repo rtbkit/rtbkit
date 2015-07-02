@@ -472,9 +472,11 @@ Json::Value jsonEncode(const std::set<T>& set)
     Json::Value result(Json::arrayValue);
     result.resize(set.size());
 
-    for (auto elem: set) {
-        result.append(Datacratic::jsonEncode(elem));
+    size_t i = 0;
+    for (const auto &elem: set) {
+        result[i++] = Datacratic::jsonEncode(elem);
     }
+
     return result;
 }
 
