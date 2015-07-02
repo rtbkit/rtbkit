@@ -90,9 +90,14 @@ CreateStdPipe(bool forWriting)
 
 } // namespace
 
+
 namespace Datacratic {
 
-/* ASYNCRUNNER */
+/****************************************************************************/
+/* RUNNER                                                                   */
+/****************************************************************************/
+
+std::string Runner::runnerHelper;
 
 Runner::
 Runner()
@@ -107,7 +112,7 @@ Runner()
 Runner::
 ~Runner()
 {
-    waitTermination();
+    kill(SIGTERM, false);
 }
 
 void
@@ -158,14 +163,6 @@ handleChildStatus(const struct epoll_event & event)
                     (status.launchErrno,
                      strLaunchError(status.launchErrorCode));
                 task_.statusState = ProcessState::STOPPED;
-                childPid_ = -2;
-                ML::futex_wake(childPid_);
-
-                if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
-                    stdInSink_->requestClose();
-                }
-                attemptTaskTermination();
-                break;
             }
 
             switch (status.state) {
@@ -177,9 +174,14 @@ handleChildStatus(const struct epoll_event & event)
                 ML::futex_wake(childPid_);
                 break;
             case ProcessState::STOPPED:
-                childPid_ = -3;
+                if (task_.runResult.state == RunResult::LAUNCH_ERROR) {
+                    childPid_ = -2;
+                }
+                else {
+                    task_.runResult.updateFromStatus(status.childStatus);
+                    childPid_ = -3;
+                }
                 ML::futex_wake(childPid_);
-                task_.runResult.updateFromStatus(status.childStatus);
                 task_.statusState = ProcessState::DONE;
                 if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
                     stdInSink_->requestClose();
@@ -346,7 +348,7 @@ attemptTaskTermination()
             cerr << "childPid_ >= 0\n";
         }
         if (!(task_.statusState == ProcessState::STOPPED
-              || task_.statusState == DONE)) {
+              || task_.statusState == ProcessState::DONE)) {
             cerr << "task status != stopped/done\n";
         }
     }
@@ -509,7 +511,17 @@ doRunImpl(const vector<string> & command,
         throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
-        task_.runWrapper(command, childFds);
+        try {
+            task_.runWrapper(command, childFds);
+        }
+        catch (...) {
+            ProcessStatus status;
+            status.state = ProcessState::STOPPED;
+            status.setErrorCodes(errno, LaunchError::SUBTASK_LAUNCH);
+            childFds.writeStatus(status);
+            
+            exit(-1);
+        }
     }
     else {
         task_.statusState = ProcessState::LAUNCHING;
@@ -633,44 +645,15 @@ void
 Runner::Task::
 runWrapper(const vector<string> & command, ProcessFds & fds)
 {
-    auto dieWithErrno = [&] (const char * message) {
-        ProcessStatus status;
-
-        status.state = ProcessState::STOPPED;
-        status.setErrorCodes(errno, LaunchError::SUBTASK_LAUNCH);
-        fds.writeStatus(status);
-
-        throw ML::Exception(errno, message);
-    };
-
     // Find runner_helper path
-    char exeBuffer[16384];
-    ssize_t len;
-    {
-        char * res = getcwd(exeBuffer, 16384);
-        ExcAssert(res != NULL);
-        len = ::strlen(exeBuffer);
-        static const char * appendStr = "/" BIN "/runner_helper";
-        ::strcpy(&exeBuffer[len], appendStr);
-    }
+    string runnerHelper = findRunnerHelper();
 
-    {
-        // Make sure the deduced path is right
-        struct stat sb;
-        int res = stat(exeBuffer, &sb);
-        if (res != 0) {
-            string msg = "Runner error: Failed to find runner_helper. errno:"
-                         + to_string(errno) + " path:" + exeBuffer;
-            cerr << msg << endl;
-            throw ML::Exception(msg);
-        }
-    }
     vector<string> preArgs = { /*"gdb", "--tty", "/dev/pts/48", "--args"*/ /*"../strace-code/strace", "-b", "execve", "-ftttT", "-o", "runner_helper.strace"*/ };
 
 
     // Set up the arguments before we fork, as we don't want to call malloc()
     // from the fork, and it can be called from c_str() in theory.
-    len = command.size();
+    auto len = command.size();
     char * argv[len + 3 + preArgs.size()];
 
     for (unsigned i = 0;  i < preArgs.size();  ++i)
@@ -678,7 +661,7 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
 
     int idx = preArgs.size();
 
-    argv[idx++] = exeBuffer;
+    argv[idx++] = (char *) runnerHelper.c_str();
 
     size_t channelsSize = 4*2*4+3+1;
     char channels[channelsSize];
@@ -705,10 +688,43 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
 
     int res = execve(argv[0], argv, envp);
     if (res == -1) {
-        dieWithErrno("launching runner helper");
+        throw ML::Exception(errno, "launching runner helper");
     }
 
     throw ML::Exception("You are the King of Time!");
+}
+
+string
+Runner::Task::
+findRunnerHelper()
+{
+    string runnerHelper = Runner::runnerHelper;
+
+    if (runnerHelper.empty()) {
+        static string staticHelper;
+
+        if (staticHelper.empty()) {
+            string binDir(::getenv("BIN"));
+            if (binDir.empty()) {
+                char binBuffer[16384];
+                char * res = ::getcwd(binBuffer, 16384);
+                ExcAssert(res != NULL);
+                binDir = res;
+                binDir += "/" BIN;
+            }
+            staticHelper = binDir + "/runner_helper";
+
+            // Make sure the deduced path is right
+            struct stat sb;
+            int res = ::stat(staticHelper.c_str(), &sb);
+            if (res != 0) {
+                throw ML::Exception(errno, "checking static helper");
+            }
+        }
+        runnerHelper = staticHelper;
+    }
+
+    return runnerHelper;
 }
 
 /* This method *must* be called from attemptTaskTermination, in order to

@@ -91,15 +91,18 @@ CREATE_STRUCTURE_DESCRIPTION(RunResult);
 CREATE_ENUM_DESCRIPTION_NAMED(RunResultStateDescription, RunResult::State);
 
 
-/*****************************************************************************/
-/* RUNNER                                                                    */
-/*****************************************************************************/
+/****************************************************************************/
+/* RUNNER                                                                   */
+/****************************************************************************/
 
 /** This class encapsulates running a sub-command, including launching it and
     controlling the input, output and error streams of the subprocess.
 */
 
-struct Runner: public EpollLoop {
+struct Runner : public EpollLoop {
+    /* external override of path to "runner_helper", for testing */
+    static std::string runnerHelper;
+
     typedef std::function<void (const RunResult & result)> OnTerminate;
 
     Runner();
@@ -192,6 +195,7 @@ private:
         void flushStdInBuffer();
         void runWrapper(const std::vector<std::string> & command,
                         ProcessFds & fds);
+        std::string findRunnerHelper();
                         
         void postTerminate(Runner & runner);
 
