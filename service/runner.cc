@@ -633,8 +633,6 @@ void
 Runner::Task::
 runWrapper(const vector<string> & command, ProcessFds & fds)
 {
-    static const char * appendStr = "../../../" BIN "/runner_helper";
-
     auto dieWithErrno = [&] (const char * message) {
         ProcessStatus status;
 
@@ -645,29 +643,28 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
         throw ML::Exception(errno, message);
     };
 
-    /* We need to deduce the absolute path to the helper by using the current
-       program as reference. The trick is to read the value of the
-       "/proc/self/exe" link and then to substitute the current program name
-       with a relative path to the helper program. */
+    // Find runner_helper path
     char exeBuffer[16384];
-    ssize_t len = ::readlink("/proc/self/exe",
-                             exeBuffer, sizeof(exeBuffer) - 1);
-    if (len == -1) {
-        dieWithErrno("determining current program");
+    ssize_t len;
+    {
+        char * res = getcwd(exeBuffer, 16384);
+        ExcAssert(res != NULL);
+        len = ::strlen(exeBuffer);
+        static const char * appendStr = "/" BIN "/runner_helper";
+        ::strcpy(&exeBuffer[len], appendStr);
     }
 
-    /* Since readlink does not return a null-terminated string, we need to add
-       one by hand if we want to avoid buffer problems with strrchr. */
-    exeBuffer[len] = '\0';
-    char * slash = ::strrchr(exeBuffer, '/');
-    slash++;
-    size_t appendSize = ::strlen(appendStr);
-    if (slash + appendSize > (exeBuffer + sizeof(exeBuffer) - 2)) {
-        dieWithErrno("preparing program value");
+    {
+        // Make sure the deduced path is right
+        struct stat sb;
+        int res = stat(exeBuffer, &sb);
+        if (res != 0) {
+            string msg = "Runner error: Failed to find runner_helper. errno:"
+                         + to_string(errno) + " path:" + exeBuffer;
+            cerr << msg << endl;
+            throw ML::Exception(msg);
+        }
     }
-    ::memcpy(slash, appendStr, appendSize);
-    slash[appendSize] = '\0';
-
     vector<string> preArgs = { /*"gdb", "--tty", "/dev/pts/48", "--args"*/ /*"../strace-code/strace", "-b", "execve", "-ftttT", "-o", "runner_helper.strace"*/ };
 
 
