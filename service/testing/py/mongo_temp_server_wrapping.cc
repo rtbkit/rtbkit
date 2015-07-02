@@ -1,7 +1,7 @@
 /**
  * mongo_temp_server_wrapping.cc
- * Mich, 2014-12-15
- * Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+ * Mich, 2015-07-02
+ * Copyright (c) 2015 Datacratic Inc.  All rights reserved.
  **/
 
 #include <boost/python.hpp>
@@ -17,13 +17,9 @@ struct MongoTemporaryServerPtr {
     shared_ptr<MongoTemporaryServer> mongoTmpServer;
 
     MongoTemporaryServerPtr(const std::string & uniquePath = "",
-                            const int portNum = 28356) {
-        try {
-            MongoTemporaryServer srv(uniquePath, portNum);
-        }
-        catch (...) {
-            cerr << "caught exception" << endl;
-        }
+                            const int portNum = 28356) :
+        mongoTmpServer(new MongoTemporaryServer(uniquePath, portNum))
+    {
     }
 
     void testConnection() {

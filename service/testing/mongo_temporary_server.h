@@ -31,7 +31,8 @@
 namespace Mongo {
 
 struct MongoTemporaryServer : boost::noncopyable {
-    MongoTemporaryServer(const std::string & uniquePath = "");
+    MongoTemporaryServer(const std::string & uniquePath = "",
+                         const int portNum = 1234);
     ~MongoTemporaryServer();
     
     void testConnection();

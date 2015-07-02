@@ -14,7 +14,7 @@ namespace fs = boost::filesystem;
 using namespace Datacratic;
 
 MongoTemporaryServer::
-MongoTemporaryServer(const string & uniquePath)
+MongoTemporaryServer(const string & uniquePath, const int portNum)
     : state(Inactive), uniquePath_(uniquePath)
 {
     static int index(0);
