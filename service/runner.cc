@@ -333,6 +333,10 @@ attemptTaskTermination()
         ML::futex_wake(running_);
     }
 #if 0
+    /* This block is useful for debugging the termination workflow of the
+       subprocess, therefore it should be kept 2 years after this date:
+       2015-07-02. If uncommented, this date should be updated to the current
+       date. */
     else {
         cerr << "cannot terminate yet because:\n";
         if ((stdInSink_ && stdInSink_->state != OutputSink::CLOSED)) {
