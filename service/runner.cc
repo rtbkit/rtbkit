@@ -507,6 +507,9 @@ doRunImpl(const vector<string> & command,
     ::flockfile(stderr);
     ::fflush_unlocked(NULL);
     task_.wrapperPid = fork();
+    if (task_.wrapperPid == -1) {
+        throw ML::Exception(errno, "fork");
+    }
     ::funlockfile(stderr);
     ::funlockfile(stdout);
     if (task_.wrapperPid == -1) {
@@ -706,7 +709,11 @@ findRunnerHelper()
         static string staticHelper;
 
         if (staticHelper.empty()) {
-            string binDir(::getenv("BIN"));
+            string binDir;
+            char * cBin = ::getenv("BIN");
+            if (cBin) {
+                binDir = cBin;
+            }
             if (binDir.empty()) {
                 char binBuffer[16384];
                 char * res = ::getcwd(binBuffer, 16384);
