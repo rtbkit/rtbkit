@@ -50,6 +50,7 @@ private:
     int serverPid;
     Datacratic::MessageLoop loop_;
     Datacratic::Runner runner_;
+    int portNum;
 };
 
 } // namespace Mongo

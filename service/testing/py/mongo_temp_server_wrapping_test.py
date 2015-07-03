@@ -6,7 +6,6 @@
 
 import unittest
 import python_mongo_temp_server_wrapping
-import os
 
 
 class MongoTempServerWrappingTest(unittest.TestCase):

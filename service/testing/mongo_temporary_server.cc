@@ -15,7 +15,7 @@ using namespace Datacratic;
 
 MongoTemporaryServer::
 MongoTemporaryServer(const string & uniquePath, const int portNum)
-    : state(Inactive), uniquePath_(uniquePath)
+    : state(Inactive), uniquePath_(uniquePath), portNum(portNum)
 {
     static int index(0);
     ++index;
@@ -126,15 +126,16 @@ start()
     loop_.start();
 
     runner_.run({"/usr/bin/mongod",
-                 "--bind_ip", "localhost", "--port", "28356",
+                 "--bind_ip", "localhost", "--port", to_string(portNum),
                  "--logpath", logfile_, "--dbpath", uniquePath_,
                  "--unixSocketPrefix", socketPath_, "--nojournal"},
                 nullptr, nullptr, stdOutSink);
     // connect to the socket to make sure everything is working fine
     testConnection();
     string payload("db.addUser('testuser','testpw',true)");
-    RunResult runRes = execute({"/usr/bin/mongo", "localhost:28356"},
-                            nullptr, nullptr, payload);
+    RunResult runRes = execute({"/usr/bin/mongo",
+                                "localhost:" + to_string(portNum)},
+                               nullptr, nullptr, payload);
     ExcAssertEqual(runRes.processStatus(), 0);
     state = Running;
 }
