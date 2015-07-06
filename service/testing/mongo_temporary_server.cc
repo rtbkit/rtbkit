@@ -132,7 +132,8 @@ start()
                 nullptr, nullptr, stdOutSink);
     // connect to the socket to make sure everything is working fine
     testConnection();
-    string payload("db.addUser('testuser','testpw',true)");
+    string payload("db.createUser({user: 'testuser', pwd: 'testpw',"
+                                   "roles: ['userAdmin', 'dbAdmin']})");
     RunResult runRes = execute({"/usr/bin/mongo",
                                 "localhost:" + to_string(portNum)},
                                nullptr, nullptr, payload);
