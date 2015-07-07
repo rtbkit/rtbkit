@@ -5,6 +5,8 @@
  **/
 
 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "jml/utils/exc_assert.h"
 #include "mongo_temporary_server.h"
 
@@ -15,7 +17,7 @@ using namespace Datacratic;
 
 MongoTemporaryServer::
 MongoTemporaryServer(const string & uniquePath, const int portNum)
-    : state(Inactive), uniquePath_(uniquePath), portNum(portNum)
+    : state(Inactive), uniquePath_(uniquePath)
 {
     static int index(0);
     ++index;
@@ -26,6 +28,31 @@ MongoTemporaryServer(const string & uniquePath, const int portNum)
                                  tmpDir.get(), getpid(), index);
         cerr << ("starting mongo temporary server under unique path "
                  + uniquePath_ + "\n");
+    }
+
+    if (portNum == 0) {
+        int freePort = 0;
+        for (int i = 0; i < 100; ++ i) {
+            struct sockaddr_in addr;
+            addr.sin_family = AF_INET;
+            auto sockfd = socket(AF_INET, SOCK_STREAM, 0);
+            freePort = rand() % 15000 + 5000; // range 15000 - 20000
+            addr.sin_port = htons(freePort);
+            addr.sin_addr.s_addr = INADDR_ANY;
+            int res = ::bind(sockfd, (struct sockaddr *) &addr, sizeof(addr));
+            if (res == 0) {
+                close(sockfd);
+                break;
+            }
+            freePort = 0;
+        }
+        if (freePort == 0) {
+            throw ML::Exception("Failed to find free port");
+        }
+        this->portNum = freePort;
+    }
+    else {
+        this->portNum = portNum;
     }
 
     start();
@@ -138,6 +165,9 @@ start()
                                 "localhost:" + to_string(portNum)},
                                nullptr, nullptr, payload);
     ExcAssertEqual(runRes.processStatus(), 0);
+    execute({"/usr/bin/mongo", "localhost:" + to_string(portNum)},
+                               nullptr, nullptr, "db.getUsers()");
+
     state = Running;
 }
 

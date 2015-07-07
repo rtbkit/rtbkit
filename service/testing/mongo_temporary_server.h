@@ -40,6 +40,9 @@ struct MongoTemporaryServer : boost::noncopyable {
     void suspend();
     void resume();
     void shutdown();
+    int getPortNum() {
+        return portNum;
+    }
 
 private:
     enum State { Inactive, Stopped, Suspended, Running };
