@@ -10,9 +10,25 @@
 
 namespace RTBKIT {
 
+namespace details {
+    template<typename Plugin>
+    struct has_factory {
+        template<typename T>
+        static std::true_type test(typename T::Factory* = 0);
+
+        template<typename T>
+        static std::false_type test(...);
+
+        static constexpr bool value
+            = std::is_same<decltype(test<Plugin>(nullptr)), std::true_type>::value;
+    };
+}
+
 template<class T>
 struct PluginInterface
 {
+  static_assert(details::has_factory<T>::value, "The plugin must provide a Factory type");
+
   static void registerPlugin(const std::string& name,
 			     typename T::Factory functor);
   static typename T::Factory& getPlugin(const std::string& name);
