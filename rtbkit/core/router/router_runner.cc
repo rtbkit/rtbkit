@@ -59,7 +59,8 @@ RouterRunner() :
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
     analyticsOn(false),
-    analyticsConnections(1)
+    analyticsConnections(1),
+    augmentationWindow(0.05)
 {
 }
 
@@ -105,7 +106,9 @@ doOptions(int argc, char ** argv,
         ("local-banker-debug", bool_switch(&localBankerDebug),
          "enable local banker debug for more precise tracking by account")
         ("banker-choice", value<string>(&bankerChoice),
-         "split or local banker can be chosen.");
+         "split or local banker can be chosen.")
+         ("augmenter-timout",value<double>(&augmentationWindow),
+         "configure the augmenter  timout");
 
     options_description all_opt = opts;
     all_opt
@@ -158,7 +161,7 @@ init()
                                       enableBidProbability,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout, amountSlowModeMoneyLimit);
+                                      slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
     if (analyticsOn) {

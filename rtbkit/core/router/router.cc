@@ -117,7 +117,8 @@ Router(ServiceBase & parent,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       double augmentationWindow)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -154,7 +155,8 @@ Router(ServiceBase & parent,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -169,7 +171,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       double augmentationWindow)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -206,7 +209,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -1311,8 +1315,6 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
         recordHit("tooLateBeforeAdd");
         return;
     }
-
-    double augmentationWindow = 0.005; // 5ms available to augment
 
     auto onDoneAugmenting = [=] (const std::shared_ptr<AugmentationInfo> & info)
         {
