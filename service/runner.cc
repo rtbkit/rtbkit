@@ -507,13 +507,11 @@ doRunImpl(const vector<string> & command,
     ::flockfile(stderr);
     ::fflush_unlocked(NULL);
     task_.wrapperPid = fork();
-    if (task_.wrapperPid == -1) {
-        throw ML::Exception(errno, "fork");
-    }
+    int savedErrno = errno;
     ::funlockfile(stderr);
     ::funlockfile(stdout);
     if (task_.wrapperPid == -1) {
-        throw ML::Exception(errno, "Runner::run fork");
+        throw ML::Exception(savedErrno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
         try {
