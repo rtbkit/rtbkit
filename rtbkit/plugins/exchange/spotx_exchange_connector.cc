@@ -68,6 +68,18 @@ SpotXExchangeConnector::initCreativeConfiguration()
 
             return true;
     }).required();
+
+    creativeConfig.addField(
+        "adid",
+        [](const Json::Value& value, CreativeInfo& info) {
+            Datacratic::jsonDecode(value, info.adid);
+            if (info.adid.empty()) {
+                throw std::invalid_argument("adid is required");
+            }
+
+            return true;
+    }).required();
+
 }
 
 ExchangeConnector::ExchangeCompatibility
@@ -191,6 +203,7 @@ SpotXExchangeConnector::setSeatBid(
     bid.price.val = USD_CPM(resp.price.maxPrice);
 
     bid.adomain = creativeInfo->adomain;
+    bid.adid = Id(creativeInfo->adid);
     bid.adm = creativeConfig.expand(creativeInfo->adm, context);
 }
 
