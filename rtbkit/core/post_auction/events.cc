@@ -200,7 +200,7 @@ MatchedCampaignEvent(std::string label, const FinishedInfo& info) :
 {
     auto it = std::find_if(info.campaignEvents.begin(), info.campaignEvents.end(),
                     [&](const CampaignEvent& event) {
-                        return event.label_ == label;
+                        return event.label_ == this->label;
                     }
                 );
 
