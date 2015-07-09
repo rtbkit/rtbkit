@@ -118,7 +118,7 @@ Router(ServiceBase & parent,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       double augmentationWindow)
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -172,7 +172,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       double augmentationWindow)
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -1330,7 +1330,7 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
             wakeupMainLoop.signal();
         };
 
-    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow),
+    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow.count()),
                              onDoneAugmenting);
 }
 
