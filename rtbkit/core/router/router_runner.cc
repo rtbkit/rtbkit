@@ -164,7 +164,6 @@ init()
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
                                       slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
-
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
     if (analyticsOn) {
