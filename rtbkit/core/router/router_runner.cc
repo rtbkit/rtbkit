@@ -60,7 +60,7 @@ RouterRunner() :
     slowModeMoneyLimit(""),
     analyticsOn(false),
     analyticsConnections(1),
-    augmentationWindow(std::chrono::milliseconds(5))
+    augmentationWindowms(5)
 {
 }
 
@@ -108,7 +108,7 @@ doOptions(int argc, char ** argv,
         ("banker-choice", value<string>(&bankerChoice),
          "split or local banker can be chosen.")
          ("augmenter-timeout",value<int>(&augmentationWindowms),
-         "configure the augmenter  timeout");
+         "configure the augmenter  timeout (in milliseconds)");
 
     options_description all_opt = opts;
     all_opt
@@ -154,7 +154,7 @@ init()
             << "slow-mode-money-limit= " << amountSlowModeMoneyLimit <<endl;
     }
 
-    Seconds augmentationWindow = std::chrono::milliseconds(5);
+    Seconds augmentationWindow = std::chrono::milliseconds(augmentationWindowms);
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     auto enableBidProbability = !noBidProb;
@@ -164,6 +164,7 @@ init()
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
                                       slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
+
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
     if (analyticsOn) {

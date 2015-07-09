@@ -52,7 +52,6 @@ struct RouterRunner {
     std::string slowModeMoneyLimit;
     bool analyticsOn;
     int analyticsConnections;
-    Seconds augmentationWindow;
     int augmentationWindowms;
 
     void doOptions(int argc, char ** argv,
