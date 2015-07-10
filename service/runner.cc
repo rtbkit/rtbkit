@@ -102,7 +102,7 @@ std::string Runner::runnerHelper;
 Runner::
 Runner()
     : EpollLoop(nullptr),
-      closeStdin(false), running_(false),
+      closeStdin(false), runRequests_(0), activeRequest_(0), running_(false),
       startDate_(Date::negativeInfinity()), endDate_(startDate_),
       childPid_(-1), childStdinFd_(-1),
       statusRemaining_(sizeof(ProcessStatus))
@@ -321,7 +321,8 @@ attemptTaskTermination()
         && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
         && (task_.statusState == ProcessState::STOPPED
             || task_.statusState == ProcessState::DONE)) {
-        running_ = false;
+        auto runResult = move(task_.runResult);
+        auto onTerminate = move(task_.onTerminate);
         task_.postTerminate(*this);
 
         if (stdInSink_) {
@@ -329,6 +330,16 @@ attemptTaskTermination()
         }
 
         endDate_ = Date::now();
+
+        ExcAssert(onTerminate);
+        onTerminate(runResult);
+
+        /* Setting running_ to false must be done after "onTerminate" is
+           invoked, since "waitTermination" guarantees that "onTerminate" has
+           been called. In async mode, doing it here will not be a problem,
+           since "running_" will be reset to true when the MessageLoop
+           processes its delayed jobs. */
+        running_ = false;
         ML::futex_wake(running_);
     }
     /* This block is useful for debugging the termination workflow of the
@@ -360,9 +371,6 @@ OutputSink &
 Runner::
 getStdInSink()
 {
-    if (running_) {
-        throw ML::Exception("already running");
-    }
     if (stdInSink_) {
         throw ML::Exception("stdin sink already set");
     }
@@ -382,7 +390,6 @@ getStdInSink()
 
     tie(task_.stdInFd, childStdinFd_) = CreateStdPipe(true);
     ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
-
     stdInSink_->init(task_.stdInFd);
 
     auto stdinCopy = stdInSink_;
@@ -408,10 +415,8 @@ run(const vector<string> & command,
     if (!onTerminate) {
         throw ML::Exception("'onTerminate' parameter is mandatory");
     }
-    if (running_) {
-        throw ML::Exception("already running");
-    }
-    running_ = true;
+    ExcAssert(runRequests_ < std::numeric_limits<int>::max());
+    runRequests_++;
 
     /* We run this in the message loop thread, which becomes the parent of the
        child process. This is to avoid problems when the thread we're calling
@@ -419,6 +424,9 @@ run(const vector<string> & command,
        the subprocess to exit to due to PR_SET_DEATHSIG being set .*/
     auto toRun = [=] () {
         try {
+            if (running_) {
+                throw ML::Exception("already running");
+            }
             this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
         }
         catch (const std::exception & exc) {
@@ -452,6 +460,8 @@ runSync(const vector<string> & command,
     if (running_) {
         throw ML::Exception("already running");
     }
+    ExcAssert(runRequests_ < std::numeric_limits<int>::max());
+    runRequests_++;
 
     RunResult result;
     bool terminated(false);
@@ -464,7 +474,6 @@ runSync(const vector<string> & command,
     if (stdInData.size() > 0) {
         sink = &getStdInSink();
     }
-    running_ = true;
     doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
     if (sink) {
         sink->write(stdInData);
@@ -489,10 +498,12 @@ doRunImpl(const vector<string> & command,
           const shared_ptr<InputSink> & stdOutSink,
           const shared_ptr<InputSink> & stdErrSink)
 {
+    running_ = true;
+    activeRequest_++;
+    ML::futex_wake(activeRequest_);
     startDate_ = Date::now();
     endDate_ = Date::negativeInfinity();
 
-    task_.statusState = ProcessState::UNKNOWN;
     task_.onTerminate = onTerminate;
 
     ProcessFds childFds;
@@ -610,6 +621,31 @@ waitStart(double secondsToWait) const
     }
 
     return childPid_ > 0;
+}
+
+bool
+Runner::
+waitRunning(double secondsToWait) const
+{
+    bool timeout(false);
+
+    Date deadline = Date::now().plusSeconds(secondsToWait);
+    while (activeRequest_ < runRequests_) {
+        double timeToWait = Date::now().secondsUntil(deadline);
+        if (timeToWait < 0) {
+            timeout = true;
+            break;
+        }
+        uint32_t currentActive(activeRequest_);
+        if (isfinite(timeToWait)) {
+            ML::futex_wait(activeRequest_, currentActive, timeToWait);
+        }
+        else {
+            ML::futex_wait(activeRequest_, currentActive);
+        }
+    }
+
+    return !timeout;
 }
 
 void
@@ -785,12 +821,9 @@ postTerminate(Runner & runner)
     unregisterFd(stdErrFd);
 
     command.clear();
-
-    if (onTerminate) {
-        onTerminate(runResult);
-        onTerminate = nullptr;
-    }
     runResult = RunResult();
+    onTerminate = nullptr;
+    statusState = ProcessState::UNKNOWN;
 }
 
 

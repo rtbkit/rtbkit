@@ -214,6 +214,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
@@ -244,6 +245,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::SIGNALED);
@@ -279,6 +281,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         cerr << "running 1" << endl;
         runner.run({"/this/command/is/missing"}, onTerminate);
         cerr << "running 1b" << endl;
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -295,6 +298,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         loop.addSource("runner2", runner);
 
         runner.run({"/dev/null"}, onTerminate);
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -310,6 +314,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         loop.addSource("runner2", runner);
 
         runner.run({"/dev"}, onTerminate);
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -388,6 +393,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
@@ -471,6 +477,7 @@ test_runner_no_output_delay_helper(bool stdout)
         }
     }
     stdInSink.requestClose();
+    runner.waitRunning();
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(sizes[0], 6);
@@ -648,7 +655,9 @@ BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
 
 #if 1
 /* This test ensures that onTerminate is called with the appropriate RunResult
- * when the runWrapper process fails. */
+ * when the runWrapper process fails and that the handling of file descriptors
+ * properly separates the channels between the previous and following
+ * processes. */
 BOOST_AUTO_TEST_CASE( test_runner_reuse )
 {
     MessageLoop loop;
@@ -661,14 +670,27 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
     int terminateCount(0);
     std::mutex lock;
 
+    vector<string> stdouts;
+    string currentStdout;
+    auto onStdOut = [&] (string && message) {
+        // cerr << "received message on stdout: /" + message + "/" << endl;
+        currentStdout += message;
+    };
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+
     RunResult runResult;
     Runner::OnTerminate onTerminate;
     onTerminate = [&] (const RunResult & result) {
+        stdouts.push_back(currentStdout);
+        currentStdout.clear();
         terminateCount++;
         cerr << "terminateCount: " + to_string(terminateCount) + "\n";
         if (terminateCount < 2) {
             cerr << "launching subsequent process...\n";
-            runner->run({"/bin/sleep", "1"}, onTerminate);
+            auto & stdInSink = runner->getStdInSink();
+            stdInSink.write("second");
+            stdInSink.requestClose();
+            runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
             cerr << "subsequent process started\n";
         }
         else {
@@ -677,10 +699,16 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
     };
 
     lock.lock();
-    runner->run({"/bin/sleep", "1"}, onTerminate);
+    auto & stdInSink = runner->getStdInSink();
+    stdInSink.write("first");
+    stdInSink.requestClose();
+    runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
 
     lock.lock();
     loop.shutdown();
     lock.unlock();
+
+    BOOST_CHECK_EQUAL(stdouts[0], "first");
+    BOOST_CHECK_EQUAL(stdouts[1], "second");
 }
 #endif

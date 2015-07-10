@@ -154,9 +154,18 @@ struct Runner : public EpollLoop {
     /** Synchronous wait for the subprocess to start.  Returns true if the
         process started, or false if it wasn't able to start.
 
-        Will wait for a maximum of secondsToWait seconds.
+        Will wait for a maximum of secondsToWait seconds. Returns "true" when
+        the condition was met or "false" in case of a timeout.
     */
     bool waitStart(double secondsToWait = INFINITY) const;
+
+    /** Synchronous wait for the subprocess to be marked as started from the
+        MessageLoop thread.
+
+        Will wait for a maximum of secondsToWait seconds. Returns "true" when
+        the condition was met or "false" in case of a timeout.
+    */
+    bool waitRunning(double secondsToWait = INFINITY) const;
 
     /** Synchronous wait for termination of the subprocess and the closing of
      * all related resources. */
@@ -225,7 +234,10 @@ private:
 
     void attemptTaskTermination();
 
+    int runRequests_;
+    int activeRequest_;
     int32_t running_;
+
     Date startDate_;
     Date endDate_;
 
