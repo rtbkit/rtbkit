@@ -60,6 +60,9 @@ struct RunResult {
     int processStatus() const;
 
     /** Update the state in response to a launch error. */
+    void updateFromLaunchException(const std::exception_ptr & excPtr);
+
+    /** Update the state in response to a launch error. */
     void updateFromLaunchError(int launchErrno,
                                const std::string & launchError);
 
@@ -67,15 +70,17 @@ struct RunResult {
     enum State {
         UNKNOWN,        ///< State is not known
         LAUNCH_ERROR,   ///< Command was unable to be launched
+        LAUNCH_EXCEPTION, ///< Exception thrown when launching the command
         RETURNED,       ///< Command returned
         SIGNALED,       ///< Command exited with a signal
         PARENT_EXITED   ///< Parent exited, killing the child
     };
-        
+
     State state;
     int signum;         ///< Signal number it returned with
     int returnCode;     ///< Return code if command exited
 
+    std::exception_ptr launchExc; ///<Exception thrown at launch time
     int launchErrno;    ///< Errno (if appropriate) of launch error
     std::string launchError;  ///< Error string describing launch error
 
@@ -116,7 +121,7 @@ struct Runner : public EpollLoop {
     /** Run a program asynchronously, requiring to be attached to a
      * MessageLoop. */
     void run(const std::vector<std::string> & command,
-             const OnTerminate & onTerminate = nullptr,
+             const OnTerminate & onTerminate,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
@@ -196,7 +201,7 @@ private:
         void runWrapper(const std::vector<std::string> & command,
                         ProcessFds & fds);
         std::string findRunnerHelper();
-                        
+
         void postTerminate(Runner & runner);
 
         std::vector<std::string> command;
@@ -220,7 +225,7 @@ private:
 
     void attemptTaskTermination();
 
-    int running_;
+    int32_t running_;
     Date startDate_;
     Date endDate_;
 
@@ -232,6 +237,7 @@ private:
     pid_t childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
+    int childStdinFd_;
     std::shared_ptr<InputSink> stdOutSink_;
     std::shared_ptr<InputSink> stdErrSink_;
 

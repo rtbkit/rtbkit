@@ -152,11 +152,13 @@ start()
     loop_.addSource("runner", runner_);
     loop_.start();
 
+    auto onTerminate = [&] (const RunResult & result) {
+    };
     runner_.run({"/usr/bin/mongod",
                  "--bind_ip", "localhost", "--port", to_string(portNum),
                  "--logpath", logfile_, "--dbpath", uniquePath_,
                  "--unixSocketPrefix", socketPath_, "--nojournal"},
-                nullptr, nullptr, stdOutSink);
+                onTerminate, nullptr, stdOutSink);
     // connect to the socket to make sure everything is working fine
     testConnection();
     string payload("db.createUser({user: 'testuser', pwd: 'testpw',"

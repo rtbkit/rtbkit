@@ -104,7 +104,7 @@ Runner()
     : EpollLoop(nullptr),
       closeStdin(false), running_(false),
       startDate_(Date::negativeInfinity()), endDate_(startDate_),
-      childPid_(-1),
+      childPid_(-1), childStdinFd_(-1),
       statusRemaining_(sizeof(ProcessStatus))
 {
 }
@@ -209,7 +209,6 @@ handleChildStatus(const struct epoll_event & event)
 
         if (task_.statusState == ProcessState::RUNNING
             || task_.statusState == ProcessState::LAUNCHING) {
-
             cerr << "*************************************************************" << endl;
             cerr << " HANGUP ON STATUS FD: RUNNER FORK THREAD EXITED?" << endl;
             cerr << "*************************************************************" << endl;
@@ -322,13 +321,13 @@ attemptTaskTermination()
         && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
         && (task_.statusState == ProcessState::STOPPED
             || task_.statusState == ProcessState::DONE)) {
+        running_ = false;
         task_.postTerminate(*this);
 
         if (stdInSink_) {
             stdInSink_.reset();
         }
 
-        running_ = false;
         endDate_ = Date::now();
         ML::futex_wake(running_);
     }
@@ -361,10 +360,13 @@ OutputSink &
 Runner::
 getStdInSink()
 {
-    if (running_)
+    if (running_) {
         throw ML::Exception("already running");
-    if (stdInSink_)
+    }
+    if (stdInSink_) {
         throw ML::Exception("stdin sink already set");
+    }
+    ExcAssertEqual(childStdinFd_, -1);
 
     auto onClose = [&] () {
         if (task_.stdInFd != -1) {
@@ -372,9 +374,22 @@ getStdInSink()
             task_.stdInFd = -1;
         }
         removeFd(stdInSink_->selectFd(), true);
-        attemptTaskTermination();
+        if (task_.wrapperPid > -1) {
+            attemptTaskTermination();
+        }
     };
     stdInSink_.reset(new AsyncFdOutputSink(onClose, onClose));
+
+    tie(task_.stdInFd, childStdinFd_) = CreateStdPipe(true);
+    ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
+
+    stdInSink_->init(task_.stdInFd);
+
+    auto stdinCopy = stdInSink_;
+    auto stdinCb = [=] (const epoll_event & event) {
+        stdinCopy->processOne();
+    };
+    addFd(stdInSink_->selectFd(), true, false, stdinCb);
 
     return *stdInSink_;
 }
@@ -390,8 +405,41 @@ run(const vector<string> & command,
         LOG(warnings)
             << ML::format("Runner %p is not connected to any MessageLoop\n", this);
     }
+    if (!onTerminate) {
+        throw ML::Exception("'onTerminate' parameter is mandatory");
+    }
+    if (running_) {
+        throw ML::Exception("already running");
+    }
+    running_ = true;
 
-    runImpl(command, onTerminate, stdOutSink, stdErrSink);
+    /* We run this in the message loop thread, which becomes the parent of the
+       child process. This is to avoid problems when the thread we're calling
+       run from exits, and since it's the parent process of the fork, causes
+       the subprocess to exit to due to PR_SET_DEATHSIG being set .*/
+    auto toRun = [=] () {
+        try {
+            this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
+        }
+        catch (const std::exception & exc) {
+            /* Exceptions must be returned via onTerminate in order to provide
+               a consistent behaviour when "run" is called from the original
+               Runner thread or from the MessageLoop thread. "onTerminate" is
+               mandatory and is thus guaranteed to exist here. */
+            RunResult result;
+            result.updateFromLaunchException(std::current_exception());
+            ExcAssert(onTerminate);
+            onTerminate(result);
+        }
+        catch (...) {
+            cerr << ("FATAL: Runner::runImpl::toRun caught an unhandled"
+                     " exception. MessageLoop thread will die.\n");
+            throw;
+        }
+    };
+    ExcAssert(parent_ != nullptr);
+    bool res = parent_->runInMessageLoopThread(toRun);
+    ExcAssert(res);
 }
 
 RunResult
@@ -401,9 +449,12 @@ runSync(const vector<string> & command,
         const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData)
 {
-    RunResult result;
+    if (running_) {
+        throw ML::Exception("already running");
+    }
 
-    std::atomic<bool> terminated(false);
+    RunResult result;
+    bool terminated(false);
     auto onTerminate = [&] (const RunResult & newResult) {
         result = newResult;
         terminated = true;
@@ -413,7 +464,8 @@ runSync(const vector<string> & command,
     if (stdInData.size() > 0) {
         sink = &getStdInSink();
     }
-    runImpl(command, onTerminate, stdOutSink, stdErrSink);
+    running_ = true;
+    doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
     if (sink) {
         sink->write(stdInData);
         sink->requestClose();
@@ -423,48 +475,11 @@ runSync(const vector<string> & command,
         loop(-1, -1);
     }
 
-    return result;
-}
-
-void
-Runner::
-runImpl(const vector<string> & command,
-        const OnTerminate & onTerminate,
-        const shared_ptr<InputSink> & stdOutSink,
-        const shared_ptr<InputSink> & stdErrSink)
-{
-    // Need shared ptr to avoid race between lambda exiting and the
-    // rest of this function, causing done to be destroyed before
-    // set_value() has returned.
-    std::shared_ptr<std::promise<bool> > done(new std::promise<bool>());
-    
-
-    // We run this in the message loop thread, which becomes the parent
-    // of the child process.  This is to avoid problems when the thread
-    // we're calling run from exits, and since it's the parent process of
-    // the fork, causes the subprocess to exit to due to
-    // PR_SET_DEATHSIG being set
-    auto toRun = [&] ()
-        {
-            try {
-                this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
-                done->set_value(true);
-            } JML_CATCH_ALL {
-                done->set_exception(std::current_exception());
-            }
-        };
-
-    if (parent_) {
-        // Run it in the message loop thread
-        bool res = parent_->runInMessageLoopThread(toRun);
-        ExcAssert(res);
+    if (result.state == RunResult::LAUNCH_EXCEPTION) {
+        std::rethrow_exception(result.launchExc);
     }
-    else toRun();
-    
-    // Wait for the function to finish
-    std::future<bool> future = done->get_future();
-    bool success = future.get();
-    ExcAssert(success);
+
+    return result;
 }
 
 void
@@ -474,13 +489,8 @@ doRunImpl(const vector<string> & command,
           const shared_ptr<InputSink> & stdOutSink,
           const shared_ptr<InputSink> & stdErrSink)
 {
-    if (running_)
-        throw ML::Exception("already running");
-
     startDate_ = Date::now();
     endDate_ = Date::negativeInfinity();
-    running_ = true;
-    ML::futex_wake(running_);
 
     task_.statusState = ProcessState::UNKNOWN;
     task_.onTerminate = onTerminate;
@@ -489,7 +499,9 @@ doRunImpl(const vector<string> & command,
     tie(task_.statusFd, childFds.statusFd) = CreateStdPipe(false);
 
     if (stdInSink_) {
-        tie(task_.stdInFd, childFds.stdIn) = CreateStdPipe(true);
+        ExcAssert(childStdinFd_ != -1);
+        childFds.stdIn = childStdinFd_;
+        childStdinFd_ = -1;
     }
     else if (closeStdin) {
         childFds.stdIn = -1;
@@ -522,7 +534,7 @@ doRunImpl(const vector<string> & command,
             status.state = ProcessState::STOPPED;
             status.setErrorCodes(errno, LaunchError::SUBTASK_LAUNCH);
             childFds.writeStatus(status);
-            
+
             exit(-1);
         }
     }
@@ -530,16 +542,6 @@ doRunImpl(const vector<string> & command,
         task_.statusState = ProcessState::LAUNCHING;
 
         ML::set_file_flag(task_.statusFd, O_NONBLOCK);
-        if (stdInSink_) {
-            ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
-            stdInSink_->init(task_.stdInFd);
-
-            shared_ptr<AsyncFdOutputSink> stdinCopy = stdInSink_;
-            auto stdinCb = [=] (const epoll_event & event) {
-                stdinCopy->processOne();
-            };
-            addFd(stdInSink_->selectFd(), true, false, stdinCb);
-        }
         auto statusCb = [&] (const epoll_event & event) {
             handleChildStatus(event);
         };
@@ -845,6 +847,14 @@ processStatus()
 
 void
 RunResult::
+updateFromLaunchException(const std::exception_ptr & excPtr)
+{
+    state = LAUNCH_EXCEPTION;
+    launchExc = excPtr;
+}
+
+void
+RunResult::
 updateFromLaunchError(int launchErrno,
                       const std::string & launchError)
 {
@@ -866,6 +876,7 @@ to_string(const RunResult::State & state)
 {
     switch (state) {
     case RunResult::UNKNOWN: return "UNKNOWN";
+    case RunResult::LAUNCH_EXCEPTION: return "LAUNCH_EXCEPTION";
     case RunResult::LAUNCH_ERROR: return "LAUNCH_ERROR";
     case RunResult::RETURNED: return "RETURNED";
     case RunResult::SIGNALED: return "SIGNALED";

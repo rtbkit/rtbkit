@@ -15,6 +15,7 @@
 #include "jml/arch/timers.h"
 #include "jml/arch/threads.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/guard.h"
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
 #include "soa/service/message_loop.h"
@@ -363,6 +364,9 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 
     auto nullSink = make_shared<NullInputSink>();
 
+    auto onTerminate = [&] (const RunResult & runResult) {
+    };
+
     auto performLoop = [&] (const string & loopData) {
         RunnerTestHelperCommands commands;
         commands.sendOutput(true, loopData);
@@ -379,7 +383,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 
         auto & stdInSink = runner.getStdInSink();
         runner.run({"build/x86_64/bin/runner_test_helper"},
-                   nullptr, stdOutSink, nullSink);
+                   onTerminate, stdOutSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
         }
@@ -454,10 +458,13 @@ test_runner_no_output_delay_helper(bool stdout)
     loop.addSource("runner", runner);
     loop.start();
 
+    auto onTerminate = [&] (const RunResult & result) {
+    };
+
     auto & stdInSink = runner.getStdInSink();
     runner.run({"/usr/bin/stdbuf", "-o0",
                 "build/x86_64/bin/runner_test_helper"},
-               nullptr, stdOutSink, stdErrSink);
+               onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
             ML::sleep(0.1);
@@ -626,8 +633,8 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
  * when the runWrapper process fails. */
 BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
 {
-    signal(SIGCHLD, SIG_DFL);
-
+    BlockedSignals blockedSigs2(SIGCHLD);
+    ML::Call_Guard guard([&] { Runner::runnerHelper.clear(); });
     Runner::runnerHelper = "/this/executable/does/not/exist";
 
     auto runResult = execute({"/bin/sleep", "1"});
@@ -636,5 +643,44 @@ BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
     BOOST_CHECK_EQUAL(runResult.returnCode, -1);
     BOOST_CHECK_EQUAL(runResult.signum, -1);
     BOOST_CHECK_EQUAL(runResult.processStatus(), 127); /* "command not found" */
+}
+#endif
+
+#if 1
+/* This test ensures that onTerminate is called with the appropriate RunResult
+ * when the runWrapper process fails. */
+BOOST_AUTO_TEST_CASE( test_runner_reuse )
+{
+    MessageLoop loop;
+    loop.start();
+
+    auto runner = make_shared<Runner>();
+    loop.addSource("runner", runner);
+    runner->waitConnectionState(AsyncEventSource::CONNECTED);
+
+    int terminateCount(0);
+    std::mutex lock;
+
+    RunResult runResult;
+    Runner::OnTerminate onTerminate;
+    onTerminate = [&] (const RunResult & result) {
+        terminateCount++;
+        cerr << "terminateCount: " + to_string(terminateCount) + "\n";
+        if (terminateCount < 2) {
+            cerr << "launching subsequent process...\n";
+            runner->run({"/bin/sleep", "1"}, onTerminate);
+            cerr << "subsequent process started\n";
+        }
+        else {
+            lock.unlock();
+        }
+    };
+
+    lock.lock();
+    runner->run({"/bin/sleep", "1"}, onTerminate);
+
+    lock.lock();
+    loop.shutdown();
+    lock.unlock();
 }
 #endif
