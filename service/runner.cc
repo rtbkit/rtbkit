@@ -630,14 +630,17 @@ waitRunning(double secondsToWait) const
     bool timeout(false);
 
     Date deadline = Date::now().plusSeconds(secondsToWait);
-    while (activeRequest_ < runRequests_) {
-        double timeToWait = Date::now().secondsUntil(deadline);
-        if (timeToWait < 0) {
-            timeout = true;
+    while (true) {
+        int currentActive(activeRequest_);
+        if (currentActive >= runRequests_) {
             break;
         }
-        uint32_t currentActive(activeRequest_);
+        double timeToWait = Date::now().secondsUntil(deadline);
         if (isfinite(timeToWait)) {
+            if (timeToWait < 0) {
+                timeout = true;
+                break;
+            }
             ML::futex_wait(activeRequest_, currentActive, timeToWait);
         }
         else {
