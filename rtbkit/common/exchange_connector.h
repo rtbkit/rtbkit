@@ -231,6 +231,33 @@ struct ExchangeConnector: public ServiceBase {
     getCreativeCompatibility(const Creative & creative,
                              bool includeReasons) const;
 
+    /** Structure is used to determine if the bid is valid.
+    */
+    struct BidValidity {
+        BidValidity()
+            :isValidbid(true)
+        {
+        }
+
+        void setValidBid() {
+            isValidbid = true;
+        }
+
+        void setInvalidBid(const std::string &reason) {
+            isValidbid = false;
+            reason_ = reason;
+         }
+
+        std::string  reason_;
+        bool isValidbid;
+    };
+
+    /** Sets not valid bid if bid price is lower then the bidfloor price
+    */
+    virtual BidValidity
+    getBidValidity(const Bid  & bid, const  std::vector<AdSpot> & imp,
+                   int spotIndex) const;
+
 
     /*************************************************************************/
     /* FILTERING                                                             */

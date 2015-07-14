@@ -450,6 +450,9 @@ public:
                           const std::shared_ptr<Auction> &auction,
                           const char *reason, const char *message, ...);
 
+    void returnInvalidBid(const std::string &agent, const std::string &bidData,
+                          const std::shared_ptr<Auction> &auction,
+                          const std::string &reason, const char *message, ...);
     void doShutdown();
 
     /** Perform initial auction processing to see how it can be used.  Returns a
