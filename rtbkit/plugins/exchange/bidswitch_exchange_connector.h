@@ -64,6 +64,7 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CreativeInfo {
         Id adid;                ///< ID for ad to be service if bid wins
+        Id cid;                ///< campaign id
         std::string nurl;       ///< Win notice URL
         std::vector<std::string> adomain;    ///< Advertiser Domain
         std::string adm; ///< Creative markup for banner ads

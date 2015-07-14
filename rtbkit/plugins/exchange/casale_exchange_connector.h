@@ -56,6 +56,7 @@ struct CasaleExchangeConnector : public OpenRTBExchangeConnector {
     struct CreativeInfo {
         std::string adm;
         std::vector<std::string> adomain;
+        Id cid;
     };
 
     typedef CreativeConfiguration<CreativeInfo> CasaleCreativeConfiguration;

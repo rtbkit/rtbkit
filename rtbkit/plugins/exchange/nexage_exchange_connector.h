@@ -69,6 +69,7 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CreativeInfo {
         Id crid;                ///< ID Creative Id
+        Id cid;                ///< campaign ID 
         std::string iurl;       ///< Image URL for content checkin
         std::string  nurl;      ///< win notif url (optional)
         std::string  adm;       ///< XHTML markup  (optional)

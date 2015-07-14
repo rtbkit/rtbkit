@@ -120,6 +120,11 @@ BidSwitchExchangeConnector::init() {
         "adm",
         GENERATE_MACRO_FOR(data.adm)
     ).optional().snippet();
+    
+    configuration_.addField(
+        "cid",
+        GENERATE_MACRO_FOR(data.cid)
+    ).optional();
 
     configuration_.addField(
         "advertiser_name",
@@ -418,7 +423,11 @@ setSeatBid(Auction const & auction,
     };
 
     // Put in the variable parts
-    b.cid = Id(resp.agent);
+    if(crinfo->cid.notNull()) 
+        b.cid = crinfo->cid;
+    else 
+        b.cid = Id(resp.agent);
+    
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);

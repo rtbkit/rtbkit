@@ -65,6 +65,14 @@ void CasaleExchangeConnector::initCreativeConfiguration()
 
             return true;
     }).required();
+    
+    creativeConfig.addField(
+        "cid",
+        [](const Json::Value& value, CreativeInfo& info) {
+            Datacratic::jsonDecode(value, info.cid);
+
+            return true;
+    }).optional();
 }
 
 double
@@ -205,7 +213,10 @@ CasaleExchangeConnector::setSeatBid(
         spotNum
     };
 
-    bid.cid = Id(resp.agent);
+    if(creativeInfo->cid.notNull()) 
+        bid.cid = creativeInfo->cid;
+    else
+        bid.cid = Id(resp.agent);
     bid.crid = Id(resp.creativeId);
     bid.impid = auction.request->imp[spotNum].id;
     bid.id = Id(auction.id, auction.request->imp[0].id);

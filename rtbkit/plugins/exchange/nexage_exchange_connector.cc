@@ -168,6 +168,14 @@ NexageExchangeConnector::init()
             Datacratic::jsonDecode(value, data.nurl);
             return true;
     }).optional();
+    
+    configuration_.addField(
+        "cid",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.cid);
+            return true;
+    }).optional();
+
 
 }
 
@@ -259,7 +267,11 @@ setSeatBid(Auction const & auction,
     };
 
     // Put in the variable parts
-    b.cid = Id(resp.agent);
+    // Use default cid, if cid is not configured.
+    if (crinfo->cid.notNull())
+        b.cid = crinfo->cid;
+    else
+        b.cid = Id(resp.agent);
     b.iurl = crinfo->iurl;
     b.impid = auction.request->imp[spotNum].id;
     b.id = Id(auction.id, auction.request->imp[0].id);
