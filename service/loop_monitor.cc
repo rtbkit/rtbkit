@@ -47,8 +47,9 @@ doLoops(uint64_t numTimeouts)
 {
     std::lock_guard<ML::Spinlock> guard(lock);
 
-    LoadSample maxLoad;
-    maxLoad.sequence = curLoad.sequence + 1;
+    LoadSample avgLoad;
+    avgLoad.sequence = curLoad.sequence + 1;
+
     for (auto& loop : loops) {
         double load = loop.second(updatePeriod * numTimeouts);
         if (load < 0.0 || load > 1.0) {
@@ -60,12 +61,13 @@ doLoops(uint64_t numTimeouts)
             continue;
         }
 
-        if (load > maxLoad.load) maxLoad.load = load;
+        avgLoad.load += load;
         recordLevel(load, loop.first);
     }
 
-    curLoad.packed = maxLoad.packed;
-    if (onLoadChange) onLoadChange(maxLoad.load);
+    avgLoad.load /= loops.size();
+    curLoad.packed = avgLoad.packed;
+    if (onLoadChange) onLoadChange(avgLoad.load);
 }
 
 void
