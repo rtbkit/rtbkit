@@ -23,6 +23,7 @@
 #include "soa/service/epoller.h"
 #include <map>
 #include <mutex>
+#include <atomic>
 
 
 namespace Datacratic {
@@ -108,6 +109,7 @@ struct EndpointBase : public Epoller {
      */
     std::vector<double> totalSleepSeconds() const { return totalSleepTime; }
     std::vector<rusage> getResourceUsage() const {
+        resourceEpoch++;
         std::vector<rusage> result;
         std::lock_guard<std::mutex> guard(usageLock);
         result = resourceUsage;
@@ -280,6 +282,7 @@ private:
     std::vector<double> totalSleepTime;
     std::vector<rusage> resourceUsage;
     mutable std::mutex usageLock;
+    mutable std::atomic<int> resourceEpoch;
 
     /** Run a thread to handle events. */
     void runEventThread(int threadNum, int numThreads);

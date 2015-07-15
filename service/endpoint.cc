@@ -660,16 +660,24 @@ void
 EndpointBase::
 doMinLatencyPolling(int threadNum, int numThreads)
 {
-    while (!shutdown_) {
-        // query the kernel for performance metrics
-        rusage now;
-        getrusage(RUSAGE_THREAD, &now);
+    int epoch = 0;
 
-        // if we're just started, assume we know nothing and don't update the usage
-        long s = now.ru_utime.tv_sec+now.ru_stime.tv_sec;
-        if(s > 1) {
-            std::lock_guard<std::mutex> guard(usageLock);
-            resourceUsage[threadNum] = now;
+    while (!shutdown_) {
+        // sync with the loop monitor request
+        int i = resourceEpoch;
+        if(i != epoch) {
+            // query the kernel for performance metrics
+            rusage now;
+            getrusage(RUSAGE_THREAD, &now);
+
+            // if we're just started, assume we know nothing and don't update the usage
+            long s = now.ru_utime.tv_sec+now.ru_stime.tv_sec;
+            if(s > 1) {
+                std::lock_guard<std::mutex> guard(usageLock);
+                resourceUsage[threadNum] = now;
+            }
+
+            epoch = i;
         }
 
         handleEvents(0, 1, handleEvent);
