@@ -45,13 +45,16 @@ struct CreativeFormatFilter : public CreativeFilter<CreativeFormatFilter>
     void filterImpression(
             FilterState& state, unsigned impIndex, const AdSpot& imp) const
     {
-        // The 0x0 format means: match anything.
-        CreativeMatrix creatives = get(Format(0,0));
+        if(!(imp.formats.empty()))
+        {
+            // The 0x0 format means: match anything.
+            CreativeMatrix creatives = get(Format(0,0));
 
-        for (const auto& format : imp.formats)
-            creatives |= get(format);
+            for (const auto& format : imp.formats)
+                creatives |= get(format);
 
-        state.narrowCreativesForImp(impIndex, creatives);
+            state.narrowCreativesForImp(impIndex, creatives);
+        }
     }
 
 

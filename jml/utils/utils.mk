@@ -1,6 +1,7 @@
 
 LIBUTILS_SOURCES := \
         environment.cc \
+        exception_ptr.cc \
         file_functions.cc \
         filter_streams.cc \
         string_functions.cc \

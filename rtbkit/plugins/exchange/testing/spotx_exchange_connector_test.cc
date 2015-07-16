@@ -45,6 +45,7 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
     for (auto& creative: config.creatives) {
         auto& creativeConfig = creative.providerConfig["spotx"];
         creativeConfig["adomain"][0] = "rtbkit.org";
+        creativeConfig["adid"] = "TestAd";
         creativeConfig["adm"]
             = R"XML(
               <?xml version="1.0" encoding="UTF-8"?><VAST version="2.0">

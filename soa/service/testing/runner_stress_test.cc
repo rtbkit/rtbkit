@@ -106,6 +106,10 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
     atomic<int> nRunning(0);
 
     activeThreads = nThreads;
+
+    auto onTerminate = [&] (const RunResult &) {
+    };
+
     auto runThread = [&] (int threadNum) {
         /* preparation */
         HelperCommands commands;
@@ -154,14 +158,8 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         auto stdErrSink = make_shared<CallbackInputSink>(onStdErr);
 
         auto & stdInSink = runner.getStdInSink();
-        char const * bin = getenv("BIN");
-        if(!bin) {
-            bin = "build/x86_64/bin";
-        }
-
-        std::string path = std::string(bin) + "/runner_test_helper";
-        runner.run({path},
-                   nullptr, stdOutSink, stdErrSink);
+        runner.run({"build/x86_64/bin/runner_test_helper"},
+                   onTerminate, stdOutSink, stdErrSink);
 
         for (const string & command: commands) {
             while (!stdInSink.write(string(command))) {

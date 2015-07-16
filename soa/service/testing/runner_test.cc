@@ -15,6 +15,7 @@
 #include "jml/arch/timers.h"
 #include "jml/arch/threads.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/guard.h"
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
 #include "soa/service/message_loop.h"
@@ -225,6 +226,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
@@ -261,6 +263,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::SIGNALED);
@@ -296,6 +299,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         cerr << "running 1" << endl;
         runner.run({"/this/command/is/missing"}, onTerminate);
         cerr << "running 1b" << endl;
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -312,6 +316,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         loop.addSource("runner2", runner);
 
         runner.run({"/dev/null"}, onTerminate);
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -327,6 +332,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         loop.addSource("runner2", runner);
 
         runner.run({"/dev"}, onTerminate);
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
@@ -381,6 +387,9 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 
     auto nullSink = make_shared<NullInputSink>();
 
+    auto onTerminate = [&] (const RunResult & runResult) {
+    };
+
     auto performLoop = [&] (const string & loopData) {
         RunnerTestHelperCommands commands;
         commands.sendOutput(true, loopData);
@@ -396,18 +405,13 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
         auto & stdInSink = runner.getStdInSink();
-        char const * bin = getenv("BIN");
-        if(!bin) {
-            bin = "build/x86_64/bin";
-        }
-
-        std::string path = std::string(bin) + "/runner_test_helper";
-        runner.run({path},
-                   nullptr, stdOutSink, nullSink);
+        runner.run({"build/x86_64/bin/runner_test_helper"},
+                   onTerminate, stdOutSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
         }
         stdInSink.requestClose();
+        runner.waitRunning();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
@@ -478,6 +482,9 @@ test_runner_no_output_delay_helper(bool stdout)
     loop.addSource("runner", runner);
     loop.start();
 
+    auto onTerminate = [&] (const RunResult & result) {
+    };
+
     auto & stdInSink = runner.getStdInSink();
     char const * bin = getenv("BIN");
     if(!bin) {
@@ -486,14 +493,15 @@ test_runner_no_output_delay_helper(bool stdout)
 
     std::string path = std::string(bin) + "/runner_test_helper";
     runner.run({"/usr/bin/stdbuf", "-o0",
-                path},
-               nullptr, stdOutSink, stdErrSink);
+                "build/x86_64/bin/runner_test_helper"},
+               onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
             ML::sleep(0.1);
         }
     }
     stdInSink.requestClose();
+    runner.waitRunning();
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(sizes[0], 6);
@@ -579,6 +587,7 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 }
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( test_timeval_value_description )
 {
     /* printing */
@@ -601,7 +610,9 @@ BOOST_AUTO_TEST_CASE( test_timeval_value_description )
         BOOST_CHECK_EQUAL(tv.tv_usec, 3456);
     }
 }
+#endif
 
+#if 1
 /* This test ensures that running a program from a thread does not cause the
  * program to be killed when the thread exits, due to prctl PR_SET_PDEATHSIG
  * (http://man7.org/linux/man-pages/man2/prctl.2.html) being active when
@@ -646,3 +657,82 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
     BOOST_CHECK_EQUAL(runResult.returnCode, 0);
     BOOST_CHECK_EQUAL(runResult.signum, -1);
 }
+#endif
+
+#if 1
+/* This test ensures that onTerminate is called with the appropriate RunResult
+ * when the runWrapper process fails. */
+BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
+{
+    BlockedSignals blockedSigs2(SIGCHLD);
+    ML::Call_Guard guard([&] { Runner::runnerHelper.clear(); });
+    Runner::runnerHelper = "/this/executable/does/not/exist";
+
+    auto runResult = execute({"/bin/sleep", "1"});
+
+    BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
+    BOOST_CHECK_EQUAL(runResult.returnCode, -1);
+    BOOST_CHECK_EQUAL(runResult.signum, -1);
+    BOOST_CHECK_EQUAL(runResult.processStatus(), 127); /* "command not found" */
+}
+#endif
+
+#if 1
+/* This test ensures that onTerminate is called with the appropriate RunResult
+ * when the runWrapper process fails and that the handling of file descriptors
+ * properly separates the channels between the previous and following
+ * processes. */
+BOOST_AUTO_TEST_CASE( test_runner_reuse )
+{
+    MessageLoop loop;
+    loop.start();
+
+    auto runner = make_shared<Runner>();
+    loop.addSource("runner", runner);
+    runner->waitConnectionState(AsyncEventSource::CONNECTED);
+
+    int terminateCount(0);
+    std::mutex lock;
+
+    vector<string> stdouts;
+    string currentStdout;
+    auto onStdOut = [&] (string && message) {
+        // cerr << "received message on stdout: /" + message + "/" << endl;
+        currentStdout += message;
+    };
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+
+    RunResult runResult;
+    Runner::OnTerminate onTerminate;
+    onTerminate = [&] (const RunResult & result) {
+        stdouts.push_back(currentStdout);
+        currentStdout.clear();
+        terminateCount++;
+        cerr << "terminateCount: " + to_string(terminateCount) + "\n";
+        if (terminateCount < 2) {
+            cerr << "launching subsequent process...\n";
+            auto & stdInSink = runner->getStdInSink();
+            stdInSink.write("second");
+            stdInSink.requestClose();
+            runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+            cerr << "subsequent process started\n";
+        }
+        else {
+            lock.unlock();
+        }
+    };
+
+    lock.lock();
+    auto & stdInSink = runner->getStdInSink();
+    stdInSink.write("first");
+    stdInSink.requestClose();
+    runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+
+    lock.lock();
+    loop.shutdown();
+    lock.unlock();
+
+    BOOST_CHECK_EQUAL(stdouts[0], "first");
+    BOOST_CHECK_EQUAL(stdouts[1], "second");
+}
+#endif

@@ -635,12 +635,15 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
             auto &externalIds = imp.ext["external-ids"];
             externalIds.append(agentConfig->externalId);
 
-            auto& creativesExtField = imp.ext["creative-indexes"];
+            auto& creativesExtField = imp.ext["creative-ids"];
 
 
             auto &creativesList = creativesExtField[std::to_string(agentConfig->externalId)];
+            const auto& creatives = agentConfig->creatives;
             for (int index: creativeIndexes) {
-                creativesList.append(index);
+                ExcAssert(index < creatives.size());
+
+                creativesList.append(creatives[index].id);
             }
         }
 
