@@ -60,6 +60,9 @@ struct RunResult {
     int processStatus() const;
 
     /** Update the state in response to a launch error. */
+    void updateFromLaunchException(const std::exception_ptr & excPtr);
+
+    /** Update the state in response to a launch error. */
     void updateFromLaunchError(int launchErrno,
                                const std::string & launchError);
 
@@ -67,15 +70,17 @@ struct RunResult {
     enum State {
         UNKNOWN,        ///< State is not known
         LAUNCH_ERROR,   ///< Command was unable to be launched
+        LAUNCH_EXCEPTION, ///< Exception thrown when launching the command
         RETURNED,       ///< Command returned
         SIGNALED,       ///< Command exited with a signal
         PARENT_EXITED   ///< Parent exited, killing the child
     };
-        
+
     State state;
     int signum;         ///< Signal number it returned with
     int returnCode;     ///< Return code if command exited
 
+    std::exception_ptr launchExc; ///<Exception thrown at launch time
     int launchErrno;    ///< Errno (if appropriate) of launch error
     std::string launchError;  ///< Error string describing launch error
 
@@ -91,15 +96,18 @@ CREATE_STRUCTURE_DESCRIPTION(RunResult);
 CREATE_ENUM_DESCRIPTION_NAMED(RunResultStateDescription, RunResult::State);
 
 
-/*****************************************************************************/
-/* RUNNER                                                                    */
-/*****************************************************************************/
+/****************************************************************************/
+/* RUNNER                                                                   */
+/****************************************************************************/
 
 /** This class encapsulates running a sub-command, including launching it and
     controlling the input, output and error streams of the subprocess.
 */
 
-struct Runner: public EpollLoop {
+struct Runner : public EpollLoop {
+    /* external override of path to "runner_helper", for testing */
+    static std::string runnerHelper;
+
     typedef std::function<void (const RunResult & result)> OnTerminate;
 
     Runner();
@@ -113,7 +121,7 @@ struct Runner: public EpollLoop {
     /** Run a program asynchronously, requiring to be attached to a
      * MessageLoop. */
     void run(const std::vector<std::string> & command,
-             const OnTerminate & onTerminate = nullptr,
+             const OnTerminate & onTerminate,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
@@ -146,9 +154,18 @@ struct Runner: public EpollLoop {
     /** Synchronous wait for the subprocess to start.  Returns true if the
         process started, or false if it wasn't able to start.
 
-        Will wait for a maximum of secondsToWait seconds.
+        Will wait for a maximum of secondsToWait seconds. Returns "true" when
+        the condition was met or "false" in case of a timeout.
     */
     bool waitStart(double secondsToWait = INFINITY) const;
+
+    /** Synchronous wait for the subprocess to be marked as started from the
+        MessageLoop thread.
+
+        Will wait for a maximum of secondsToWait seconds. Returns "true" when
+        the condition was met or "false" in case of a timeout.
+    */
+    bool waitRunning(double secondsToWait = INFINITY) const;
 
     /** Synchronous wait for termination of the subprocess and the closing of
      * all related resources. */
@@ -192,7 +209,8 @@ private:
         void flushStdInBuffer();
         void runWrapper(const std::vector<std::string> & command,
                         ProcessFds & fds);
-                        
+        std::string findRunnerHelper();
+
         void postTerminate(Runner & runner);
 
         std::vector<std::string> command;
@@ -216,7 +234,10 @@ private:
 
     void attemptTaskTermination();
 
-    int running_;
+    int runRequests_;
+    int activeRequest_;
+    int32_t running_;
+
     Date startDate_;
     Date endDate_;
 
@@ -228,6 +249,7 @@ private:
     pid_t childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
+    int childStdinFd_;
     std::shared_ptr<InputSink> stdOutSink_;
     std::shared_ptr<InputSink> stdErrSink_;
 
