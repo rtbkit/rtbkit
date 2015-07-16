@@ -52,6 +52,7 @@ struct SpotXExchangeConnector : public OpenRTBExchangeConnector {
     struct CreativeInfo {
         std::string adm;
         std::vector<std::string> adomain;
+        std::string adid;
     };
 
     static Logging::Category print;

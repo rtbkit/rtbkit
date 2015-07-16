@@ -127,9 +127,11 @@ BOOST_AUTO_TEST_CASE( test_creative_ids_filter )
     addImp(r4, OpenRTB::AdPosition::ABOVE, { {100, 100} });
 
     // Check
-    check(filter, r0, creatives, 0, { { 0 } });
+    check(filter, r0, creatives, 0, { { 0 }, { } });
     check(filter, r0, creatives, 1, { { }, { 1 } });
-    check(filter, r1, creatives, 0, { { 0 } });
-    //check(filter, r3, creatives, 0, { { }, { 0, 1 } });
+
+    check(filter, r1, creatives, 0, { { 0 }, { } });
+    check(filter, r2, creatives, 0, { { 0, 1 } } );
+    check(filter, r3, creatives, 0, { { 1 }, { 1 } });
     check(filter, r4, creatives, 0, { { } });
 }

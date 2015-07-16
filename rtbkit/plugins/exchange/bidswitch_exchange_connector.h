@@ -43,8 +43,14 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     getTimeAvailableMs(HttpAuctionHandler & connection,
                        const HttpHeader & header,
                        const std::string & payload) {
-        // TODO: check that is at it seems
-        return 200.0;
+        // Scan the payload quickly for the tmax parameter.
+        static const std::string toFind = "\"tmax\":";
+        std::string::size_type pos = payload.find(toFind);
+        if (pos == std::string::npos)
+            return 30.0; //ms as specified by the SLA 
+    
+        int tmax = atoi(payload.c_str() + pos + toFind.length());
+        return (absoluteTimeMax < tmax) ? absoluteTimeMax : tmax;
     }
 
     /** This is the information that the BidSwitch exchange needs to keep
