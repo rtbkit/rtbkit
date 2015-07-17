@@ -51,7 +51,7 @@ struct StringIdDescription: public DefaultDescription<Datacratic::Id> {
     virtual void printJsonTyped(const Datacratic::Id * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeString(val->toString());
+        context.writeStringUtf8(Utf8String(val->toString()));
     }
 };
 
