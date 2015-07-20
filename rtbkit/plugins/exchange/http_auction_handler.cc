@@ -334,7 +334,7 @@ handleHttpPayload(const HttpHeader & header,
 
     doEvent("auctionStartLatencyMs",
             ET_OUTCOME,
-            now.secondsSince(firstData) * 1000.0, "ms");
+            now.secondsSince(endpoint->getStartTime()) * 1000.0, "ms");
 
     doEvent("auctionTimeAvailableMs",
             ET_OUTCOME,

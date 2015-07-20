@@ -160,6 +160,12 @@ struct EndpointBase : public Epoller {
         OnTimer onTimer;                          /* TIMER */
     };
 
+    // Get the polling start time for auction handler
+    Date getStartTime() const
+    {
+        return pollStart_;
+    };
+
 protected:
 
     /** Callback to check in the loop if we're finished or not */
@@ -265,6 +271,9 @@ private:
     /* Are we shutting down? */
     bool shutdown_;
     bool disallowTimers_;
+
+   //Poll start time
+    Date pollStart_;
 
     // Turns the polling loop into a busy loop with no sleeps.
     enum PollingMode pollingMode_;

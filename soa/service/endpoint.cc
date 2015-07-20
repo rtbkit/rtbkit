@@ -440,6 +440,7 @@ handleEpollEvent(epoll_event & event)
     switch (epollDataPtr->fdType) {
     case EpollData::EpollDataType::TRANSPORT: {
         shared_ptr<TransportBase> transport = epollDataPtr->transport;
+        pollStart_ = Date::now();
         handleTransportEvent(transport);
         if (!transport->isZombie()) {
             this->restartPolling(epollDataPtr);
