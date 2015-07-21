@@ -117,7 +117,8 @@ Router(ServiceBase & parent,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -154,7 +155,8 @@ Router(ServiceBase & parent,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -169,7 +171,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -206,7 +209,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -1312,8 +1316,6 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
         return;
     }
 
-    double augmentationWindow = 0.005; // 5ms available to augment
-
     auto onDoneAugmenting = [=] (const std::shared_ptr<AugmentationInfo> & info)
         {
             info->auction->doneAugmenting = Date::now();
@@ -1328,7 +1330,7 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
             wakeupMainLoop.signal();
         };
 
-    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow),
+    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow.count()),
                              onDoneAugmenting);
 }
 

@@ -112,7 +112,8 @@ struct Router : public ServiceBase,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
-           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
+           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
+           Seconds augmentationWindow = std::chrono::milliseconds(5));
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -123,7 +124,8 @@ struct Router : public ServiceBase,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
-           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
+           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
+           Seconds augmentationWindow = std::chrono::milliseconds(5));
 
     ~Router();
 
@@ -796,6 +798,7 @@ public:
     MonitorIndicator getProviderIndicators() const;
 
     double slowModeTolerance;
+    Seconds augmentationWindow;
 };
 
 
