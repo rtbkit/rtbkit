@@ -96,6 +96,8 @@ private:
     bool filterExternalIds(
             const AgentConfig& config, const Json::Value& extIds) const
     {
+        if (JML_UNLIKELY(extIds.isNull())) return false;
+
         ExcAssert(extIds.isArray());
 
         using std::find_if;
@@ -114,6 +116,8 @@ private:
             const AgentConfig& config, const Creative& creative,
             const Json::Value& crIds) const
     {
+        if (JML_UNLIKELY(crIds.isNull())) return false;
+
         ExcAssert(crIds.isObject());
 
         using std::find_if;
