@@ -60,7 +60,8 @@ RouterRunner() :
     slowModeMoneyLimit(""),
     analyticsOn(false),
     analyticsConnections(1),
-    augmentationWindowms(5)
+    augmentationWindowms(5),
+    dableSlowMode(false)
 {
 }
 
@@ -108,7 +109,9 @@ doOptions(int argc, char ** argv,
         ("banker-choice", value<string>(&bankerChoice),
          "split or local banker can be chosen.")
          ("augmenter-timeout",value<int>(&augmentationWindowms),
-         "configure the augmenter  timeout (in milliseconds)");
+         "configure the augmenter  timeout (in milliseconds)")
+        ("no slow mode", value<bool>(&dableSlowMode)->zero_tokens(),
+         "disable the slow mode.");
 
     options_description all_opt = opts;
     all_opt
@@ -166,6 +169,9 @@ init()
                                       slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
+    if(dableSlowMode) {
+       router->unsafeDisableSlowMode();
+    }
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
         if (!analyticsUri.empty()) {

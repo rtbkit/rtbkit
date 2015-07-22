@@ -169,6 +169,10 @@ struct Router : public ServiceBase,
     */
     void unsafeDisableAuctionProbability();
 
+    /** Disable the monitor client
+    */
+    void unsafeDisableSlowMode();
+
     /** Start the router running in a separate thread.  The given function
         will be called when the thread is stopped. */
     virtual void
