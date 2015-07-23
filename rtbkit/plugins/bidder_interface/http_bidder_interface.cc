@@ -223,7 +223,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                 Date responseReceivedTime = Date::now();
                 const double responseTime = responseReceivedTime.secondsSince(sentResponseTime);
                 recordOutcome(1000.0 * responseTime, "httpResponseTimeMs");
-                 //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
+               // cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
 
                  /* We need to make sure that we re-inject bids into the router for each
                   * agent. When receiving a BidResponse, if the SeatBid array contains
@@ -609,6 +609,15 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
 void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
                                      const std::map<std::string, BidInfo> &bidders) const
 {
+    static const Json::Value null(Json::nullValue);
+
+    static constexpr const char *ExternalIdsFieldName = "external-ids";
+    static constexpr const char *CreativeIdsFieldName = "creative-ids";
+
+    // Make sure to tag every impression, even impressions that do not satisfy
+    // filters
+    for (auto& imp: request.imp)
+        imp.ext[ExternalIdsFieldName] = imp.ext[CreativeIdsFieldName] = null;
 
     for (const auto &bidder: bidders) {
         const auto &agentConfig = bidder.second.agentConfig;
@@ -620,10 +629,10 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
             ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
                      "adSpotIndex out of range");
             auto &imp = request.imp[adSpotIndex];
-            auto &externalIds = imp.ext["external-ids"];
+            auto &externalIds = imp.ext[ExternalIdsFieldName];
             externalIds.append(agentConfig->externalId);
 
-            auto& creativesExtField = imp.ext["creative-ids"];
+            auto& creativesExtField = imp.ext[CreativeIdsFieldName];
 
 
             auto &creativesList = creativesExtField[std::to_string(agentConfig->externalId)];
@@ -633,6 +642,7 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
 
                 creativesList.append(creatives[index].id);
             }
+
         }
 
     }
