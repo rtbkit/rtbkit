@@ -4,8 +4,6 @@
    Implementation of the BidSwitch exchange connector.
 */
 
-#include <iterator> // std::begin
-
 #include "bidswitch_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
@@ -91,7 +89,6 @@ BidSwitchExchangeConnector::init() {
             return true;
         }
     ).required().snippet();
-
     configuration_.addField(
         "adomain",
         [](const Json::Value& value, CreativeInfo& data) {
@@ -204,6 +201,13 @@ getCampaignCompatibility(const AgentConfig & config,
 
     auto cpinfo = std::make_shared<CampaignInfo>();
 
+    std::string exchange = exchangeName();
+    const char* name = exchange.c_str();
+    if (!config.providerConfig.isMember(name)){
+        result.setIncompatible(
+            ML::format("providerConfig.%s is null", name), includeReasons);
+        return result;
+    }
     const Json::Value & pconf = config.providerConfig["bidswitch"];
 
     try {
