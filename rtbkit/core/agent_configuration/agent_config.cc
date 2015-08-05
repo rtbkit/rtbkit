@@ -168,6 +168,18 @@ biddable(const std::string & exchange,
     return true;
 }
 
+bool
+Creative::
+isImage() const {
+    return type == Type::Image;
+}
+
+bool
+Creative::
+isVideo() const {
+    return type == Type::Video;
+}
+
 std::string
 Creative::
 typeString() const {

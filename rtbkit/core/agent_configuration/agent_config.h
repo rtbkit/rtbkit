@@ -121,6 +121,12 @@ struct Creative {
     bool biddable(const std::string & exchange,
                   const std::string & protocolVersion) const;
 
+    /** Is this an image creative ? */
+    bool isImage() const;
+
+    /** Is this  a video creative ? */
+    bool isVideo() const;
+
     static Creative image(int width, int height, std::string name = "", int id = -1, std::string dealId = "");
     static Creative video(int width, int height, uint32_t duration, uint64_t bitrate,
                 std::string name = "", int id = -1, std::string dealId = "");
