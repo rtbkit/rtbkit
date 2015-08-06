@@ -1261,6 +1261,43 @@ returnInvalidBid(
 
 void
 Router::
+returnInvalidBid(
+        const std::string &agent, const std::string &bidData,
+        const std::shared_ptr<Auction> &auction,
+        const std::string &reason, const char *message, ...) {
+
+    auto& agentInfo = agents[agent];
+    const auto& agentConfig = agentInfo.config;
+    this->recordHit("bidErrors.%s", reason);
+    this->recordHit("accounts.%s.bidErrors.total",
+                    agentConfig->account.toString('.'));
+    this->recordHit("accounts.%s.bidErrors.%s",
+                    agentConfig->account.toString('.'),
+                    reason);
+
+    ++agentInfo.stats->invalid;
+
+    va_list ap;
+    va_start(ap, message);
+    string formatted;
+    try {
+        formatted = vformat(message, ap);
+    } catch (...) {
+        va_end(ap);
+        throw;
+    }
+    va_end(ap);
+
+    cerr << "invalid bid for agent " << agent << ": "
+         << formatted << endl;
+    cerr << bidData << endl;
+
+    logMessageToAnalytics("INVALID", agentConfig, agent, formatted, auction);
+    bidder->sendBidInvalidMessage(agentConfig, agent, formatted, auction);
+}
+
+void
+Router::
 doStats(const std::vector<std::string> & message)
 {
     Json::Value result(Json::objectValue);
@@ -1982,6 +2019,14 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
         }
 
+     auto getbid = auctionInfo.auction->exchangeConnector->getBidValidity(bid, imp, spotIndex);
+
+        if (!getbid.isValidbid) {
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                getbid.reason_,
+                "no bid");
+            continue;
+        }
         const Creative & creative = config.creatives.at(bid.creativeIndex);
 
         if (!creative.compatible(imp[spotIndex])) {
