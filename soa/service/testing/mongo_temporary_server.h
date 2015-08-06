@@ -26,13 +26,11 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
 #include "soa/service/sink.h"
-
-
 namespace Mongo {
 
 struct MongoTemporaryServer : boost::noncopyable {
-    MongoTemporaryServer(const std::string & uniquePath = "",
-                         const int portNum = 28356);
+
+    MongoTemporaryServer(std::string uniquePath = "");
     ~MongoTemporaryServer();
     
     void testConnection();
@@ -40,9 +38,6 @@ struct MongoTemporaryServer : boost::noncopyable {
     void suspend();
     void resume();
     void shutdown();
-    int getPortNum() {
-        return portNum;
-    }
 
 private:
     enum State { Inactive, Stopped, Suspended, Running };
@@ -53,7 +48,6 @@ private:
     int serverPid;
     Datacratic::MessageLoop loop_;
     Datacratic::Runner runner_;
-    int portNum;
 };
 
 } // namespace Mongo

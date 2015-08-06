@@ -516,10 +516,6 @@ uint64_t
 Id::
 complexHash() const
 {
-#if ID_HASH_AS_STRING
-    std::string converted = toString();
-    return CityHash64(converted.c_str(), converted.size());
-#else
     if (type == STR)
         return CityHash64(str, len);
     else if (type == COMPOUND2) {
@@ -529,7 +525,6 @@ complexHash() const
     //else if (type == CUSTOM)
     //    return controlFn(CF_HASH, data);
     else throw ML::Exception("unknown Id type");
-#endif
 }
 
 void

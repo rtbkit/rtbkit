@@ -23,6 +23,7 @@
 #include "soa/service/epoller.h"
 #include <map>
 #include <mutex>
+#include <atomic>
 
 
 namespace Datacratic {
@@ -107,6 +108,13 @@ struct EndpointBase : public Epoller {
         Can be polled regularly to determine the duty cycle of the loop.
      */
     std::vector<double> totalSleepSeconds() const { return totalSleepTime; }
+    std::vector<rusage> getResourceUsage() const {
+        resourceEpoch++;
+        std::vector<rusage> result;
+        std::lock_guard<std::mutex> guard(usageLock);
+        result = resourceUsage;
+        return std::move(result);
+    }
 
     /** Thing to notify when a connection is closed.  Will be called
         before the normal cleanup.
@@ -281,6 +289,9 @@ private:
     std::map<std::string, int> numTransportsByHost;
 
     std::vector<double> totalSleepTime;
+    std::vector<rusage> resourceUsage;
+    mutable std::mutex usageLock;
+    mutable std::atomic<int> resourceEpoch;
 
     /** Run a thread to handle events. */
     void runEventThread(int threadNum, int numThreads);

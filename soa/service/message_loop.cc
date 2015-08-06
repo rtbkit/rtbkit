@@ -296,9 +296,19 @@ runWorkerThread()
             return;
 
         // Do any outstanding work now
-        while (processOne())
+        int i = 0;
+        while (processOne()) {
             if (shutdown_)
                 return;
+
+            if (i >= 50) {
+                getrusage(RUSAGE_THREAD, &resourceUsage);
+                i = 0;
+            }
+            i++;
+        }
+
+        getrusage(RUSAGE_THREAD, &resourceUsage);
 
         // At this point, we've done as much work as we can (there is no more
         // work to do).  We will now sleep for the maximum allowable delay

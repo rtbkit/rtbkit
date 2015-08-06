@@ -14,7 +14,6 @@
 #include "jml/arch/atomic_ops.h"
 #include "jml/arch/backtrace.h"
 #include "jml/arch/futex.h"
-#include "jml/arch/wakeup_fd.h"
 #include "jml/utils/vector_utils.h"
 
 
@@ -417,7 +416,7 @@ size_t eventLoopsDestroyed = 0;
 
 struct AsyncConnection::EventLoop {
 
-    ML::Wakeup_Fd wakeupfd;
+    int wakeupfd[2];
     volatile bool finished;
     AsyncConnection * connection;
     std::shared_ptr<boost::thread> thread;
@@ -425,14 +424,18 @@ struct AsyncConnection::EventLoop {
     volatile int disconnected;
 
     EventLoop(AsyncConnection * connection)
-        : wakeupfd(O_NONBLOCK)
-        , finished(false)
-        , connection(connection)
-        , disconnected(1)
+        : finished(false), connection(connection), disconnected(1)
     {
         ML::atomic_inc(eventLoopsCreated);
         
-        fds[0].fd = wakeupfd.fd();
+        int res = pipe2(wakeupfd, O_NONBLOCK);
+        if (res == -1)
+            throw ML::Exception(errno, "pipe2");
+
+        //cerr << "connection on fd " << connection->context_->c.fd << endl;
+
+
+        fds[0].fd = wakeupfd[0];
         fds[0].events = POLLIN;
         fds[1].fd = connection->context_->c.fd;
         fds[1].events = 0;
@@ -440,6 +443,13 @@ struct AsyncConnection::EventLoop {
         registerMe(connection->context_);
 
         thread.reset(new boost::thread(boost::bind(&EventLoop::run, this)));
+
+#if 0
+        char buf[1];
+        res = read(wakeupfd[0], buf, 1);
+        if (res == -1)
+            throw ML::Exception(errno, "read");
+#endif
     }
 
     ~EventLoop()
@@ -457,11 +467,16 @@ struct AsyncConnection::EventLoop {
         wakeup();
         thread->join();
         thread.reset();
+        ::close(wakeupfd[0]);
+        ::close(wakeupfd[1]);
     }
 
     void wakeup()
     {
-        wakeupfd.signal();
+        int res = write(wakeupfd[1], "x", 1);
+        if (res == -1)
+            throw ML::Exception("error waking up fd %d: %s", wakeupfd[1],
+                                strerror(errno));
     }
     
     void registerMe(redisAsyncContext * context)
@@ -516,18 +531,12 @@ struct AsyncConnection::EventLoop {
 
             if (fds[0].revents & POLLIN) {
                 //cerr << "got wakeup" << endl;
-                wakeupfd.read();
+                char buf[128];
+                int res = read(fds[0].fd, buf, 128);
+                if (res == -1)
+                    throw ML::Exception(errno, "read from wakeup pipe");
                 //cerr << "woken up with " << res << " messages" << endl;
             }
-            if ((fds[1].revents & POLLHUP)
-                || (fds[1].revents & POLLERR)) {
-                /* For now, we simply disconnect when we receive a POLLHUP, but eventually
-                 * we should try to reconnect or at least notify the user through a callback
-                 */
-                onDisconnect(REDIS_ERR_IO);
-                break;
-            }
-
             if ((fds[1].revents & POLLOUT)
                 && (fds[1].events & POLLOUT)) {
                 //cerr << "got write on " << fds[1].fd << endl;
