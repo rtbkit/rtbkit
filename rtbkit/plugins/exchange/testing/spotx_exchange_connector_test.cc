@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE ( test_bid_request_exchange )
     config.creatives.push_back(Creative::video(300, 250, 10, 16000, "cr1", 1));
 
     config.providerConfig["spotx"]["seat"] = "54321";
+    config.providerConfig["spotx"]["bidid"] = "abc123";
 
     // Configure every creative
     for (auto& creative: config.creatives) {
