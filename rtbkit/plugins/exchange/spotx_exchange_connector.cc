@@ -112,6 +112,19 @@ SpotXExchangeConnector::getCampaignCompatibility(
         return result;
     }
 
+    if (!provConf.isMember("bidid")) {
+        result.setIncompatible(
+            ML::format("providerConfig.%s.bidid is null", name), includeReasons);
+        return result;
+    }
+
+    const auto& bidid = provConf["bidid"];
+    if (!bidid.isString()) {
+        result.setIncompatible(
+                ML::format("providerConfig.%s.bidid must be a string", name), includeReasons);
+        return result;
+    }
+
     std::string seatName;
     if (provConf.isMember("seatName")) {
         const auto value = provConf["seatName"];
@@ -122,10 +135,13 @@ SpotXExchangeConnector::getCampaignCompatibility(
         seatName = value.asString();
     }
 
+
     auto info = std::make_shared<CampaignInfo>(); 
     auto value = seat.asString();
+    auto bididValue = bidid.asString();
     info->seat = Id(value);
     info->seatName = std::move(seatName);
+    info->bidid = std::move(bididValue);
 
     result.info = info;
     return result;
@@ -207,6 +223,9 @@ SpotXExchangeConnector::setSeatBid(
     bid.adomain = creativeInfo->adomain;
     bid.adid = Id(creativeInfo->adid);
     bid.adm = creativeConfig.expand(creativeInfo->adm, context);
+
+    response.bidid = Id(campaignInfo->bidid);
+    response.cur = "USD";
 }
 
 Json::Value
