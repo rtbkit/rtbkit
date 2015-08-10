@@ -113,7 +113,8 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5));
+           Seconds augmentationWindow = std::chrono::milliseconds(5),
+           Json::Value filtersConfig =  Json::Value::null);
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -125,7 +126,8 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5));
+           Seconds augmentationWindow = std::chrono::milliseconds(5),
+           Json::Value filtersConfig = Json::Value::null);
 
     ~Router();
 
@@ -146,6 +148,9 @@ struct Router : public ServiceBase,
 
     /** Initialize analytics if it is used. */
     void initAnalytics(const std::string & baseUrl, const int numConnections);
+
+    /** Initialize filters from json configuration*/
+    void initWithFiltersFromJson(const Json::Value & json);
 
     /** Initialize all of the internal data structures and configuration. */
     void init();
@@ -806,6 +811,7 @@ public:
 
     double slowModeTolerance;
     Seconds augmentationWindow;
+    Json::Value filtersConfig;
 };
 
 

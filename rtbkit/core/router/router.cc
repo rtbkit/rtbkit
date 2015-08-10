@@ -118,7 +118,8 @@ Router(ServiceBase & parent,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       Seconds augmentationWindow)
+       Seconds augmentationWindow,
+       Json::Value filtersConfig)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -156,7 +157,8 @@ Router(ServiceBase & parent,
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance),
-      augmentationWindow(augmentationWindow)
+      augmentationWindow(augmentationWindow),
+      filtersConfig(filtersConfig)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -172,7 +174,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       Seconds augmentationWindow)
+       Seconds augmentationWindow,
+       Json::Value filtersConfig)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -210,7 +213,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance),
-      augmentationWindow(augmentationWindow)
+      augmentationWindow(augmentationWindow),
+      filtersConfig(filtersConfig)
+
 {
     monitorProviderClient.addProvider(this);
 }
@@ -240,7 +245,15 @@ init()
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
     filters.init(this);
-    filters.initWithDefaultFilters();
+
+    if (filtersConfig != Json::Value::null){
+        if (!filtersConfig.isArray()){
+         throw Exception("couldn't parse formats other then array");
+        }
+       filters.initWithFiltersFromJson(filtersConfig);
+    }
+    else
+        filters.initWithDefaultFilters();
 
     banker.reset(new NullBanker());
 
@@ -2964,7 +2977,7 @@ startExchange(const std::string & type,
     addExchange(item);
 
     exchangeBuffer.push(item);
-    filters.initWithDefaultFilters();
+
 }
 
 void

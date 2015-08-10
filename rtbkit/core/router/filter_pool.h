@@ -80,6 +80,7 @@ struct FilterPool
     void addFilter(const std::string& name);
     void removeFilter(const std::string& name);
     void initWithDefaultFilters();
+    void initWithFiltersFromJson(const Json::Value & json);
 
 
     // \todo Need batch interfaces to alleviate overhead.
