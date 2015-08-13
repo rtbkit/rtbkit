@@ -2119,6 +2119,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
             this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
+            recordHit("accounts.%s.NOBUDGET", bid.account.toString('.'));
             continue;
         }
         
@@ -2194,15 +2195,18 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             switch (localResult.val) {
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
-                bidder->sendLossMessage(agentConfig, agent, auctionId.toString());
+                bidder->sendLossMessage(agentConfig, agent, auctionId.toString ());
+                recordHit("accounts.%s.LocalLoss", bid.account.toString('.'));
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
                 bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
+                recordHit("accounts.%s.TooLate", bid.account.toString('.'));
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
                 bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
+                recordHit("accounts.%s.Invalid", bid.account.toString('.'));
                 break;
             default:
                 throw ML::Exception("logic error");
