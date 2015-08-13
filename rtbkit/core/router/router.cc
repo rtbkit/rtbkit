@@ -2101,6 +2101,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     slowModePeriodicSpentReached = true;
                     bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
                     recordHit("slowMode.droppedBid");
+                    recordHit("accounts.%s.DROPPED", bid.account.toString('.'));
                 continue;
                 }
             }
@@ -2196,17 +2197,17 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
                 bidder->sendLossMessage(agentConfig, agent, auctionId.toString ());
-                recordHit("accounts.%s.LocalLoss", bid.account.toString('.'));
+                recordHit("accounts.%s.LOCAL_LOSS", bid.account.toString('.'));
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
                 bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
-                recordHit("accounts.%s.TooLate", bid.account.toString('.'));
+                recordHit("accounts.%s.TOOLATE", bid.account.toString('.'));
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
                 bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
-                recordHit("accounts.%s.Invalid", bid.account.toString('.'));
+                recordHit("accounts.%s.INVALID", bid.account.toString('.'));
                 break;
             default:
                 throw ML::Exception("logic error");
