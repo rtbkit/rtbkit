@@ -2101,7 +2101,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     slowModePeriodicSpentReached = true;
                     bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
                     recordHit("slowMode.droppedBid");
-                    recordHit("accounts.%s.DROPPED", bid.account.toString('.'));
+                    recordHit("accounts.%s.DROPPED", config.account.toString('.'));
                 continue;
                 }
             }
@@ -2120,7 +2120,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
             this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
-            recordHit("accounts.%s.NOBUDGET", bid.account.toString('.'));
+            recordHit("accounts.%s.NOBUDGET", config.account.toString('.'));
             continue;
         }
         
@@ -2197,17 +2197,17 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
                 bidder->sendLossMessage(agentConfig, agent, auctionId.toString ());
-                recordHit("accounts.%s.LOCAL_LOSS", bid.account.toString('.'));
+                recordHit("accounts.%s.LOCAL_LOSS", config.account.toString('.'));
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
                 bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
-                recordHit("accounts.%s.TOOLATE", bid.account.toString('.'));
+                recordHit("accounts.%s.TOOLATE", config.account.toString('.'));
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
                 bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
-                recordHit("accounts.%s.INVALID", bid.account.toString('.'));
+                recordHit("accounts.%s.INVALID", config.account.toString('.'));
                 break;
             default:
                 throw ML::Exception("logic error");
