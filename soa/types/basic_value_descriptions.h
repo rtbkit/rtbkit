@@ -36,7 +36,7 @@ struct DefaultDescription<Datacratic::Id>
             val->val2 == 0 && val->val1 <= std::numeric_limits<int32_t>::max()) {
             context.writeInt(val->val1);
         } else {
-            context.writeStringUtf8(Utf8String(val->toString()));
+            context.writeString(val->toString());
         }
     }
 
@@ -51,7 +51,7 @@ struct StringIdDescription: public DefaultDescription<Datacratic::Id> {
     virtual void printJsonTyped(const Datacratic::Id * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeStringUtf8(Utf8String(val->toString()));
+        context.writeString(val->toString());
     }
 };
 

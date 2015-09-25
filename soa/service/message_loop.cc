@@ -210,15 +210,6 @@ removeSourceSync(AsyncEventSource * source)
     return true;
 }
 
-bool
-MessageLoop::
-runInMessageLoopThread(std::function<void ()> toRun)
-{
-    SourceEntry entry("", toRun, 0);
-    SourceAction newAction(SourceAction::RUN, move(entry));
-    return sourceActions_.push_back(move(newAction));
-}
-
 void
 MessageLoop::
 wakeupMainThread()
@@ -296,19 +287,9 @@ runWorkerThread()
             return;
 
         // Do any outstanding work now
-        int i = 0;
-        while (processOne()) {
+        while (processOne())
             if (shutdown_)
                 return;
-
-            if (i >= 50) {
-                getrusage(RUSAGE_THREAD, &resourceUsage);
-                i = 0;
-            }
-            i++;
-        }
-
-        getrusage(RUSAGE_THREAD, &resourceUsage);
 
         // At this point, we've done as much work as we can (there is no more
         // work to do).  We will now sleep for the maximum allowable delay
@@ -391,9 +372,6 @@ handleSourceActions()
         else if (action.action_ == SourceAction::REMOVE) {
             processRemoveSource(action.entry_);
         }
-        else if (action.action_ == SourceAction::RUN) {
-            processRunAction(action.entry_);
-        }
     }
 }
 
@@ -475,13 +453,6 @@ processRemoveSource(const SourceEntry & rmEntry)
 
     entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
     ML::futex_wake(entry.source->connectionState_);
-}
-
-void
-MessageLoop::
-processRunAction(const SourceEntry & entry)
-{
-    entry.run();
 }
 
 bool

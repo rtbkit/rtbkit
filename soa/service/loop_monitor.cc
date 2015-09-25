@@ -49,7 +49,6 @@ doLoops(uint64_t numTimeouts)
 
     LoadSample maxLoad;
     maxLoad.sequence = curLoad.sequence + 1;
-
     for (auto& loop : loops) {
         double load = loop.second(updatePeriod * numTimeouts);
         if (load < 0.0 || load > 1.0) {
@@ -74,37 +73,14 @@ LoopMonitor::
 addMessageLoop(const string& name, const MessageLoop* loop)
 {
     // acts as a private member variable for sampleFn.
-    rusage lastSample;
-    auto lastTime = Date();
+    double lastTimeSlept = 0.0;
 
     auto sampleFn = [=] (double elapsedTime) mutable {
-        auto sample = loop->getResourceUsage();
+        double timeSlept = loop->totalSleepSeconds();
+        double delta = std::min(timeSlept - lastTimeSlept, 1.0);
+        lastTimeSlept = timeSlept;
 
-        // get how much time elapsed since last time
-        auto now = Date::now();
-        auto dt = now.secondsSince(lastTime);
-
-        // first time?
-        if (lastTime == Date()) {
-            lastSample = sample;
-        }
-
-        lastTime = now;
-        auto sec = double(sample.ru_utime.tv_sec - lastSample.ru_utime.tv_sec)
-                 + double(sample.ru_stime.tv_sec - lastSample.ru_stime.tv_sec);
-        auto usec = double(sample.ru_utime.tv_usec - lastSample.ru_utime.tv_usec)
-                  + double(sample.ru_stime.tv_usec - lastSample.ru_stime.tv_usec);
-
-        auto load = sec + usec * 0.000001;
-        if (load >= dt) {
-            load = 1.0;
-        } else {
-            load /= dt;
-        }
-
-        lastSample = sample;
-        //std::cerr << "THREAD LOAD :" << load << std::endl;
-        return load;
+        return 1.0 - (delta / elapsedTime);
     };
 
     addCallback(name, sampleFn);

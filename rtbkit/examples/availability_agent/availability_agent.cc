@@ -56,7 +56,7 @@ start()
     serviceRunning = true;
 
     checker.reset(new AvailabilityCheck(ringBufferSize));
-    checker->onEvent = [&](const string& ev, EventType type, float val) {
+    checker->onEvent = [&](const string& ev, StatEventType type, float val) {
         recordEvent(ev.c_str(), type, val);
 
         if (ev == "newRequests") ML::atomic_inc(stats.newRequests);

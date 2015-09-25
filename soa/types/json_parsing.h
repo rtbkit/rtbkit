@@ -815,8 +815,15 @@ void parseJson(Id * output, Context & context)
     using namespace std;
 
     if (context.isString()) {
-        Utf8String value = context.expectStringUtf8();
-        *output = Id(value.rawString());
+        char buffer[4096];
+        ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
+        if (realSize > -1) {
+            *output = Id(buffer, realSize);
+        }
+        else {
+            std::string value = context.expectStringAscii();
+            *output = Id(value);
+        }
         return;
     }
 

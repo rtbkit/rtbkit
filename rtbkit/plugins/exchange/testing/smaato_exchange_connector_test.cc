@@ -85,6 +85,7 @@ BOOST_AUTO_TEST_CASE( test_smaato )
 
     // Tell the router about the new exchange connector
     router.addExchange(connector);
+    router.initFilters();
 
     // This is our bidding agent, that actually calculates the bid price
     TestAgent agent(proxies, "BOB");

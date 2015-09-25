@@ -28,8 +28,8 @@ namespace RTBKIT {
 
 Creative::
 Creative(int width, int height, std::string name, int id, const std::string dealId)
-    : format(width, height), name(name), id(id), dealId(dealId)
-    , type(Type::Image)
+    : format(width, height), name(name), id(id), dealId(dealId),
+      fees(NullFees::createNullFees()), type(Type::Image)
 {
 }
 
@@ -80,6 +80,12 @@ fromJson(const Json::Value & val)
     languageFilter.fromJson(val["languageFilter"], "languageFilter");
     locationFilter.fromJson(val["locationFilter"], "locationFilter");
     exchangeFilter.fromJson(val["exchangeFilter"], "exchangeFilter");
+
+    if (val.isMember("fees")) {
+        fees = Fees::createFees(val["fees"]);
+    } else {
+        fees = NullFees::createNullFees();
+    }
 
     if (val.isMember("segmentFilter")){
         Json::Value segs = val["segmentFilter"];
@@ -137,6 +143,10 @@ toJson() const
     if (!dealId.empty())
         result["dealId"] = dealId;
 
+    if (fees) {
+        result["fees"] = fees->toJson();
+    }
+
     if (type == Type::Video) {
         result["duration"] = duration;
         result["bitrate"] = bitrate;
@@ -157,6 +167,7 @@ Creative::
 compatible(const AdSpot & adspot) const
 {
     return ((format.width == 0 && format.height == 0)
+            || adspot.formats.empty() // if no format was specified in bid request
             || adspot.formats.compatible(format));
 }
 

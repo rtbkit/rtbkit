@@ -10,6 +10,7 @@
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/banker/local_banker.h"
 #include "rtbkit/core/banker/split_banker.h"
+#include "rtbkit/core/banker/null_banker.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/process_stats.h"
 #include "soa/utils/print_utils.h"
@@ -130,7 +131,6 @@ init()
     LOG(print) << "winLoss pipe timeout is " << winLossPipeTimeout << std::endl;
     LOG(print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
-    slaveBanker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, POST_AUCTION, postAuctionLoop->serviceName());
         localBanker->init(localBankerUri);
@@ -146,14 +146,25 @@ init()
                 }
             }
         }
-        postAuctionLoop->addSource("local-banker", *localBanker);
+
+        slaveBanker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
         banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
-    } else if (localBanker && bankerChoice == "local") {
         postAuctionLoop->addSource("local-banker", *localBanker);
+        postAuctionLoop->addSource("slave-banker", *slaveBanker);
+
+    } else if (localBanker && bankerChoice == "local") {
         banker = localBanker;
+        postAuctionLoop->addSource("local-banker", *localBanker);
+
+    } else if (bankerChoice == "null") {
+        banker = make_shared<NullBanker>(true, postAuctionLoop->serviceName());
+
     } else {
+        slaveBanker = bankerArgs.makeBanker(proxies, postAuctionLoop->serviceName() + ".slaveBanker");
         banker = slaveBanker;
+        postAuctionLoop->addSource("slave-banker", *slaveBanker);
     }
+    postAuctionLoop->setBanker(banker);
 
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
@@ -164,8 +175,6 @@ init()
             LOG(print) << "analytics-uri is not in the config" << endl;
     }
 
-    postAuctionLoop->addSource("slave-banker", *slaveBanker);
-    postAuctionLoop->setBanker(banker);
     postAuctionLoop->bindTcp();
 
     if (!forwardAuctionsUri.empty())
@@ -184,7 +193,7 @@ PostAuctionRunner::
 shutdown()
 {
     postAuctionLoop->shutdown();
-    slaveBanker->shutdown();
+    if (slaveBanker) slaveBanker->shutdown();
     if (localBanker) localBanker->shutdown();
 }
 

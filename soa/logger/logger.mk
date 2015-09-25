@@ -17,8 +17,8 @@ $(eval $(call library,logger,$(LIBLOGGER_SOURCES),$(LIBLOGGER_LINK)))
 $(eval $(call nodejs_addon,logger,logger_js.cc filter_js.cc,logger js sigslot))
 
 LIBLOG_METRICS_SOURCES := \
-    kvp_logger_interface.cc kvp_logger_mongodb.cc easy_kvp_logger.cc logger_metrics_interface.cc \
-    logger_metrics_mongo.cc logger_metrics_term.cc
+    kvp_logger_interface.cc easy_kvp_logger.cc logger_metrics_interface.cc \
+    logger_metrics_term.cc
 
 LIBLOG_METRICS_LINK := \
     mongoclient boost_filesystem boost_program_options types

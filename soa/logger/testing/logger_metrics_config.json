@@ -1,7 +1,7 @@
 {
     "metricsLogger" : {
         "type"        : "mongo",
-        "failSafe"    : true,
+        "failSafe"    : false,
         "hostAndPort" : "localhost:28356",
         "database"    : "test",
         "user"        : "testuser",

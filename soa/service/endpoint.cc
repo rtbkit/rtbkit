@@ -117,7 +117,6 @@ spinup(int num_threads, bool synchronous)
 
     threadsActive_ = 0;
 
-    totalSleepTime.resize(num_threads, 1.0);
     resourceUsage.resize(num_threads);
 
     for (unsigned i = 0;  i < num_threads;  ++i) {
@@ -540,6 +539,7 @@ EndpointBase::
 doMinCtxSwitchPolling(int threadNum, int numThreads)
 {
     bool debug = false;
+    int epoch = 0;
     //debug = name() == "Backchannel";
     //debug = threadNum == 7;
 
@@ -602,6 +602,23 @@ doMinCtxSwitchPolling(int threadNum, int numThreads)
                  << endl;
         }
 
+        // sync with the loop monitor request
+        int i = resourceEpoch;
+        if(i != epoch) {
+            // query the kernel for performance metrics
+            rusage now;
+            getrusage(RUSAGE_THREAD, &now);
+
+            // if we're just started, assume we know nothing and don't update the usage
+            long s = now.ru_utime.tv_sec+now.ru_stime.tv_sec;
+            if(s > 1) {
+                std::lock_guard<std::mutex> guard(usageLock);
+                resourceUsage[threadNum] = now;
+            }
+
+            epoch = i;
+        }
+
         // Are we in our timeslice?
         if (/* forceInSlice
                || */(fracms >= myStartUs && fracms < myEndUs)) {
@@ -610,7 +627,6 @@ doMinCtxSwitchPolling(int threadNum, int numThreads)
             if (usToWait < 0 || usToWait > timesliceUs)
                 usToWait = timesliceUs;
 
-            totalSleepTime[threadNum] += double(usToWait) / 1000000.0;
             int numHandled = handleEvents(usToWait, 4, handleEvent,
                                           beforeSleep, afterSleep);
             if (debug && false)
@@ -641,7 +657,6 @@ doMinCtxSwitchPolling(int threadNum, int numThreads)
                     cerr << "sleeping for " << usToSleep << " micros" << endl;
 
                 double secToSleep = double(usToSleep) / 1000000.0;
-                totalSleepTime[threadNum] += secToSleep;
 
                 ML::sleep(secToSleep);
                 duty.notifyAfterSleep();

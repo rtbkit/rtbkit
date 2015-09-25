@@ -12,4 +12,4 @@ $(eval $(call test,rotating_file_logger_test,logger,manual boost))
 
 $(eval $(call vowscoffee_test,logger_metrics_interface_js_test,iloggermetricscpp))
 
-$(eval $(call test,logger_metrics_test,log_metrics mongo_tmp_server utils,manual boost))
+#$(eval $(call test,logger_metrics_test,log_metrics mongo_tmp_server utils,manual boost))

@@ -26,9 +26,10 @@
 
 using namespace ML;
 using namespace Datacratic;
-using namespace std;
+using namespace mongo;
 
-BOOST_AUTO_TEST_CASE( test_logger_metrics ) {
+BOOST_AUTO_TEST_CASE( test_logger_metrics )
+{
     Mongo::MongoTemporaryServer mongo;
     setenv("CONFIG", "logger/testing/logger_metrics_config.json", 1);
     shared_ptr<ILoggerMetrics> logger =
@@ -81,4 +82,57 @@ BOOST_AUTO_TEST_CASE( test_logger_metrics ) {
         mongo::BSONObj p = cursor->next();
         BOOST_CHECK_EQUAL(p["metrics"]["coco"]["sanchez"].Number(), 3);
     }
+
+    Json::Value v;
+    v["coco"] = 123;
+    logger->logMetrics(v);
+    v.clear();
+    v["expos"]["city"] = "baseball";
+    v["expos"]["sport"] = "montreal";
+    v["expos"]["players"][0] = "pedro";
+    v["expos"]["players"][1] = "mario";
+    v["expos"]["players"][2] = "octo";
+    logger->logProcess(v);
+
+    logger->logMeta({"octo"}, "sanchez");
+    logger->close();
+    
+    ML::sleep(2.0);
+
+    string objectIdStr = getenv("METRICS_PARENT_ID");
+    mongo::OID objectId(objectIdStr);
+    mongo::BSONObj where = BSON("_id" << objectId);
+    cursor = conn->query(database + ".metrics_test", where);
+
+    BOOST_CHECK(cursor->more());
+    {
+        mongo::BSONObj p = cursor->next();
+        cerr << p.toString() << endl;
+        // conn->remove(database + ".metrics_test", p, 1);
+        BOOST_CHECK_EQUAL(p["process"]["appName"].String(), "test_app");
+        BOOST_CHECK_EQUAL(p["metrics"]["coco"].Long(), 123);
+        BOOST_CHECK_EQUAL(p["meta"]["octo"].String(), "sanchez");
+        BOOST_CHECK_EQUAL(p["process"]["expos"]["city"].String(), "baseball");
+        BOOST_CHECK_EQUAL(p["process"]["expos"]["sport"].String(), "montreal");
+        //BSONObj bsonPlayers = BSON("process.expos.players" << players);
+        auto players = p.getFieldDotted("process.expos.players").Array();
+        BOOST_CHECK_EQUAL(players.size(), 3);
+        BOOST_CHECK_EQUAL(players[0].String(), "pedro");
+        BOOST_CHECK_EQUAL(players[1].String(), "mario");
+        BOOST_CHECK_EQUAL(players[2].String(), "octo");
+        BOOST_CHECK(p["process"]["endDate"].toString() != "EOO");
+        BOOST_CHECK(p["process"]["duration"].toString() != "EOO");
+    }
+
+    FILE * pipe = popen("echo -n $METRICS_PARENT_ID", "r");
+    ExcAssert(pipe != nullptr);
+    char buffer[128];
+    std::string result = "";
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != NULL)
+                result += buffer;
+    }
+    pclose(pipe);
+
+    BOOST_CHECK_EQUAL(objectIdStr, result);
 }

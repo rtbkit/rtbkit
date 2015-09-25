@@ -20,26 +20,28 @@ int main(int argc, char ** argv) {
     bool enableAllChannels = false;
 
     ChannelFilter channels(
-                { {"AUCTION",       false},
-                  {"ADSERVER_ERROR",false},
-                  {"BID",           false},
-                  {"CLICK",         false},
-                  {"CONFIG",        false},
-                  {"CONVERSION",    false},
-                  {"ERROR",         false},
-                  {"EXCHANGE_ERROR",false},
-                  {"MATCHEDCLICK",  false},
-                  {"MATCHEDLOSS",   false},
-                  {"MATCHEDWIN",    false},
-                  {"NOBUDGET",      false},
-                  {"PAERROR",       false},
-                  {"SUBMITTED",     false},
-                  {"TOOLATE",       false},
-                  {"UNMATCHEDWIN",  false},
-                  {"UNMATCHEDLOSS", false},
-                  {"UNMATCHEDCLICK",false},
-                  {"USAGE",         false},
-                  {"WIN",           false}
+                { {"AUCTION",               false},
+                  {"ADSERVER_ERROR",        false},
+                  {"BID",                   false},
+                  {"CLICK",                 false},
+                  {"CONFIG",                false},
+                  {"CONVERSION",            false},
+                  {"ERROR",                 false},
+                  {"EXCHANGE_ERROR",        false},
+                  {"MATCHEDCLICK",          false},
+                  {"MATCHEDLOSS",           false},
+                  {"MATCHEDWIN",            false},
+                  {"MATCHEDCONVERSION",     false},
+                  {"NOBUDGET",              false},
+                  {"PAERROR",               false},
+                  {"SUBMITTED",             false},
+                  {"TOOLATE",               false},
+                  {"UNMATCHEDWIN",          false},
+                  {"UNMATCHEDLOSS",         false},
+                  {"UNMATCHEDCLICK",        false},
+                  {"UNMATCHEDCONVERSION",   false},
+                  {"USAGE",                 false},
+                  {"WIN",                   false}
                 } );
 
     options_description configuration_options("Configuration options");

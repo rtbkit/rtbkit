@@ -107,7 +107,6 @@ struct EndpointBase : public Epoller {
     /** Total number of seconds that this message loop has spent sleeping.
         Can be polled regularly to determine the duty cycle of the loop.
      */
-    std::vector<double> totalSleepSeconds() const { return totalSleepTime; }
     std::vector<rusage> getResourceUsage() const {
         resourceEpoch++;
         std::vector<rusage> result;

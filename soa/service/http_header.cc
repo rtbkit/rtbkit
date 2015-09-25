@@ -163,9 +163,6 @@ expectUrlEncodedString(ML::Parse_Context & context,
             }
             result += code;
         }
-        else if (c == '+') {
-            result += ' ';
-        }
         else {
             result += c;
         }

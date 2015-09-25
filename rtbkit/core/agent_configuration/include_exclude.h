@@ -450,17 +450,23 @@ struct IncludeExclude {
                                     name.c_str(), jt.memberName().c_str());
             
             const Json::Value & val = *jt;
-            for (unsigned i = 0;  i != val.size();  ++i) {
-                try {
-                    T t;
-                    jsonParse(val[i], t);
-                    if (jt.memberName() == "include")
-                        result.include.push_back(t);
-                    else result.exclude.push_back(t);
-                } catch (...) {
-                    throw ML::Exception("error parsing include/exclude %s in %s",
-                                        val[i].toString().c_str(), name.c_str());
+            if(!val.isNull() && val.isArray()) {
+
+                for (unsigned i = 0;  i != val.size();  ++i) {
+                    try {
+                        T t;
+                        jsonParse(val[i], t);
+                        if (jt.memberName() == "include")
+                            result.include.push_back(t);
+                        else result.exclude.push_back(t);
+                    } catch (...) {
+                        throw ML::Exception("error parsing include/exclude %s in %s",
+                                            val[i].toString().c_str(), name.c_str());
+                    }
                 }
+            }else {
+                throw ML::Exception("error parsing include/exclude : "
+                        "include/exclude must be an array");
             }
         }
 

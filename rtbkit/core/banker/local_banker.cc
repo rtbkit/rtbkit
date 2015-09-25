@@ -508,7 +508,7 @@ getProviderIndicators() const
     Date now = Date::now();
 
     std::lock_guard<std::mutex> guard(syncMtx);
-    bool syncOk = now < lastSync.plusSeconds(syncRate*2) ||
+    bool syncOk = now < lastSync.plusSeconds(syncRate*4) ||
                   now < lastReauth.plusSeconds(reauthRate*2);
 
     MonitorIndicator ind;

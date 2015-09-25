@@ -5,7 +5,6 @@
    RTB router code.
 */
 
-#include <set>
 #include <atomic>
 #include "router.h"
 #include "soa/service/zmq_utils.h"
@@ -118,8 +117,7 @@ Router(ServiceBase & parent,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       Seconds augmentationWindow,
-       Json::Value filtersConfig)
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -157,8 +155,7 @@ Router(ServiceBase & parent,
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance),
-      augmentationWindow(augmentationWindow),
-      filtersConfig(filtersConfig)
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -174,8 +171,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
        Amount slowModeAuthorizedMoneyLimit,
-       Seconds augmentationWindow,
-       Json::Value filtersConfig)
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -213,8 +209,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
       slowModeTolerance(MonitorClient::DefaultTolerance),
-      augmentationWindow(augmentationWindow),
-      filtersConfig(filtersConfig)
+      augmentationWindow(augmentationWindow)
 
 {
     monitorProviderClient.addProvider(this);
@@ -238,6 +233,50 @@ initAnalytics(const string & baseUrl, const int numConnections)
 
 void
 Router::
+initExchanges(const Json::Value & config) {
+    for (auto & exchange: config) {
+        initExchange(exchange);
+    }
+}
+
+void
+Router::
+initExchange(const std::string & type,
+              const Json::Value & config)
+{
+    auto exchange = ExchangeConnector::create(type, *this, type);
+    exchange->configure(config);
+
+    std::shared_ptr<ExchangeConnector> item(exchange.release());
+    addExchangeNoConnect(item);
+
+    exchangeBuffer.push(item);
+}
+
+void
+Router::
+initExchange(const Json::Value & exchangeConfig)
+{
+    std::string exchangeType = exchangeConfig["exchangeType"].asString();
+    initExchange(exchangeType, exchangeConfig);
+}
+
+void
+Router::
+initFilters(const Json::Value & config) {
+
+    if (config != Json::Value::null) {
+        if (!config.isArray()) {
+         throw Exception("couldn't parse formats other then array");
+        }
+       filters.initWithFiltersFromJson(config);
+    } else {
+        filters.initWithDefaultFilters();
+    }
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -245,15 +284,6 @@ init()
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
     filters.init(this);
-
-    if (filtersConfig != Json::Value::null){
-        if (!filtersConfig.isArray()){
-         throw Exception("couldn't parse formats other then array");
-        }
-       filters.initWithFiltersFromJson(filtersConfig);
-    }
-    else
-        filters.initWithDefaultFilters();
 
     banker.reset(new NullBanker());
 
@@ -414,6 +444,11 @@ start(boost::function<void ()> onStop)
             this->run();
             if (onStop) onStop();
         };
+
+    for ( auto & exchange : exchanges) {
+        exchange->start();
+        connectExchange(*exchange);
+    }
 
     bidder->start();
     logger.start();
@@ -961,14 +996,8 @@ logUsageMetrics(double period)
         }
     }
 
-    set<AccountKey> agentAccounts;
     for (const auto & item : agents) {
         auto & info = item.second;
-        const AccountKey & account = info.config->account;
-        if (!agentAccounts.insert(account).second) {
-            continue;
-        }
-
         auto & last = lastAgentUsageMetrics[item.first];
 
         AgentUsageMetrics newMetrics(info.stats->intoFilters,
@@ -2047,13 +2076,13 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             cerr << "creative not compatible with spot: " << endl;
             cerr << "auction: " << auctionInfo.auction->requestStr
                 << endl;
-            cerr << "config: " << config.toJson() << endl;
+            cerr << "config: " << config.toJson().toStringNoNewLine() << endl;
             cerr << "bid: " << bidsString << endl;
-            cerr << "spot: " << imp[i].toJson() << endl;
+            cerr << "spot: " << imp[i].toJson().toStringNoNewLine() << endl;
             cerr << "spot num: " << spotIndex << endl;
             cerr << "bid num: " << i << endl;
             cerr << "creative num: " << bid.creativeIndex << endl;
-            cerr << "creative: " << creative.toJson() << endl;
+            cerr << "creative: " << creative.toJson().toStringNoNewLine() << endl;
 #endif
             returnInvalidBid(agent, bidsString, auctionInfo.auction,
                     "creativeNotCompatibleWithSpot",
@@ -2101,7 +2130,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     slowModePeriodicSpentReached = true;
                     bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
                     recordHit("slowMode.droppedBid");
-                    recordHit("accounts.%s.DROPPED", config.account.toString('.'));
+                    recordHit("accounts.%s.IGNORED", config.account.toString('.'));
                 continue;
                 }
             }
@@ -2564,11 +2593,15 @@ doConfig(const std::string & agent,
     RouterProfiler profiler(dutyCycleCurrent.nsConfig);
 
     if (!config) {
-        cerr << "agent " << agent << " lost configuration" << endl;
-        filters.removeConfig(agent);
         auto it = agents.find(agent);
-        ExcAssert(it != std::end(agents));
-        agents.erase(it);
+        // It might happen that we don't find the agent if for example we received
+        // an empty configuration because the agent crashed prior to sending its initial
+        // configuration to the ACS.
+        if (it != std::end(agents)) {
+            cerr << "agent " << agent << " lost configuration" << endl;
+            filters.removeConfig(agent);
+            agents.erase(it);
+        }
     } else {
         AgentInfo & info = agents[agent];
         logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
@@ -2967,30 +3000,6 @@ getProviderIndicators()
         + "Banker: " + (bankerOk ? "OK": "ERROR");
 
     return ind;
-}
-
-void
-Router::
-startExchange(const std::string & type,
-              const Json::Value & config)
-{
-    auto exchange = ExchangeConnector::create(type, *this, type);
-    exchange->configure(config);
-    exchange->start();
-
-    std::shared_ptr<ExchangeConnector> item(exchange.release());
-    addExchange(item);
-
-    exchangeBuffer.push(item);
-
-}
-
-void
-Router::
-startExchange(const Json::Value & exchangeConfig)
-{
-    std::string exchangeType = exchangeConfig["exchangeType"].asString();
-    startExchange(exchangeType, exchangeConfig);
 }
 
 

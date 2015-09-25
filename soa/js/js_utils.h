@@ -89,12 +89,12 @@ v8::Handle<v8::Value> injectBacktrace(v8::Handle<v8::Value> value);
     exceptions. */
 #define HANDLE_JS_EXCEPTIONS                                    \
     catch (...) {                                               \
-        return Datacratic::JS::translateCurrentException();     \
+        return translateCurrentException();                     \
     }
 
 #define HANDLE_JS_EXCEPTIONS_SETTER                             \
     catch (...) {                                               \
-        Datacratic::JS::translateCurrentException();            \
+        translateCurrentException();                            \
         return;                                                 \
     }
 

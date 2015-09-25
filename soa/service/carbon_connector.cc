@@ -116,15 +116,15 @@ StatAggregator * createNewLevel()
     return new GaugeAggregator(GaugeAggregator::Level);
 }
 
-StatAggregator * createNewOutcome(const std::vector<int>& percentiles)
+StatAggregator * createNewOutcome(std::vector<int> percentiles)
 {
-    return new GaugeAggregator(GaugeAggregator::Outcome, percentiles);
+    return new GaugeAggregator(GaugeAggregator::Outcome, std::move(percentiles));
 }
 
 void
 MultiAggregator::
 record(const std::string & stat,
-       EventType type,
+       StatEventType type,
        float value,
        std::initializer_list<int> extra)
 {
@@ -180,9 +180,9 @@ recordLevel(const std::string & stat, float value)
 void
 MultiAggregator::
 recordOutcome(const std::string & stat, float value,
-              const std::vector<int>& percentiles)
+              std::vector<int> percentiles)
 {
-    getAggregator(stat, createNewOutcome, percentiles).record(value);
+    getAggregator(stat, createNewOutcome, std::move(percentiles)).record(value);
 }
 
 

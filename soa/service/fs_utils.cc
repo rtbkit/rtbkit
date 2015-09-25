@@ -343,16 +343,4 @@ dirName(const std::string & filename)
     return dirname;
 }
 
-/****************************************************************************/
-/* FILE COMMITER                                                            */
-/****************************************************************************/
-
-FileCommiter::
-~FileCommiter()
-{
-    if (!commited_) {
-        tryEraseUriObject(fileUrl_);
-    }
-}
-
 } // namespace Datacratic

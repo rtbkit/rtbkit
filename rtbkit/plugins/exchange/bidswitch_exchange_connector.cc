@@ -362,6 +362,18 @@ parseBidRequest(HttpAuctionHandler & connection,
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.2")->parseBidRequest(context, exchangeName(), exchangeName()));
 
+    //Parsing "ssp" filed
+    if (res!=nullptr){
+        std::string exchange;
+        if (res->ext.isMember("ssp")) {
+            exchange =res->ext["ssp"].asString();
+        }
+        else {
+            exchange = exchangeName();
+        }
+        res->exchange = std::move(exchange);
+    }
+
     return res;
 }
 

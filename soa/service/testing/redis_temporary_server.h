@@ -31,8 +31,10 @@ struct RedisTemporaryServer : boost::noncopyable {
         using namespace std;
         if (uniquePath == "") {
             ML::Env_Option<std::string> tmpDir("TMP", "./tmp");
+            std::string dir = tmpDir;
+            if(dir[0] == '/') dir.insert(0, 1, '.');
             uniquePath = ML::format("%s/redis-temporary-server-%d-%d",
-                                    tmpDir.get(), getpid(), index);
+                                    dir, getpid(), index);
             cerr << "starting redis temporary server under unique path "
                  << uniquePath << endl;
         }
@@ -51,8 +53,7 @@ struct RedisTemporaryServer : boost::noncopyable {
         using namespace std;
 
         // Check the unique path
-        if (uniquePath == "" || uniquePath[0] == '/' || uniquePath == "."
-            || uniquePath == "..")
+        if (uniquePath.empty() || uniquePath == "."  || uniquePath == "..")
             throw ML::Exception("unacceptable unique path");
 
         // 1.  Create the directory

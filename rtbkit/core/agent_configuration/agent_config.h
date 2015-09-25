@@ -15,6 +15,7 @@
 #include <boost/regex/icu.hpp>
 #include "rtbkit/common/bid_request.h"
 #include "include_exclude.h"
+#include "fees.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/core/agent_configuration/latlonrad.h"
 
@@ -96,6 +97,9 @@ struct Creative {
     // Needed for PMP filter
     std::string dealId;
 
+    // Fees
+    shared_ptr<Fees> fees;
+
     struct SegmentInfo {
 
         SegmentInfo() : excludeIfNotPresent(false){}
@@ -135,6 +139,7 @@ private:
     Type type;
 
     std::string typeString() const;
+
 };
 
 

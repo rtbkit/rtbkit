@@ -78,6 +78,7 @@ run()
 
         // Tell the router about the new exchange connector
         router.addExchange(connector1);
+        router.initFilters();
         ML::sleep(1.0);
 
         // prepare request

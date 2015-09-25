@@ -15,8 +15,9 @@
 #include <sys/epoll.h>
 
 #include <exception>
-#include <map>
 #include <functional>
+#include <map>
+#include <mutex>
 
 #include "soa/service/async_event_source.h"
 
@@ -46,7 +47,7 @@ struct EpollLoop : public AsyncEventSource
     typedef std::function<void (const ::epoll_event &)> EpollCallback;
 
     EpollLoop(const OnException & onException);
-    ~EpollLoop();
+    virtual ~EpollLoop();
 
     /* AsyncEventSource interface */
     virtual int selectFd() const
@@ -92,7 +93,7 @@ struct EpollLoop : public AsyncEventSource
 
     /* Remove a file descriptor from the internal epoll queue. If
      * "unregisterCallback" is specified, "unregisterFdCallback" will be
-     * specified on the given fd, in delayed mode. */
+     * called on the given fd, in delayed mode. */
     void removeFd(int fd, bool unregisterCallback = false);
 
     /* Associate a callback with a file descriptor for future epoll
@@ -122,6 +123,7 @@ private:
     int epollFd_;
     size_t numFds_;
 
+    std::mutex callbackLock_;
     std::map<int, EpollCallback> fdCallbacks_;
     std::map<int, OnUnregistered> delayedUnregistrations_;
 

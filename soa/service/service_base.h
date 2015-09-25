@@ -48,7 +48,7 @@ struct EventService {
     
     virtual void onEvent(const std::string & name,
                          const char * event,
-                         EventType type,
+                         StatEventType type,
                          float value,
                          std::initializer_list<int> extra = DefaultOutcomePercentiles) = 0;
 
@@ -72,7 +72,7 @@ struct NullEventService : public EventService {
     
     virtual void onEvent(const std::string & name,
                          const char * event,
-                         EventType type,
+                         StatEventType type,
                          float value,
                          std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
@@ -98,7 +98,7 @@ struct CarbonEventService : public EventService {
 
     virtual void onEvent(const std::string & name,
                          const char * event,
-                         EventType type,
+                         StatEventType type,
                          float value,
                          std::initializer_list<int> extra = std::initializer_list<int>());
 
@@ -471,7 +471,7 @@ struct EventRecorder {
         units:     the units of the event (eg, ms).  Default is unitless.
     */
     void recordEvent(const char * eventName,
-                     EventType type = ET_COUNT,
+                     StatEventType type = ET_COUNT,
                      float value = 1.0,
                      std::initializer_list<int> extra = DefaultOutcomePercentiles) const
     {
@@ -488,7 +488,7 @@ struct EventRecorder {
         es->onEvent(eventPrefix_, eventName, type, value, extra);
     }
 
-    void recordEventFmt(EventType type,
+    void recordEventFmt(StatEventType type,
                         float value,
                         std::initializer_list<int> extra,
                         const char * fmt, ...) const JML_FORMAT_STRING(5, 6);

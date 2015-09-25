@@ -91,15 +91,15 @@ int main(int argc, char ** argv)
     // bid.
     router.setBanker(std::make_shared<NullBanker>(true));
 
+    // Configure exchange connectors
+    Json::Value exchangeConfiguration = loadJsonFromFile(exchangeConfigurationFile);
+    router.initExchanges(exchangeConfiguration);
+    router.initFilters();
+
     // Start the router up
     router.bindTcp();
     router.start();
 
-    // Configure exchange connectors
-    Json::Value exchangeConfiguration = loadJsonFromFile(exchangeConfigurationFile);
-    for(auto & exchange : exchangeConfiguration) {
-        router.startExchange(exchange);
-    }
 
     router.forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
         item->enableUntil(Date::positiveInfinity());

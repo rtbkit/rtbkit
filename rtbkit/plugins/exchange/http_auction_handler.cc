@@ -260,7 +260,7 @@ onCleanup()
 void
 HttpAuctionHandler::
 doEvent(const char * eventName,
-        EventType type,
+        StatEventType type,
         float value,
         const char * units,
         std::initializer_list<int> extra)

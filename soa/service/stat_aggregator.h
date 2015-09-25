@@ -99,7 +99,7 @@ struct GaugeAggregator : public StatAggregator {
     };
 
     GaugeAggregator(Verbosity  verbosity = Outcome,
-            const std::vector<int>& extra = DefaultOutcomePercentiles);
+            std::vector<int> extra = DefaultOutcomePercentiles);
 
     virtual ~GaugeAggregator();
 

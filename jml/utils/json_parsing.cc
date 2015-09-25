@@ -194,6 +194,106 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
     return result;
 }
 
+std::string expectJsonString(Parse_Context & context)
+{
+    skipJsonWhitespace(context);
+    context.expect_literal('"');
+
+    char internalBuffer[4096];
+
+    char * buffer = internalBuffer;
+    size_t bufferSize = 4096;
+    size_t pos = 0;
+
+    auto encode = [&] (int code, unsigned pos, uint32_t mask, uint32_t head) -> char {
+        return ((code >> (6 * pos)) & mask) | head;
+    };
+
+    // Try multiple times to make it fit
+    while (!context.match_literal('"')) {
+
+        int c = *context++;
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                c = context.expect_hex4();
+                break;
+            }
+            default:
+                context.exception("invalid escaped char");
+            }
+        }
+
+        if ((pos + 6) == bufferSize) {
+            size_t newBufferSize = bufferSize * 8;
+            char * newBuffer = new char[newBufferSize];
+
+            std::copy(buffer, buffer + bufferSize, newBuffer);
+
+            if (buffer != internalBuffer)
+                delete[] buffer;
+
+            buffer = newBuffer;
+            bufferSize = newBufferSize;
+        }
+
+        if (c <= 0x7f) {
+            buffer[pos++] = (char) c;
+        }
+
+        else if (c <= 0x7FF) {
+            buffer[pos++] = encode(c, 1, 0x1F, 0xC0);
+            buffer[pos++] = encode(c, 0, 0x3F, 0x80);
+        }
+
+        else if (c <= 0xFFFF) {
+            buffer[pos++] = encode(c, 2, 0x0F, 0xE0);
+            buffer[pos++] = encode(c, 1, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 0, 0x3F, 0x80);
+        }
+
+        else if (c <= 0x1FFFFF) {
+            buffer[pos++] = encode(c, 3, 0x07, 0xF0);
+            buffer[pos++] = encode(c, 2, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 1, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 0, 0x3F, 0x80);
+        }
+
+        else if (c <= 0x3FFFFFFF) {
+            buffer[pos++] = encode(c, 4, 0x03, 0xF8);
+            buffer[pos++] = encode(c, 3, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 2, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 1, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 0, 0x3F, 0x80);
+        }
+
+        else {
+            buffer[pos++] = encode(c, 5, 0x01, 0xFC);
+            buffer[pos++] = encode(c, 4, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 3, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 2, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 1, 0x3F, 0x80);
+            buffer[pos++] = encode(c, 0, 0x3F, 0x80);
+        }
+    }
+
+    string result(buffer, buffer + pos);
+
+    if (buffer != internalBuffer)
+        delete[] buffer;
+
+    return result;
+}
+
 ssize_t expectJsonStringAscii(Parse_Context & context, char * buffer, size_t maxLength)
 {
     skipJsonWhitespace(context);
@@ -361,7 +461,7 @@ expectJsonObject(Parse_Context & context,
     for (;;) {
         skipJsonWhitespace(context);
 
-        string key = expectJsonStringAscii(context);
+        string key = expectJsonString(context);
 
         skipJsonWhitespace(context);
 
@@ -437,7 +537,7 @@ matchJsonObject(Parse_Context & context,
     for (;;) {
         skipJsonWhitespace(context);
 
-        string key = expectJsonStringAscii(context);
+        string key = expectJsonString(context);
 
         skipJsonWhitespace(context);
         if (!context.match_literal(':')) return false;

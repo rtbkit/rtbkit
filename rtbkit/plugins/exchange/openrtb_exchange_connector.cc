@@ -155,6 +155,7 @@ parseBidRequest(HttpAuctionHandler & connection,
         result.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory(openRtbVersion)->parseBidRequest(context,
                                                                                               exchangeName(),
                                                                                               exchangeName()));
+        result->protocolVersion = openRtbVersion;
     }
     catch(ML::Exception const & e) {
         this->recordHit("error.parsingBidRequest");

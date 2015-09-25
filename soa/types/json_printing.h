@@ -63,7 +63,10 @@ struct JsonPrintingContext {
 struct StreamJsonPrintingContext
     : public JsonPrintingContext {
 
-    StreamJsonPrintingContext(std::ostream & stream);
+    StreamJsonPrintingContext(std::ostream & stream)
+        : stream(stream), writeUtf8(true)
+    {
+    }
 
     std::ostream & stream;
     bool writeUtf8;          ///< If true, utf8 chars in binary.  False: escaped ASCII
@@ -81,45 +84,125 @@ struct StreamJsonPrintingContext
 
     std::vector<PathEntry> path;
 
-    virtual void startObject();
+    virtual void startObject()
+    {
+        path.push_back(true /* isObject */);
+        stream << "{";
+    }
 
-    virtual void startMember(const std::string & memberName);
+    virtual void startMember(const std::string & memberName)
+    {
+        ExcAssert(path.back().isObject);
+        //path.back().memberName = memberName;
+        ++path.back().memberNum;
+        if (path.back().memberNum != 0)
+            stream << ",";
+        stream << '\"';
+        ML::jsonEscape(memberName, stream);
+        stream << "\":";
+    }
 
-    virtual void endObject();
+    virtual void endObject()
+    {
+        ExcAssert(path.back().isObject);
+        path.pop_back();
+        stream << "}";
+    }
 
-    virtual void startArray(int knownSize = -1);
+    virtual void startArray(int knownSize = -1)
+    {
+        path.push_back(false /* isObject */);
+        stream << "[";
+    }
 
-    virtual void newArrayElement();
+    virtual void newArrayElement()
+    {
+        ExcAssert(!path.back().isObject);
+        ++path.back().memberNum;
+        if (path.back().memberNum != 0)
+            stream << ",";
+    }
 
-    virtual void endArray();
+    virtual void endArray()
+    {
+        ExcAssert(!path.back().isObject);
+        path.pop_back();
+        stream << "]";
+    }
     
-    virtual void skip();
+    virtual void skip()
+    {
+        stream << "null";
+    }
 
-    virtual void writeNull();
+    virtual void writeNull()
+    {
+        stream << "null";
+    }
 
-    virtual void writeInt(int i);
+    virtual void writeInt(int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeUnsignedInt(unsigned int i);
+    virtual void writeUnsignedInt(unsigned int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeLong(long int i);
+    virtual void writeLong(long int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeUnsignedLong(unsigned long int i);
+    virtual void writeUnsignedLong(unsigned long int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeLongLong(long long int i);
+    virtual void writeLongLong(long long int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeUnsignedLongLong(unsigned long long int i);
+    virtual void writeUnsignedLongLong(unsigned long long int i)
+    {
+        stream << i;
+    }
 
-    virtual void writeFloat(float f);
+    virtual void writeFloat(float f)
+    {
+        if (std::isfinite(f))
+            stream << f;
+        else stream << "\"" << f << "\"";
+    }
 
-    virtual void writeDouble(double d);
+    virtual void writeDouble(double d)
+    {
+        if (std::isfinite(d))
+            stream << d;
+        else stream << "\"" << d << "\"";
+    }
 
-    virtual void writeString(const std::string & s);
+    virtual void writeString(const std::string & s)
+    {
+        stream << '\"';
+        ML::jsonEscape(s, stream);
+        stream << '\"';
+    }
 
     virtual void writeStringUtf8(const Utf8String & s);
 
-    virtual void writeJson(const Json::Value & val);
+    virtual void writeJson(const Json::Value & val)
+    {
+        stream << val.toStringNoNewLine();
+    }
 
-    virtual void writeBool(bool b);
+    virtual void writeBool(bool b)
+    {
+        stream << (b ? "true": "false");
+    }
+
 };
 
 
@@ -135,49 +218,115 @@ struct StructuredJsonPrintingContext
     Json::Value output;
     Json::Value * current;
 
-    StructuredJsonPrintingContext();
+    StructuredJsonPrintingContext()
+        : current(&output)
+    {
+    }
 
     std::vector<Json::Value *> path;
 
-    virtual void startObject();
+    virtual void startObject()
+    {
+        *current = Json::Value(Json::objectValue);
+        path.push_back(current);
+    }
 
-    virtual void startMember(const std::string & memberName);
+    virtual void startMember(const std::string & memberName)
+    {
+        current = &(*path.back())[memberName];
+    }
 
-    virtual void endObject();
+    virtual void endObject()
+    {
+        path.pop_back();
+    }
 
-    virtual void startArray(int knownSize = -1);
+    virtual void startArray(int knownSize = -1)
+    {
+        *current = Json::Value(Json::arrayValue);
+        path.push_back(current);
+    }
 
-    virtual void newArrayElement();
+    virtual void newArrayElement()
+    {
+        Json::Value & b = *path.back();
+        current = &b[b.size()];
+    }
 
-    virtual void endArray();
+    virtual void endArray()
+    {
+        path.pop_back();
+    }
     
-    virtual void skip();
+    virtual void skip()
+    {
+        *current = Json::Value();
+    }
 
-    virtual void writeNull();
+    virtual void writeNull()
+    {
+        *current = Json::Value();
+    }
 
-    virtual void writeInt(int i);
+    virtual void writeInt(int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeUnsignedInt(unsigned int i);
+    virtual void writeUnsignedInt(unsigned int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeLong(long int i);
+    virtual void writeLong(long int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeUnsignedLong(unsigned long int i);
+    virtual void writeUnsignedLong(unsigned long int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeLongLong(long long int i);
+    virtual void writeLongLong(long long int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeUnsignedLongLong(unsigned long long int i);
+    virtual void writeUnsignedLongLong(unsigned long long int i)
+    {
+        *current = i;
+    }
 
-    virtual void writeFloat(float f);
+    virtual void writeFloat(float f)
+    {
+        *current = f;
+    }
 
-    virtual void writeDouble(double d);
+    virtual void writeDouble(double d)
+    {
+        *current = d;
+    }
 
-    virtual void writeString(const std::string & s);
+    virtual void writeString(const std::string & s)
+    {
+        *current = s;
+    }
 
-    virtual void writeStringUtf8(const Utf8String & s);
+    virtual void writeStringUtf8(const Utf8String & s)
+    {
+        *current = s;
+    }
 
-    virtual void writeJson(const Json::Value & val);
+    virtual void writeJson(const Json::Value & val)
+    {
+        *current = val;
+    }
 
-    virtual void writeBool(bool b);
+    virtual void writeBool(bool b)
+    {
+        *current = b;
+    }
 };
 
 } // namespace Datacratic

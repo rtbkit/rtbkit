@@ -10,7 +10,7 @@
 
 namespace Datacratic {
 
-enum EventType {
+enum StatEventType {
     ET_HIT,          ///< Represents an extra count on a counter
     ET_COUNT,        ///< Represents an extra value accumulated
     ET_STABLE_LEVEL, ///< Represents the current level of a stable something

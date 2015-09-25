@@ -76,8 +76,7 @@ void MongoTemporaryServer::testConnection() {
 void MongoTemporaryServer::start() {
     namespace fs = boost::filesystem;
     // Check the unique path
-    if (uniquePath_ == "" || uniquePath_[0] == '/' || uniquePath_ == "."
-            || uniquePath_ == "..") {
+    if (uniquePath_.empty() || uniquePath_ == "." || uniquePath_ == "..") {
         throw ML::Exception("unacceptable unique path");
     }
 
@@ -85,15 +84,18 @@ void MongoTemporaryServer::start() {
 
     // First check that it doesn't exist
     struct stat stats;
-    int res = stat(uniquePath_.c_str(), &stats);
-    if (res != -1 || (errno != EEXIST && errno != ENOENT)) {
-        throw ML::Exception(errno, "unique path " + uniquePath_
-                            + " already exists");
+    int res = ::stat(uniquePath_.c_str(), &stats);
+    if (res == -1) {
+        if (errno != EEXIST && errno != ENOENT) {
+            throw ML::Exception(errno, "unhandled exception");
+        }
+    } else if (res == 0) {
+        throw ML::Exception("unique path " + uniquePath_ + " already exists");
     }
+
     cerr << "creating directory " << uniquePath_ << endl;
-    if(!fs::create_directory(fs::path(uniquePath_))) {
-        throw ML::Exception(
-            "could not create unique path %s",uniquePath_.c_str());
+    if (!fs::create_directories(fs::path(uniquePath_))) {
+        throw ML::Exception("could not create unique path " + uniquePath_);
     }
 
     socketPath_ = uniquePath_ + "/mongo-socket";

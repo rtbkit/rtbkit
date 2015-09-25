@@ -92,7 +92,7 @@ status() const
 void
 ChunkedHttpHandler::
 doEvent(const char * eventName,
-        EventType type,
+        StatEventType type,
         float value,
         const char * units)
 {

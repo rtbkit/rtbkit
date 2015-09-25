@@ -87,7 +87,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         \param meta A json blob that will be returned as is in the bid result.
         \param wcm win cost model for this bid.
      */
-    void doBid(Id id, const Bids& bids,
+    void doBid(Id id, Bids bids,
                       const Json::Value& meta = Json::Value(),
                       const WinCostModel& wmc = WinCostModel());
 
@@ -286,6 +286,7 @@ private:
      */
     std::mutex configLock;
     std::string config; // The agent's configuration.
+    AgentConfig agent_config;
 
     void sendConfig(const std::string& newConfig = "");
 

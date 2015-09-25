@@ -58,25 +58,14 @@ BOOST_AUTO_TEST_CASE(test1)
     BOOST_CHECK_EQUAL(h.size(), 2);
     BOOST_CHECK(h.capacity() >= 2);
 
-    h[0] = 0;
-
-    BOOST_CHECK_EQUAL(h[0], 0);
-    BOOST_CHECK_EQUAL(h[1], 1);
-    BOOST_CHECK_EQUAL(h[2], 2);
-    BOOST_CHECK_EQUAL(h.size(), 3);
-    BOOST_CHECK_GE(h.capacity(), 2);
-
     h.reserve(1024);
-    BOOST_CHECK_EQUAL(h[0], 0);
     BOOST_CHECK_EQUAL(h[1], 1);
     BOOST_CHECK_EQUAL(h[2], 2);
-    BOOST_CHECK_EQUAL(h.size(), 3);
+    BOOST_CHECK_EQUAL(h.size(), 2);
     BOOST_CHECK(h.capacity() >= 2);
 
-    BOOST_CHECK_EQUAL(++++++h.begin(), h.end());
+    BOOST_CHECK_EQUAL(++++h.begin(), h.end());
 }
-
-#if 1
 
 // TODO: use live counting object to check that everything works OK
 
@@ -90,6 +79,12 @@ struct Entry {
 std::ostream & operator << (std::ostream & stream, Entry entry)
 {
     return stream << "Entry";
+}
+
+BOOST_AUTO_TEST_CASE(test2)
+{
+    Lightweight_Hash<void *, Entry> h;
+    BOOST_CHECK_THROW(h[(void *)0].p1, ML::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test3)
@@ -119,8 +114,6 @@ BOOST_AUTO_TEST_CASE(test3)
 
     for (unsigned j = 0;  j < nobj;  ++j)
         free(objects[j]);
-
-    cerr << "done test 3" << endl;
 }
 
 BOOST_AUTO_TEST_CASE(test3_log)
@@ -198,5 +191,3 @@ BOOST_AUTO_TEST_CASE(test_set)
     BOOST_CHECK_EQUAL_COLLECTIONS(objects.begin(), objects.end(),
                                   obj3.begin(), obj3.end());
 }
-
-#endif

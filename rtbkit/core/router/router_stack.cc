@@ -70,6 +70,7 @@ init()
     postAuctionLoop.bindTcp();
 
     router.init();
+    router.initFilters();
     router.setBanker(makeSlaveBanker("router"));
     router.bindTcp();
 

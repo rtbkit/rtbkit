@@ -83,14 +83,13 @@ struct BidStack {
         }
 
         services.router->setBanker(services.banker);
+
+        services.router->initExchanges(routerConfig);
+        services.router->initFilters();
+
         // Start the router up
         services.router->bindTcp();
         services.router->start();
-
-        // Configure exchange connectors
-        for(auto & exchange : routerConfig) {
-            services.router->startExchange(exchange);
-        }
 
         std::string mock = "{\"workers\":[";
 

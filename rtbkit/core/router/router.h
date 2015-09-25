@@ -113,8 +113,7 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5),
-           Json::Value filtersConfig =  Json::Value::null);
+           Seconds augmentationWindow = std::chrono::milliseconds(5));
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -126,8 +125,7 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5),
-           Json::Value filtersConfig = Json::Value::null);
+           Seconds augmentationWindow = std::chrono::milliseconds(5));
 
     ~Router();
 
@@ -149,8 +147,11 @@ struct Router : public ServiceBase,
     /** Initialize analytics if it is used. */
     void initAnalytics(const std::string & baseUrl, const int numConnections);
 
-    /** Initialize filters from json configuration*/
-    void initWithFiltersFromJson(const Json::Value & json);
+    /** Initialize exchages from json configuration. */
+    void initExchanges(const Json::Value & config);
+
+    /** Initialize filters from json configuration. */
+    void initFilters(const Json::Value & config = Json::Value::null);
 
     /** Initialize all of the internal data structures and configuration. */
     void init();
@@ -266,16 +267,22 @@ struct Router : public ServiceBase,
         connectExchange(*exchange);
     }
 
-    /** Start up a new exchange and connect it to the router.  The exchange
-        will read its configuration from the given JSON blob.
-    */
-    void startExchange(const std::string & exchangeType,
+    void addExchangeNoConnect(std::shared_ptr<ExchangeConnector> const & exchange)
+    {
+        loopMonitor.addCallback(
+                "exchanges." + exchange->exchangeName(),
+                exchange->getLoadSampleFn());
+
+        Guard guard(lock);
+        exchanges.push_back(exchange);
+    }
+
+    /** Start up a new exchange from type and configuration from the given JSON blob. */
+    void initExchange(const std::string & exchangeType,
                        const Json::Value & exchangeConfig);
 
-    /** Start up a new exchange and connect it to the router.  The exchange
-        will read its configuration and type from the given JSON blob.
-    */
-    void startExchange(const Json::Value & exchangeConfig);
+    /** Init a new exchange from configuration and type from the given JSON blob. */
+    void initExchange(const Json::Value & exchangeConfig);
 
     /** Inject an auction into the router.
         auction:   the auction object
@@ -811,7 +818,6 @@ public:
 
     double slowModeTolerance;
     Seconds augmentationWindow;
-    Json::Value filtersConfig;
 };
 
 

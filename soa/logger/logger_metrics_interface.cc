@@ -1,5 +1,4 @@
 #include "soa/logger/logger_metrics_interface.h"
-#include "soa/logger/logger_metrics_mongo.h"
 #include "soa/logger/logger_metrics_void.h"
 #include "soa/logger/logger_metrics_term.h"
 #include "soa/jsoncpp/reader.h"
@@ -53,10 +52,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
             string loggerType = config["type"].asString();
             failSafe = config["failSafe"].asBool();
             function<void()> fct = [&]{
-                if(loggerType == "mongo"){
-                    logger = shared_ptr<ILoggerMetrics>(
-                        new LoggerMetricsMongo(config, coll, appName));
-                }else if(loggerType == "term" || loggerType == "terminal"){
+                if(loggerType == "term" || loggerType == "terminal"){
                     logger = shared_ptr<ILoggerMetrics>(
                         new LoggerMetricsTerm(config, coll, appName));
                 }else if(loggerType == "void"){
@@ -169,7 +165,7 @@ void ILoggerMetrics::logMetrics(const Json::Value& json){
     failSafeHelper(fct);
 }
 
-void ILoggerMetrics::failSafeHelper(std::function<void()> fct){
+void ILoggerMetrics::failSafeHelper(const std::function<void()>& fct){
     if(failSafe){
         try{
             fct();

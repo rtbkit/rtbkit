@@ -1,4 +1,4 @@
-$(eval $(call library,mongo_tmp_server,mongo_temporary_server.cc, services))
+#$(eval $(call library,mongo_tmp_server,mongo_temporary_server.cc, services))
 
 $(eval $(call test,epoll_test,services,boost))
 $(eval $(call test,epoll_wait_test,services,boost manual))
@@ -37,7 +37,7 @@ $(eval $(call test,message_loop_test,services,boost))
 
 $(eval $(call program,runner_test_helper,utils))
 $(eval $(call test,runner_test,services,boost))
-$(eval $(call test,runner_stress_test,services,boost))
+$(eval $(call test,runner_stress_test,services,boost manual))
 $(TESTS)/runner_test $(TESTS)/runner_stress_test: $(BIN)/runner_test_helper
 $(eval $(call test,sink_test,services,boost))
 
@@ -63,6 +63,5 @@ $(eval $(call test,sns_mock_test,cloud services,boost))
 $(eval $(call test,zmq_message_loop_test,services,boost))
 
 $(eval $(call test,event_handler_test,cloud services,boost manual))
-$(eval $(call test,mongo_basic_test,services boost_filesystem mongo_tmp_server,boost manual))
-
-$(eval $(call include_sub_makes,py))
+#$(eval $(call test,mongo_basic_test,services boost_filesystem mongo_tmp_server,boost manual))
+#$(eval $(call include_sub_makes,py))

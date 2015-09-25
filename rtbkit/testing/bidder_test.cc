@@ -343,6 +343,7 @@ BOOST_AUTO_TEST_CASE( test_http_bidder_multiple_impressions_tagging )
     dummyExchange->start();
     dummyExchange->enableUntil(Date::positiveInfinity());
     router->addExchange(dummyExchange);
+    router->initFilters();
 
     Json::Value upstreamRouterConfig;
     upstreamRouterConfig[0]["exchangeType"] = "openrtb";
