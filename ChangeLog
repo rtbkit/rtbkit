@@ -48,4 +48,26 @@
 	* rtbkit/router: exchange connectors no longer return a body to a 204 response.
 	* rtbkit/casale: added new exchange connector.
 
+2015-09-29  Mathieu Stefani  <mathieu@datacratic.com>
 
+	* soa/id: Id parsing from json now supports utf-8 encoded string.
+	* rtbkit/augmentation: timeout for the AugmentationLoop can now be
+						   configured in the router.
+	* rtbkit/augmentation: fixed a bug in the AugmentationLoop where expired
+	                       inflight requests were not decremented
+	* soa/endpoint: start latency is now calculated after epoll_wait returned
+	* rtbkit/httpBidderInterface: multiple impressions is now correctly
+								  supported
+	* rtbkit/httpBidderInterface: now sending the right x-openrtb-version
+							      header
+	* rtbkit/spotx: the 300x250 creative restriction now only applies to
+					banner creatives
+	* rtbkit/spotx: bid response now includes the bidid and the cur objects
+	* rtbkit/bidswitch: now parsing the "ssp" extension field as the original exchange
+	* rtbkit/router: bidfloor is now taken in consideration in the router
+	* rtbkit/router: new metrics have ben added (NOBUDGET, TOOLATE,
+					 LOCAL_LOSS)
+	* rtbkit/filters: static filters in the FilterPool can now be configured
+	* rtbkit/fees: creatives can now include some fees that are applied to the
+				   final bid price
+	* rtbkit/openrtb: improved OpenRTB parsing by reducing memory allocations
