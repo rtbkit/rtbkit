@@ -471,8 +471,18 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 
 void
 BiddingAgent::
-doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel & wcm)
+doBid(Id id, Bids bids, const Json::Value & jsonMeta, const WinCostModel & wcm)
 {
+    for (Bid& bid : bids) {
+        if (bid.creativeIndex >= 0) {
+            if (!bid.isNullBid()) {
+                recordLevel(bid.price.value, "bidPrice." + bid.price.getCurrencyStr());
+            }
+
+            bid.price = agent_config.creatives[bid.creativeIndex].fees->applyFees(bid.price);
+        }
+    }
+
     Json::FastWriter jsonWriter;
 
     string response = jsonWriter.write(bids.toJson());
@@ -517,7 +527,7 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel
         if (bid.isNullBid()) recordHit("noBid");
         else {
             recordHit("bids");
-            recordLevel(bid.price.value, "bidPrice." + bid.price.getCurrencyStr());
+            recordLevel(bid.price.value, "bidPriceAugmented." + bid.price.getCurrencyStr());
         }
     }
 }
@@ -573,6 +583,9 @@ doConfigJson(Json::Value jsonConfig)
     boost::trim(newConfig);
 
     sendConfig(newConfig);
+
+    agent_config = AgentConfig::createFromJson(jsonConfig);
+
 }
 
 void

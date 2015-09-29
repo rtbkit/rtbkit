@@ -50,7 +50,7 @@ struct AvailabilityCheck
 
 
     /** Notify any attached logger that an event took place. */
-    std::function<void(const std::string&, EventType, float)> onEvent;
+    std::function<void(const std::string&, StatEventType, float)> onEvent;
 
 private:
     size_t size;

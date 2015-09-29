@@ -40,6 +40,16 @@ parseBidRequest(HttpAuctionHandler &connection,
 
 
     if (request != nullptr) {
+
+        std::string exchange;
+        if (request->ext.isMember("exchange")) {
+            exchange = request->ext["exchange"].asString();
+        }
+        else {
+            exchange = exchangeName();
+        }
+        request->exchange = std::move(exchange);
+
         auto failure = ScopeFailure([&]() noexcept { request.reset(); });
 
         for (const auto &imp: request->imp) {

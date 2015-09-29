@@ -20,7 +20,7 @@
 #include "soa/types/date.h"
 #include "soa/types/value_description.h"
 
-#include "epoll_loop.h"
+#include "epoller.h"
 #include "runner_common.h"
 #include "sink.h"
 
@@ -60,9 +60,6 @@ struct RunResult {
     int processStatus() const;
 
     /** Update the state in response to a launch error. */
-    void updateFromLaunchException(const std::exception_ptr & excPtr);
-
-    /** Update the state in response to a launch error. */
     void updateFromLaunchError(int launchErrno,
                                const std::string & launchError);
 
@@ -70,17 +67,14 @@ struct RunResult {
     enum State {
         UNKNOWN,        ///< State is not known
         LAUNCH_ERROR,   ///< Command was unable to be launched
-        LAUNCH_EXCEPTION, ///< Exception thrown when launching the command
         RETURNED,       ///< Command returned
-        SIGNALED,       ///< Command exited with a signal
-        PARENT_EXITED   ///< Parent exited, killing the child
+        SIGNALED        ///< Command exited with a signal
     };
-
+        
     State state;
     int signum;         ///< Signal number it returned with
     int returnCode;     ///< Return code if command exited
 
-    std::exception_ptr launchExc; ///<Exception thrown at launch time
     int launchErrno;    ///< Errno (if appropriate) of launch error
     std::string launchError;  ///< Error string describing launch error
 
@@ -96,18 +90,15 @@ CREATE_STRUCTURE_DESCRIPTION(RunResult);
 CREATE_ENUM_DESCRIPTION_NAMED(RunResultStateDescription, RunResult::State);
 
 
-/****************************************************************************/
-/* RUNNER                                                                   */
-/****************************************************************************/
+/*****************************************************************************/
+/* RUNNER                                                                    */
+/*****************************************************************************/
 
 /** This class encapsulates running a sub-command, including launching it and
     controlling the input, output and error streams of the subprocess.
 */
 
-struct Runner : public EpollLoop {
-    /* external override of path to "runner_helper", for testing */
-    static std::string runnerHelper;
-
+struct Runner: public Epoller {
     typedef std::function<void (const RunResult & result)> OnTerminate;
 
     Runner();
@@ -118,19 +109,11 @@ struct Runner : public EpollLoop {
     /* Close stdin at launch time if stdin sink was not queried. */
     bool closeStdin;
 
-    /** Run a program asynchronously, requiring to be attached to a
-     * MessageLoop. */
+    /** Run the subprocess. */
     void run(const std::vector<std::string> & command,
-             const OnTerminate & onTerminate,
+             const OnTerminate & onTerminate = nullptr,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
-
-    /** Run a program synchronously. This method does not need any preliminary
-     * registration to a MessageLoop. */
-    RunResult runSync(const std::vector<std::string> & command,
-                      const std::shared_ptr<InputSink> & stdOutSink = nullptr,
-                      const std::shared_ptr<InputSink> & stdErrSink = nullptr,
-                      const std::string & stdInData = "");
 
     /** Kill the subprocess with the given signal, then wait for it to
         terminate.
@@ -154,18 +137,9 @@ struct Runner : public EpollLoop {
     /** Synchronous wait for the subprocess to start.  Returns true if the
         process started, or false if it wasn't able to start.
 
-        Will wait for a maximum of secondsToWait seconds. Returns "true" when
-        the condition was met or "false" in case of a timeout.
+        Will wait for a maximum of secondsToWait seconds.
     */
     bool waitStart(double secondsToWait = INFINITY) const;
-
-    /** Synchronous wait for the subprocess to be marked as started from the
-        MessageLoop thread.
-
-        Will wait for a maximum of secondsToWait seconds. Returns "true" when
-        the condition was met or "false" in case of a timeout.
-    */
-    bool waitRunning(double secondsToWait = INFINITY) const;
 
     /** Synchronous wait for termination of the subprocess and the closing of
      * all related resources. */
@@ -187,20 +161,6 @@ struct Runner : public EpollLoop {
     double duration() const;
 
 private:
-    void runImpl(const std::vector<std::string> & command,
-                 const OnTerminate & onTerminate = nullptr,
-                 const std::shared_ptr<InputSink> & stdOutSink = nullptr,
-                 const std::shared_ptr<InputSink> & stdErrSink = nullptr);
-
-    /** Implementation of the runImpl function, which is called inside the
-        message loop thread so that it knows the parent thread will not
-        go away and cause issues with death signals of the child process.
-    */
-    void doRunImpl(const std::vector<std::string> & command,
-                   const OnTerminate & onTerminate = nullptr,
-                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
-                   const std::shared_ptr<InputSink> & stdErrSink = nullptr);
-
     struct Task {
         Task();
 
@@ -209,8 +169,7 @@ private:
         void flushStdInBuffer();
         void runWrapper(const std::vector<std::string> & command,
                         ProcessFds & fds);
-        std::string findRunnerHelper();
-
+                        
         void postTerminate(Runner & runner);
 
         std::vector<std::string> command;
@@ -228,16 +187,16 @@ private:
     };
 
     void prepareChild();
+    Epoller::HandleEventResult
+    handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
                             int & fd, std::shared_ptr<InputSink> & sink);
+    void handleWakeup(const struct epoll_event & event);
 
     void attemptTaskTermination();
 
-    int runRequests_;
-    int activeRequest_;
-    int32_t running_;
-
+    int running_;
     Date startDate_;
     Date endDate_;
 
@@ -248,8 +207,9 @@ private:
     */
     pid_t childPid_;
 
+    ML::Wakeup_Fd wakeup_;
+
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
-    int childStdinFd_;
     std::shared_ptr<InputSink> stdOutSink_;
     std::shared_ptr<InputSink> stdErrSink_;
 
@@ -267,17 +227,16 @@ private:
     Runner object and using it to run a single command.
 */
 
-/** Execute a command synchronously. */
-RunResult execute(const std::vector<std::string> & command,
+/** Execute a command synchronously using the specified message loop. */
+RunResult execute(MessageLoop & loop,
+                  const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
 
-/** (Deprecated) Execute a command synchronously using the specified message
- * loop. */
-RunResult execute(MessageLoop & loop,
-                  const std::vector<std::string> & command,
+/** Execute a command synchronously using its own message loop. */
+RunResult execute(const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",

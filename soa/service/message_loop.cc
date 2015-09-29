@@ -210,15 +210,6 @@ removeSourceSync(AsyncEventSource * source)
     return true;
 }
 
-bool
-MessageLoop::
-runInMessageLoopThread(std::function<void ()> toRun)
-{
-    SourceEntry entry("", toRun, 0);
-    SourceAction newAction(SourceAction::RUN, move(entry));
-    return sourceActions_.push_back(move(newAction));
-}
-
 void
 MessageLoop::
 wakeupMainThread()
@@ -381,9 +372,6 @@ handleSourceActions()
         else if (action.action_ == SourceAction::REMOVE) {
             processRemoveSource(action.entry_);
         }
-        else if (action.action_ == SourceAction::RUN) {
-            processRunAction(action.entry_);
-        }
     }
 }
 
@@ -465,13 +453,6 @@ processRemoveSource(const SourceEntry & rmEntry)
 
     entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
     ML::futex_wake(entry.source->connectionState_);
-}
-
-void
-MessageLoop::
-processRunAction(const SourceEntry & entry)
-{
-    entry.run();
 }
 
 bool

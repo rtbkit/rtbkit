@@ -409,9 +409,6 @@ struct ExceptionSource {
     std::streamsize write(const char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnWrite) {
-            if (onException_) {
-                onException_();
-            }
             throw ML::Exception("throwing when writing");
         }
         return n;
@@ -420,9 +417,6 @@ struct ExceptionSource {
     std::streamsize read(char_type* s, std::streamsize n)
     {
         if (throwType_ == ThrowType::ThrowOnRead) {
-            if (onException_) {
-                onException_();
-            }
             throw ML::Exception("throwing when reading");
         }
         char randomdata[n];
@@ -499,11 +493,11 @@ struct RegisterExcHandlers {
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 {
-    JML_TRACE_EXCEPTIONS(false);
     ML::filter_istream stream("throw-on-read://exception-zone");
 
     string data;
     auto action = [&]() {
+        JML_TRACE_EXCEPTIONS(false);
         stream >> data;
     };
 
@@ -525,10 +519,6 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
     };
 
     BOOST_CHECK_THROW(action(), ML::Exception);
-
-    /* ensure that no deferred exceptions stays reported for exceptions
-       occurring during writes */
-    BOOST_CHECK_EQUAL(stream.hasDeferredFailure(), false);
 }
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
@@ -568,20 +558,5 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
 
     action();
 }
-#endif
 
-#if 1
-/* ensure that the overloads of operator << are working correctly for most
- * common cases */
-BOOST_AUTO_TEST_CASE(test_filter_stream_op_overloads)
-{
-    ML::filter_ostream stream("mem://operator<<_overload");
-
-    stream << "coucou\n";
-    stream << endl;
-    stream << ends;
-    stream << "coucou" << endl;
-
-    stream.close();
-}
 #endif

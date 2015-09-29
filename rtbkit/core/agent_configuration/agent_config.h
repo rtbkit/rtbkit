@@ -15,6 +15,7 @@
 #include <boost/regex/icu.hpp>
 #include "rtbkit/common/bid_request.h"
 #include "include_exclude.h"
+#include "fees.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/core/agent_configuration/latlonrad.h"
 
@@ -96,6 +97,9 @@ struct Creative {
     // Needed for PMP filter
     std::string dealId;
 
+    // Fees
+    shared_ptr<Fees> fees;
+
     struct SegmentInfo {
 
         SegmentInfo() : excludeIfNotPresent(false){}
@@ -121,6 +125,12 @@ struct Creative {
     bool biddable(const std::string & exchange,
                   const std::string & protocolVersion) const;
 
+    /** Is this an image creative ? */
+    bool isImage() const;
+
+    /** Is this  a video creative ? */
+    bool isVideo() const;
+
     static Creative image(int width, int height, std::string name = "", int id = -1, std::string dealId = "");
     static Creative video(int width, int height, uint32_t duration, uint64_t bitrate,
                 std::string name = "", int id = -1, std::string dealId = "");
@@ -129,6 +139,7 @@ private:
     Type type;
 
     std::string typeString() const;
+
 };
 
 

@@ -24,6 +24,8 @@ struct Value;
 
 namespace Datacratic {
 
+typedef std::chrono::duration<double, std::ratio<1>> Seconds;
+
 using boost::posix_time::ptime;
 struct Opaque;
 

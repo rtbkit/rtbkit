@@ -44,7 +44,7 @@ struct ChunkedHttpHandler
     virtual void handleError(const std::string & message);
 
     void doEvent(const char * eventName,
-                 EventType type = ET_COUNT,
+                 StatEventType type = ET_COUNT,
                  float value = 1.0,
                  const char * units = "");
 
@@ -79,14 +79,14 @@ struct ChunkedHttpEndpoint: public HttpEndpoint {
         4.  The units of the event (currently unused)
     */
     typedef boost::function<void (std::string,
-                                  EventType,
+                                  StatEventType,
                                   float,
                                   const char *)> OnEvent;
     OnEvent onEvent;
     
 protected:
     void doEvent(const std::string & eventName,
-                 EventType type = ET_COUNT,
+                 StatEventType type = ET_COUNT,
                  float value = 1.0,
                  const char * units = "")
     {

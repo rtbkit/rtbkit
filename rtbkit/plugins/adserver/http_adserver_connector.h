@@ -75,12 +75,12 @@ struct HttpAdServerHttpEndpoint : public Datacratic::HttpEndpoint {
 
     /* carbon logging */
     typedef std::function<void (const char * eventName,
-                                EventType,
+                                StatEventType,
                                 float,
                                 std::initializer_list<int>)> OnEvent;
     OnEvent onEvent;
 
-    void doEvent(const char * eventName, EventType type = ET_COUNT,
+    void doEvent(const char * eventName, StatEventType type = ET_COUNT,
                  float value = 1.0, const char * units = "",
                  std::initializer_list<int> extra = DefaultOutcomePercentiles)
       const

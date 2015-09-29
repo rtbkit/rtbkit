@@ -77,6 +77,7 @@ private:
         IntervalFilter<int> filter;
         ConfigSet excludeIfEmpty;
         int modulus;
+        int uid;
         UserPartition::HashOn hashOn;
     };
 

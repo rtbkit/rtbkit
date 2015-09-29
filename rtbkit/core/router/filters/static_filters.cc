@@ -144,6 +144,7 @@ setConfig(unsigned cfgIndex, const AgentConfig& config, bool value)
     }
 
     auto& entry = data[getKey(part)];
+    entry.uid = config.externalId;
     if (entry.hashOn == UserPartition::NONE) {
         entry.modulus = part.modulus;
         entry.hashOn = part.hashOn;
@@ -219,7 +220,8 @@ getValue(const BidRequest& br, const FilterEntry& entry) const
 
     if (str.empty() || str == "null") return make_pair(false, 0);
 
-    return make_pair(true, calcHash(str) % entry.modulus);
+    auto h = calcHash(str) + entry.uid;
+    return make_pair(true, h % entry.modulus);
 }
 
 

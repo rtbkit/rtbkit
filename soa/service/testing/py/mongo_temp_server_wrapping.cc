@@ -18,7 +18,7 @@ struct MongoTemporaryServerPtr {
 
     MongoTemporaryServerPtr(const std::string & uniquePath = "",
                             const int portNum = 28356) :
-        mongoTmpServer(new MongoTemporaryServer(uniquePath, portNum))
+        mongoTmpServer(new MongoTemporaryServer(uniquePath /*, portNum */))
     {
     }
 

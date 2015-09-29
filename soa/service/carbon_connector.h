@@ -59,7 +59,7 @@ struct MultiAggregator {
 
     /** Record, generic version. */
     void record(const std::string & stat,
-                EventType type = ET_COUNT,
+                StatEventType type = ET_COUNT,
                 float value = 1.0,
                 std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
@@ -99,7 +99,7 @@ struct MultiAggregator {
         safe.
     */
     void recordOutcome(const std::string & stat, float value,
-            const std::vector<int>& percentiles = DefaultOutcomePercentiles);
+            std::vector<int> percentiles = DefaultOutcomePercentiles);
 
     /** Dump synchronously (taking the lock).  This should only be used in
         testing or debugging, not when connected to Carbon.

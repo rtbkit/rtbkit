@@ -166,7 +166,8 @@ connect(const OnConnectionResult & onConnectionResult)
         handleConnectionEventCb_ = [=] (const ::epoll_event & event) {
             this->handleConnectionEvent(socketFd, onConnectionResult);
         };
-        addFdOneShot(socketFd, false, true, handleConnectionEventCb_);
+        registerFdCallback(socketFd, handleConnectionEventCb_);
+        addFdOneShot(socketFd, false, true);
         enableQueue();
         state_ = TcpClientState::Connecting;
         // cerr << "connection in progress\n";
@@ -213,7 +214,8 @@ handleConnectionEvent(int socketFd, OnConnectionResult onConnectionResult)
         throw ML::Exception("unhandled error:" + to_string(result));
     }
 
-    removeFd(socketFd, true);
+    removeFd(socketFd);
+    unregisterFdCallback(socketFd, true);
     if (connCode == Success) {
         errno = 0;
         setFd(socketFd);

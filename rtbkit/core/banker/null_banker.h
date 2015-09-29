@@ -44,7 +44,7 @@ struct NullBudgetController: public BudgetController {
 
 class NullBanker: public Banker {
 public:
-    NullBanker(bool authorize = false);
+    NullBanker(bool authorize = false, const std::string & servicName = "");
 
     virtual bool authorizeBid(const AccountKey & account,
                               const std::string & item,
@@ -107,6 +107,7 @@ protected:
 
     friend class Datacratic::JS::NullBankerJS;
     bool authorize_;
+    std::string serviceName_;
 };
 
 

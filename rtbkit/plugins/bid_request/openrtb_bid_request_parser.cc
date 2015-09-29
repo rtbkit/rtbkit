@@ -279,25 +279,25 @@ void
 OpenRTBBidRequestParser::
 onImpression(OpenRTB::Impression & impression) {
 
-    ctx.spot = std::move(std::unique_ptr<AdSpot>(new AdSpot(std::move(impression))));
+    ctx.spot = AdSpot(std::move(impression));
 /*
     if(!ctx.spot->banner && !ctx.spot->video)
         LOG(openrtbBidRequestError) << "br.imp must included either a video or a banner object." << endl;
 */  
     // Possible to have a video and a banner object.
-    if(ctx.spot->banner) {
-        this->onBanner(*ctx.spot->banner);
+    if(ctx.spot.banner) {
+        this->onBanner(*ctx.spot.banner);
     }
 
-    if(ctx.spot->video) {
-        if(ctx.spot->banner && ctx.spot->banner->id == Id("0"))
+    if(ctx.spot.video) {
+        if(ctx.spot.banner && ctx.spot.banner->id == Id("0"))
             LOG(OpenRTBBidRequestLogs::trace) << "It's recommended to include br.imp.banner.id when subordinate to video object." << endl;
-        this->onVideo(*ctx.spot->video);
+        this->onVideo(*ctx.spot.video);
     }
 
     // TODO Support tagFilters / mime filers
 
-    ctx.br->imp.emplace_back(*ctx.spot);
+    ctx.br->imp.emplace_back(std::move(ctx.spot));
 }
 
 void
@@ -316,7 +316,7 @@ onBanner(OpenRTB::Banner & banner) {
         LOG(OpenRTBBidRequestLogs::error) << "Mismatch between number of width and heights illegal." << endl;
 
     for(unsigned int i = 0; i < banner.w.size(); ++i) {
-        ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));
+        ctx.spot.formats.push_back(Format(banner.w[i], banner.h[i]));
     }
 
     // Add api to the segments in order to filter on it
@@ -325,7 +325,7 @@ onBanner(OpenRTB::Banner & banner) {
         if (framework != apiFrameworks.end())
             ctx.br->segments.add("api-banner", framework->second , 1.0);
     }
-    ctx.spot->position = banner.pos;
+    ctx.spot.position = banner.pos;
 }
 
 void 
@@ -360,7 +360,7 @@ onVideo(OpenRTB::Video & video) {
         THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 
 
-    ctx.spot->position = video.pos;
+    ctx.spot.position = video.pos;
 
     // Add api to the segments in order to filter on it
     for(auto & api : video.api) {
@@ -368,7 +368,7 @@ onVideo(OpenRTB::Video & video) {
         if (framework != apiFrameworks.end())
             ctx.br->segments.add("api-video", framework->second, 1.0);
     }
-    ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
+    ctx.spot.formats.push_back(Format(video.w.value(), video.h.value()));
 }
 
 void
@@ -703,7 +703,7 @@ onVideo(OpenRTB::Video & video) {
         THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 
 
-    ctx.spot->position = video.pos;
+    ctx.spot.position = video.pos;
 
     // Add api to the segments in order to filter on it
     for(auto & api : video.api) {
@@ -711,7 +711,7 @@ onVideo(OpenRTB::Video & video) {
         if (framework != apiFrameworks.end())
             ctx.br->segments.add("api-video", framework->second, 1.0);
     }
-    ctx.spot->formats.push_back(Format(video.w.value(), video.h.value()));
+    ctx.spot.formats.push_back(Format(video.w.value(), video.h.value()));
 
 }
 

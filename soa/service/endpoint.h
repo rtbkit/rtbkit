@@ -23,6 +23,7 @@
 #include "soa/service/epoller.h"
 #include <map>
 #include <mutex>
+#include <atomic>
 
 
 namespace Datacratic {
@@ -106,7 +107,13 @@ struct EndpointBase : public Epoller {
     /** Total number of seconds that this message loop has spent sleeping.
         Can be polled regularly to determine the duty cycle of the loop.
      */
-    std::vector<double> totalSleepSeconds() const { return totalSleepTime; }
+    std::vector<rusage> getResourceUsage() const {
+        resourceEpoch++;
+        std::vector<rusage> result;
+        std::lock_guard<std::mutex> guard(usageLock);
+        result = resourceUsage;
+        return std::move(result);
+    }
 
     /** Thing to notify when a connection is closed.  Will be called
         before the normal cleanup.
@@ -158,6 +165,12 @@ struct EndpointBase : public Epoller {
 
         std::shared_ptr<TransportBase> transport; /* TRANSPORT */
         OnTimer onTimer;                          /* TIMER */
+    };
+
+    // Get the polling start time for auction handler
+    Date getStartTime() const
+    {
+        return pollStart_;
     };
 
 protected:
@@ -266,12 +279,18 @@ private:
     bool shutdown_;
     bool disallowTimers_;
 
+   //Poll start time
+    Date pollStart_;
+
     // Turns the polling loop into a busy loop with no sleeps.
     enum PollingMode pollingMode_;
 
     std::map<std::string, int> numTransportsByHost;
 
     std::vector<double> totalSleepTime;
+    std::vector<rusage> resourceUsage;
+    mutable std::mutex usageLock;
+    mutable std::atomic<int> resourceEpoch;
 
     /** Run a thread to handle events. */
     void runEventThread(int threadNum, int numThreads);

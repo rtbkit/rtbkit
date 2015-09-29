@@ -5,7 +5,6 @@
    RTB router code.
 */
 
-#include <set>
 #include <atomic>
 #include "router.h"
 #include "soa/service/zmq_utils.h"
@@ -117,7 +116,8 @@ Router(ServiceBase & parent,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -154,7 +154,8 @@ Router(ServiceBase & parent,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
 {
     monitorProviderClient.addProvider(this);
 }
@@ -169,7 +170,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       Amount slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit,
+       Seconds augmentationWindow)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(*this),
@@ -206,7 +208,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       accumulatedBidMoneyInThisPeriod(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount),
-      slowModeTolerance(MonitorClient::DefaultTolerance)
+      slowModeTolerance(MonitorClient::DefaultTolerance),
+      augmentationWindow(augmentationWindow)
+
 {
     monitorProviderClient.addProvider(this);
 }
@@ -229,6 +233,50 @@ initAnalytics(const string & baseUrl, const int numConnections)
 
 void
 Router::
+initExchanges(const Json::Value & config) {
+    for (auto & exchange: config) {
+        initExchange(exchange);
+    }
+}
+
+void
+Router::
+initExchange(const std::string & type,
+              const Json::Value & config)
+{
+    auto exchange = ExchangeConnector::create(type, *this, type);
+    exchange->configure(config);
+
+    std::shared_ptr<ExchangeConnector> item(exchange.release());
+    addExchangeNoConnect(item);
+
+    exchangeBuffer.push(item);
+}
+
+void
+Router::
+initExchange(const Json::Value & exchangeConfig)
+{
+    std::string exchangeType = exchangeConfig["exchangeType"].asString();
+    initExchange(exchangeType, exchangeConfig);
+}
+
+void
+Router::
+initFilters(const Json::Value & config) {
+
+    if (config != Json::Value::null) {
+        if (!config.isArray()) {
+         throw Exception("couldn't parse formats other then array");
+        }
+       filters.initWithFiltersFromJson(config);
+    } else {
+        filters.initWithDefaultFilters();
+    }
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -236,7 +284,6 @@ init()
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
     filters.init(this);
-    filters.initWithDefaultFilters();
 
     banker.reset(new NullBanker());
 
@@ -367,6 +414,14 @@ unsafeDisableMonitor()
 
 void
 Router::
+unsafeDisableSlowMode()
+{
+    monitorClient.testMode = true;
+    monitorClient.testResponse = true;
+}
+
+void
+Router::
 unsafeDisableAuctionProbability()
 {
     disableAuctionProb = true;
@@ -389,6 +444,11 @@ start(boost::function<void ()> onStop)
             this->run();
             if (onStop) onStop();
         };
+
+    for ( auto & exchange : exchanges) {
+        exchange->start();
+        connectExchange(*exchange);
+    }
 
     bidder->start();
     logger.start();
@@ -936,14 +996,8 @@ logUsageMetrics(double period)
         }
     }
 
-    set<AccountKey> agentAccounts;
     for (const auto & item : agents) {
         auto & info = item.second;
-        const AccountKey & account = info.config->account;
-        if (!agentAccounts.insert(account).second) {
-            continue;
-        }
-
         auto & last = lastAgentUsageMetrics[item.first];
 
         AgentUsageMetrics newMetrics(info.stats->intoFilters,
@@ -1249,6 +1303,43 @@ returnInvalidBid(
 
 void
 Router::
+returnInvalidBid(
+        const std::string &agent, const std::string &bidData,
+        const std::shared_ptr<Auction> &auction,
+        const std::string &reason, const char *message, ...) {
+
+    auto& agentInfo = agents[agent];
+    const auto& agentConfig = agentInfo.config;
+    this->recordHit("bidErrors.%s", reason);
+    this->recordHit("accounts.%s.bidErrors.total",
+                    agentConfig->account.toString('.'));
+    this->recordHit("accounts.%s.bidErrors.%s",
+                    agentConfig->account.toString('.'),
+                    reason);
+
+    ++agentInfo.stats->invalid;
+
+    va_list ap;
+    va_start(ap, message);
+    string formatted;
+    try {
+        formatted = vformat(message, ap);
+    } catch (...) {
+        va_end(ap);
+        throw;
+    }
+    va_end(ap);
+
+    cerr << "invalid bid for agent " << agent << ": "
+         << formatted << endl;
+    cerr << bidData << endl;
+
+    logMessageToAnalytics("INVALID", agentConfig, agent, formatted, auction);
+    bidder->sendBidInvalidMessage(agentConfig, agent, formatted, auction);
+}
+
+void
+Router::
 doStats(const std::vector<std::string> & message)
 {
     Json::Value result(Json::objectValue);
@@ -1312,8 +1403,6 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
         return;
     }
 
-    double augmentationWindow = 0.005; // 5ms available to augment
-
     auto onDoneAugmenting = [=] (const std::shared_ptr<AugmentationInfo> & info)
         {
             info->auction->doneAugmenting = Date::now();
@@ -1328,7 +1417,7 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
             wakeupMainLoop.signal();
         };
 
-    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow),
+    augmentationLoop.augment(info, Date::now().plusSeconds(augmentationWindow.count()),
                              onDoneAugmenting);
 }
 
@@ -1972,6 +2061,14 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
         }
 
+     auto getbid = auctionInfo.auction->exchangeConnector->getBidValidity(bid, imp, spotIndex);
+
+        if (!getbid.isValidbid) {
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                getbid.reason_,
+                "no bid");
+            continue;
+        }
         const Creative & creative = config.creatives.at(bid.creativeIndex);
 
         if (!creative.compatible(imp[spotIndex])) {
@@ -1979,13 +2076,13 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             cerr << "creative not compatible with spot: " << endl;
             cerr << "auction: " << auctionInfo.auction->requestStr
                 << endl;
-            cerr << "config: " << config.toJson() << endl;
+            cerr << "config: " << config.toJson().toStringNoNewLine() << endl;
             cerr << "bid: " << bidsString << endl;
-            cerr << "spot: " << imp[i].toJson() << endl;
+            cerr << "spot: " << imp[i].toJson().toStringNoNewLine() << endl;
             cerr << "spot num: " << spotIndex << endl;
             cerr << "bid num: " << i << endl;
             cerr << "creative num: " << bid.creativeIndex << endl;
-            cerr << "creative: " << creative.toJson() << endl;
+            cerr << "creative: " << creative.toJson().toStringNoNewLine() << endl;
 #endif
             returnInvalidBid(agent, bidsString, auctionInfo.auction,
                     "creativeNotCompatibleWithSpot",
@@ -2033,6 +2130,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     slowModePeriodicSpentReached = true;
                     bidder->sendBidDroppedMessage(agentConfig, agent, auctionInfo.auction);
                     recordHit("slowMode.droppedBid");
+                    recordHit("accounts.%s.IGNORED", config.account.toString('.'));
                 continue;
                 }
             }
@@ -2051,6 +2149,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             this->logMessage("NOBUDGET", agent, auctionId,
                     bidsString, message.meta);
             this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
+            recordHit("accounts.%s.NOBUDGET", config.account.toString('.'));
             continue;
         }
         
@@ -2126,15 +2225,18 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             switch (localResult.val) {
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
-                bidder->sendLossMessage(agentConfig, agent, auctionId.toString());
+                bidder->sendLossMessage(agentConfig, agent, auctionId.toString ());
+                recordHit("accounts.%s.LOCAL_LOSS", config.account.toString('.'));
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
                 bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
+                recordHit("accounts.%s.TOOLATE", config.account.toString('.'));
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
                 bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
+                recordHit("accounts.%s.INVALID", config.account.toString('.'));
                 break;
             default:
                 throw ML::Exception("logic error");
@@ -2491,11 +2593,15 @@ doConfig(const std::string & agent,
     RouterProfiler profiler(dutyCycleCurrent.nsConfig);
 
     if (!config) {
-        cerr << "agent " << agent << " lost configuration" << endl;
-        filters.removeConfig(agent);
         auto it = agents.find(agent);
-        ExcAssert(it != std::end(agents));
-        agents.erase(it);
+        // It might happen that we don't find the agent if for example we received
+        // an empty configuration because the agent crashed prior to sending its initial
+        // configuration to the ACS.
+        if (it != std::end(agents)) {
+            cerr << "agent " << agent << " lost configuration" << endl;
+            filters.removeConfig(agent);
+            agents.erase(it);
+        }
     } else {
         AgentInfo & info = agents[agent];
         logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
@@ -2894,30 +3000,6 @@ getProviderIndicators()
         + "Banker: " + (bankerOk ? "OK": "ERROR");
 
     return ind;
-}
-
-void
-Router::
-startExchange(const std::string & type,
-              const Json::Value & config)
-{
-    auto exchange = ExchangeConnector::create(type, *this, type);
-    exchange->configure(config);
-    exchange->start();
-
-    std::shared_ptr<ExchangeConnector> item(exchange.release());
-    addExchange(item);
-
-    exchangeBuffer.push(item);
-    filters.initWithDefaultFilters();
-}
-
-void
-Router::
-startExchange(const Json::Value & exchangeConfig)
-{
-    std::string exchangeType = exchangeConfig["exchangeType"].asString();
-    startExchange(exchangeType, exchangeConfig);
 }
 
 

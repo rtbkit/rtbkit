@@ -17,13 +17,7 @@ namespace ML {
 
 struct Assertion_Failure: public Exception {
     Assertion_Failure(const std::string & msg);
-
-    template<typename... Args>
-    Assertion_Failure(const char * msg, Args &&... args)
-        : Exception(msg, std::forward<Args>(args)...)
-    {
-    }
-
+    Assertion_Failure(const char * msg, ...);
     Assertion_Failure(const char * assertion,
                       const char * function,
                       const char * file,

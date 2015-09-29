@@ -20,6 +20,7 @@
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/banker/local_banker.h"
 #include "rtbkit/core/banker/split_banker.h"
+#include "rtbkit/core/banker/null_banker.h"
 #include "soa/service/process_stats.h"
 #include "jml/arch/timers.h"
 #include "jml/utils/file_functions.h"
@@ -59,7 +60,10 @@ RouterRunner() :
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
     analyticsOn(false),
-    analyticsConnections(1)
+    analyticsConnections(1),
+    augmentationWindowms(5),
+    dableSlowMode(false),
+    enableJsonFiltersFile("")
 {
 }
 
@@ -105,7 +109,13 @@ doOptions(int argc, char ** argv,
         ("local-banker-debug", bool_switch(&localBankerDebug),
          "enable local banker debug for more precise tracking by account")
         ("banker-choice", value<string>(&bankerChoice),
-         "split or local banker can be chosen.");
+         "split or local banker can be chosen.")
+         ("augmenter-timeout",value<int>(&augmentationWindowms),
+         "configure the augmenter  timeout (in milliseconds)")
+        ("no slow mode", value<bool>(&dableSlowMode)->zero_tokens(),
+         "disable the slow mode.")
+        ("filters-configuration", value<string>(&enableJsonFiltersFile),
+          "configuration file with enabled filters data");
 
     options_description all_opt = opts;
     all_opt
@@ -139,6 +149,9 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
+    if (!enableJsonFiltersFile.empty())
+        filtersConfig = loadJsonFromFile(enableJsonFiltersFile);
+
     const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
     const auto maxBidPriceAmount = USD_CPM(maxBidPrice);
 
@@ -151,6 +164,8 @@ init()
             << "slow-mode-money-limit= " << amountSlowModeMoneyLimit <<endl;
     }
 
+    Seconds augmentationWindow = std::chrono::milliseconds(augmentationWindowms);
+
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     auto enableBidProbability = !noBidProb;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
@@ -158,9 +173,12 @@ init()
                                       enableBidProbability,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout, amountSlowModeMoneyLimit);
+                                      slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
+    if (dableSlowMode) {
+       router->unsafeDisableSlowMode();
+    }
     if (analyticsOn) {
         const auto & analyticsUri = proxies->params["analytics-uri"].asString();
         if (!analyticsUri.empty()) {
@@ -171,7 +189,6 @@ init()
     }
     router->init();
 
-    slaveBanker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
     if (localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());
         localBanker->init(localBankerUri);
@@ -188,14 +205,20 @@ init()
                 }
             }
         }
+        slaveBanker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
         banker = make_shared<SplitBanker>(slaveBanker, localBanker, campaignSet);
     } else if (localBanker && bankerChoice == "local") {
         banker = localBanker;
+    } else if (bankerChoice == "null") {
+        banker = make_shared<NullBanker>(true, router->serviceName());
     } else {
+        slaveBanker = bankerArgs.makeBanker(proxies, router->serviceName() + ".slaveBanker");
         banker = slaveBanker;
     }
 
     router->setBanker(banker);
+    router->initExchanges(exchangeConfig);
+    router->initFilters(filtersConfig);
     router->bindTcp();
 }
 
@@ -203,13 +226,9 @@ void
 RouterRunner::
 start()
 {
-    slaveBanker->start();
+    if (slaveBanker) slaveBanker->start();
     if (localBanker) localBanker->start();
     router->start();
-
-    // Start all exchanges
-    for (auto & exchange: exchangeConfig)
-        router->startExchange(exchange);
 }
 
 void
@@ -217,7 +236,7 @@ RouterRunner::
 shutdown()
 {
     router->shutdown();
-    slaveBanker->shutdown();
+    if (slaveBanker) slaveBanker->shutdown();
     if (localBanker) localBanker->shutdown();
 }
 

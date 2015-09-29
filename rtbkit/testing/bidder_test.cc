@@ -15,9 +15,12 @@
 #include "rtbkit/plugins/exchange/rtbkit_exchange_connector.h"
 #include "rtbkit/testing/bid_stack.h"
 #include "rtbkit/plugins/bidder_interface/multi_bidder_interface.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
+#include "rtbkit/plugins/exchange/http_auction_handler.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;
+using namespace std;
 
 BOOST_AUTO_TEST_CASE( bidder_http_test )
 {
@@ -282,4 +285,137 @@ BOOST_AUTO_TEST_CASE( multi_bidder_test )
    int downstreamBidCount = downstreamEvents["router.bid"];
    std::cerr << "DOWNSTREAM BID COUNT=" << downstreamBidCount << std::endl;
    BOOST_CHECK(downstreamBidCount > 0);
+}
+
+struct DummyExchangeConnector : public OpenRTBExchangeConnector
+{
+    DummyExchangeConnector(ServiceBase & owner, const std::string & name)
+        : OpenRTBExchangeConnector(owner, name)
+    { }
+
+    DummyExchangeConnector(const std::string & name,
+                             std::shared_ptr<ServiceProxies> proxies)
+        : OpenRTBExchangeConnector(name, proxies)
+    { }
+
+    std::string exchangeName() const { return "dummy"; }
+
+    std::shared_ptr<BidRequest>
+    parseBidRequest(HttpAuctionHandler& connection,
+                    const HttpHeader& header,
+                    const std::string& payload) {
+        auto request = OpenRTBExchangeConnector::parseBidRequest(connection, header, payload);
+
+        for (const auto& imp: request->imp) {
+            BOOST_CHECK(imp.ext.isMember("creative-ids"));
+            BOOST_CHECK(imp.ext.isMember("external-ids"));
+        }
+
+        return request;
+    }
+};
+
+// Test to validate that every impression in a single BidRequest gets tagged with
+// the "external-ids" and "creative-ids" extension fields, by the HttpBidderInterface
+BOOST_AUTO_TEST_CASE( test_http_bidder_multiple_impressions_tagging )
+{
+    ML::Watchdog watchdog(10.0);
+
+    auto proxies = make_shared<ServiceProxies>();
+    auto acs = make_shared<AgentConfigurationService>(proxies, "acs");
+    acs->unsafeDisableMonitor();
+    acs->init();
+    acs->bindTcp();
+    acs->start();
+
+    Json::Value downstreamBidderConfig;
+    downstreamBidderConfig["type"] = "agents";
+
+    auto router = make_shared<Router>(proxies, "router");
+    router->unsafeDisableMonitor();
+    router->initBidderInterface(downstreamBidderConfig);
+    router->init();
+    router->setBanker(make_shared<NullBanker>(true));
+    router->bindTcp();
+    router->start();
+
+    auto dummyExchange = new DummyExchangeConnector("dummyExchange", proxies);
+    dummyExchange->start();
+    dummyExchange->enableUntil(Date::positiveInfinity());
+    router->addExchange(dummyExchange);
+    router->initFilters();
+
+    Json::Value upstreamRouterConfig;
+    upstreamRouterConfig[0]["exchangeType"] = "openrtb";
+
+    Json::Value upstreamBidderConfig;
+    upstreamBidderConfig["type"] = "http";
+    upstreamBidderConfig["adserver"]["winPort"] = 18143;
+    upstreamBidderConfig["adserver"]["eventPort"] = 18144;
+
+    upstreamBidderConfig["router"]["host"] = "http://127.0.0.1:" + to_string(dummyExchange->port());
+    upstreamBidderConfig["router"]["path"] = "/";
+    upstreamBidderConfig["adserver"]["host"] = "http://invalid-url-but-its-intended.com";
+
+    Json::Value httpAgentConfig = Json::parse(
+        R"JSON(
+        {
+            "account": ["dummy_account"],
+            "bidProbability": 1,
+            "creatives": [ { "width": 300, "height": 250, "id": 1 } ],
+            "externalId": 1
+        }
+        )JSON");
+
+    BidStack upstreamStack;
+    upstreamStack.enforceAgents = false;
+
+    upstreamStack.runThen(
+            upstreamRouterConfig, upstreamBidderConfig, USD_CPM(10), 0,
+            [&](const Json::Value& json) {
+
+        upstreamStack.postConfig("sample_http_config", httpAgentConfig);
+
+        ML::sleep(1.0);
+
+        ML::RNG rng;
+        OpenRTB::BidRequest req;
+        req.id = Id(rng.random());
+        req.tmax.val = 50;
+        req.at = AuctionType::SECOND_PRICE;
+
+        req.imp.emplace_back();
+        {
+            auto& imp = req.imp.back();
+            imp.id = Id(rng.random());
+            imp.banner.reset(new OpenRTB::Banner);
+            imp.banner->w.push_back(300);
+            imp.banner->h.push_back(250);
+        }
+
+        req.imp.emplace_back();
+        {
+            auto& imp = req.imp.back();
+            imp.id = Id(rng.random());
+            imp.banner.reset(new OpenRTB::Banner);
+            imp.banner->w.push_back(600);
+            imp.banner->h.push_back(400);
+        }
+
+        StructuredJsonPrintingContext context;
+        DefaultDescription<OpenRTB::BidRequest> desc;
+        desc.printJson(&req, context);
+
+        auto bids = json["workers"][0]["bids"];
+        auto url = bids["url"].asString();
+        auto resource = bids.get("resource", "/").asString();
+
+        HttpRestProxy proxy(url);
+        auto response = proxy.post(
+                resource, context.output,
+                RestParams() /* queryParams */,
+                { { "x-openrtb-version", "2.2" } });
+
+    });
+
 }

@@ -121,6 +121,36 @@ getBidSourceConfiguration() const
     return "{\"type\":\"unknown\"}";
 }
 
+ExchangeConnector::BidValidity
+ExchangeConnector::
+getBidValidity (const Bid  & bid,
+                const std::vector<AdSpot> & imp,
+                int spotIndex) const
+{
+    BidValidity result;
+    result.setValidBid();
+
+    std::string reason;
+
+    if (imp[spotIndex].bidfloor.val != 0.0  && (!imp[spotIndex].bidfloorcur.empty())) {
+             if (USD_CPM(bid.price)  < USD_CPM(imp[spotIndex].bidfloor.val)
+                     || toString(bid.price.currencyCode) !=  imp[spotIndex].bidfloorcur) {
+
+                reason = ML::format("not valid reason:  bid price %s is lower then the"
+                                    "bid floor prices %s, or are in different currencies %s and %s",
+                                    bid.price.toString().c_str(),
+                                    USD_CPM(imp[spotIndex].bidfloor.val).toString().c_str(),
+                                    toString(bid.price.currencyCode).c_str(),
+                                    imp[spotIndex].bidfloorcur.c_str());
+
+               result.setInvalidBid(reason);
+             }
+    }
+
+    return result;
+
+ }
+
 ExchangeConnector::ExchangeCompatibility
 ExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,

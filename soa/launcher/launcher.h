@@ -37,7 +37,7 @@ struct Launcher
 {
     struct Task
     {
-        Task() : pid(-1), log(false), delay(45.0) {
+        Task() : pid(-1), log(false), delay(45.0), once(false) {
         }
 
         std::string const & getName() const {
@@ -52,8 +52,10 @@ struct Launcher
         }
 
         void restart(std::string const & node) {
-            stop();
-            start(node);
+            if (!once) {
+                stop();
+                start(node);
+            }
         }
 
         void start(std::string const & node) {
@@ -149,6 +151,9 @@ struct Launcher
                 }
                 else if(i.memberName() == "delay") {
                     result.delay = i->asDouble();
+                }
+                else if(i.memberName() == "once") {
+                    result.once = i->asBool();
                 }
                 else if(i.memberName() == "arg") {
                     auto & json = *i;
@@ -275,6 +280,7 @@ struct Launcher
         std::vector<std::string> arg;
         bool log;
         double delay;
+        bool once;
     };
 
     struct Node

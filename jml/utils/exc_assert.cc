@@ -17,12 +17,18 @@ Assertion_Failure(const std::string & msg)
 }
 
 Assertion_Failure::
+Assertion_Failure(const char * msg, ...)
+    : Exception(msg)
+{
+}
+
+Assertion_Failure::
 Assertion_Failure(const char * assertion,
                   const char * function,
                   const char * file,
                   int line)
-    : Exception("assertion failure: %s at %s:%d in %s",
-                assertion, file, line, function)
+    : Exception(format("assertion failure: %s at %s:%d in %s",
+                    assertion, file, line, function))
 {
 }
 

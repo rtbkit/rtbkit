@@ -321,7 +321,9 @@ struct Components
         }
 
         router1.addExchange(*exchangeConnectors[0]);
+        router1.initFilters();
         router2.addExchange(*exchangeConnectors[1]);
+        router2.initFilters();
         
         // Setup an ad server connector that also acts as a midlle men between
         // the exchange's wins and the post auction loop.

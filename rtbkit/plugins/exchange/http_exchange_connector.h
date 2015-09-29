@@ -99,22 +99,39 @@ struct HttpExchangeConnector
     {
         // This gets captured by value and effectively becomes a state variable
         // for the mutable lambda. Not very clean but it works.
-        std::vector<double> lastSample;
+        std::vector<rusage> lastSample;
+        auto lastTime = Date::now();
 
         return [=] (double elapsed) mutable -> double {
-            auto sample = totalSleepSeconds();
+            auto sample = getResourceUsage();
 
-            if (lastSample.size() < sample.size())
-                lastSample.resize(sample.size(), 0.0);
+            // get how much time elapsed since last time
+            auto now = Date::now();
+            auto dt = now.secondsSince(lastTime);
+            lastTime = now;
 
-            double maxLoad = 0.0;
-            for (size_t i = 0; i < sample.size(); ++i) {
-                double load = 1.0 - ((sample[i] - lastSample[i]) / elapsed);
-                maxLoad = std::max(load, maxLoad);
+            //first time?
+            if(sample.size() != lastSample.size()) {
+                lastSample = std::move(sample);
+                return 0.0;
             }
 
+            double sum = 0.0;
+            for (auto i = 0; i < sample.size(); i++) {
+                auto sec = double(sample[i].ru_utime.tv_sec - lastSample[i].ru_utime.tv_sec);
+                auto usec = double(sample[i].ru_utime.tv_usec - lastSample[i].ru_utime.tv_usec);
+
+                auto load = sec + usec * 0.000001;
+                if (load >= dt) {
+                    sum += 1.0;
+                } else {
+                    sum += load/dt;
+                }
+            }
+
+            double value = sum / sample.size();
             lastSample = std::move(sample);
-            return maxLoad;
+            return value;
         };
     }
 
