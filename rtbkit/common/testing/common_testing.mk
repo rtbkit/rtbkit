@@ -8,6 +8,7 @@ $(eval $(call test,bids_test,rtb,boost))
 
 $(eval $(call library,custom_1_plugin,custom_1_plugin.cc,))
 $(eval $(call test,plugin_table_test,utils,boost))
+$(eval $(call test,configuration_test,rtb_configuration,boost))
 
 plugin_table_test: $(LIB)/lib_custom_1_plugin.so
 

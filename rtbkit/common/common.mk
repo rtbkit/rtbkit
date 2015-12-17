@@ -24,10 +24,17 @@ LIBRTB_SOURCES := \
 	post_auction_proxy.cc \
 	analytics_publisher.cc
 
+LIBRTB_CONFIGURATION := \
+	static_configuration.cc
+
+LIBRTB_CONFIGURATION_LINK := \
+	arch utils jsoncpp
+
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request
 
 $(eval $(call library,rtb,$(LIBRTB_SOURCES),$(LIBRTB_LINK)))
+$(eval $(call library,rtb_configuration,$(LIBRTB_CONFIGURATION),$(LIBRTB_LINK)))
 
 $(eval $(call library,filter_registry,filter.cc,arch utils rtb))
 
