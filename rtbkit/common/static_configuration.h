@@ -9,7 +9,13 @@
 
 #include <map>
 #include <string>
+#include <memory>
+#include <iostream>
 #include "soa/jsoncpp/json.h"
+#include "soa/service/zmq_endpoint.h"
+#include "soa/service/zmq_named_pub_sub.h"
+#include "soa/service/rest_service_endpoint.h"
+#include "jml/arch/exception.h"
 
 namespace RTBKIT {
 namespace Discovery {
@@ -74,6 +80,7 @@ namespace Discovery {
             , serviceName_(std::move(serviceName))
             , protocol_(protocol)
             , port_(std::move(port))
+            , extraData_(nullptr)
         { }
 
         std::string name() const { return name_; }
@@ -81,11 +88,32 @@ namespace Discovery {
         Protocol protocol() const { return protocol_; }
         Port port() const { return port_; }
 
+        template<typename Ptr>
+        void setData(Ptr&& data) {
+            extraData_ = std::forward<Ptr>(data);
+        }
+
+        template<typename T>
+        T *data() const {
+            return std::static_pointer_cast<T>(extraData_).get();
+        }
+
     private:
         std::string name_;
         std::string serviceName_;
         Protocol protocol_;
         Port port_;
+        std::shared_ptr<void> extraData_;
+    };
+
+    enum class ZmqEndpointType { Bus, Publisher };
+
+    struct ZmqData {
+        ZmqData(ZmqEndpointType type)
+            : type(type)
+        { }
+
+        ZmqEndpointType type;
     };
 
     typedef std::map<std::string, Endpoint> Endpoints;
@@ -93,6 +121,7 @@ namespace Discovery {
     struct Binding {
         struct Context {
             Endpoints endpoints;
+            std::string name;
         };
 
         Binding(Endpoint endpoint, Port port)
@@ -100,7 +129,7 @@ namespace Discovery {
             , port_(std::move(port))
         { }
 
-        static Context context(const Endpoints& endpoint);
+        static Context context(const Endpoints& endpoint, std::string name);
 
         static Binding fromExpression(const Json::Value& value, const Context& context);
         static Binding fromExpression(const std::string& value, const Context& context);
@@ -113,15 +142,150 @@ namespace Discovery {
         Port port_;
     };
 
+    struct Service {
+        struct Node {
+            Node(std::string serviceName, const std::vector<Binding>& bindings)
+                : serviceName(std::move(serviceName))
+                , bindings(bindings)
+            { }
+
+            Binding binding(const std::string& name) const;
+            std::string fullServiceName(const std::string& endpointName) const {
+                return serviceName + "/" + endpointName;
+            }
+
+            std::string serviceName;
+            std::vector<Binding> bindings;
+        };
+
+        Service(std::string className)
+            : className(std::move(className))
+        { }
+
+        void addNode(const Node& node);
+        bool hasNode(const std::string& name) const;
+        Node node(const std::string& name) const;
+        std::vector<Node> allNodes() const;
+
+    private:
+        std::map<std::string, Node> nodes;
+        std::string className;
+    };
+
+namespace Impl {
+    template<typename Endpoint> struct Binder;
+
+    using Datacratic::PortRange;
+
+    template<> struct Binder<Datacratic::ZmqNamedClientBus> {
+        void bindTcp(Datacratic::ZmqNamedClientBus* endpoint, const Service::Node& node, const Binding& binding) {
+            auto ep = binding.endpoint();
+            auto name = ep.name();
+
+            if (ep.protocol() != Protocol::Zmq)
+                throw ML::Exception("Can not bind a ZmqNamedClientBus to endpoint '%s'", name.c_str());
+
+            auto data = ep.data<ZmqData>();
+            if (data->type != ZmqEndpointType::Bus) {
+                throw ML::Exception("Invalid binding to endpoint '%s' for ZmqNamedClientBus (endpoint type is not a bus)",
+                                name.c_str());
+            }
+
+            auto serviceName = node.fullServiceName(ep.serviceName());
+            std::cout << "serviceName = " << serviceName << std::endl;
+            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
+            std::cout << endpoint->bindTcp(PortRange(static_cast<uint16_t>(binding.port()))) << std::endl;
+        }
+    };
+
+    template<> struct Binder<Datacratic::ZmqNamedPublisher> {
+        void bindTcp(Datacratic::ZmqNamedPublisher* endpoint, const Service::Node& node, const Binding& binding) {
+            auto ep = binding.endpoint();
+            auto name = ep.name();
+
+            if (ep.protocol() != Protocol::Zmq)
+                throw ML::Exception("Can not bind a ZmqNamedClientBus to endpoint '%s'", name.c_str());
+
+            auto data = ep.data<ZmqData>();
+            if (data->type != ZmqEndpointType::Publisher)
+                throw ML::Exception("Invalid binding to endpoint '%s' for ZmqNamedPublisher (endpoint type is not a endpoint)",
+                                name.c_str());
+
+            auto serviceName = node.fullServiceName(ep.serviceName());
+            std::cout << "serviceName = " << serviceName << std::endl;
+            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
+            std::cout << endpoint->bindTcp(PortRange(static_cast<uint16_t>(binding.port()))) << std::endl;
+        }
+    };
+
+    template<> struct Binder<Datacratic::RestServiceEndpoint> {
+        void bindTcp(Datacratic::RestServiceEndpoint* endpoint, const Service::Node& node, const Binding& binding) {
+            auto ep = binding.endpoint();
+            auto name = ep.name();
+
+            if (ep.protocol() != Protocol::Rest)
+                throw ML::Exception("Can not bind a RestServiceEndpoint to endpoint '%s'", name.c_str());
+            auto serviceName = node.fullServiceName(ep.serviceName());
+            std::cout << "serviceName = " << serviceName << std::endl;
+            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
+
+            auto port = binding.port();
+
+            auto portRange = [&](const char *servicePort) {
+                auto it = port.find(servicePort);
+                if (it == port.end())
+                    throw ML::Exception("Can not bind RestServiceEndpoint to endpoint '%s': missing port '%s'",
+                            name.c_str(), servicePort);
+
+                return PortRange(it->second);
+            };
+
+            auto b = endpoint->bindTcp(portRange("zmq"), portRange("http"));
+            std::cout << b.first << " - " << b.second << std::endl;
+        }
+    };
+};
+
 class StaticDiscovery {
 public:
      static StaticDiscovery fromFile(const std::string& fileName);
      static StaticDiscovery fromJson(const Json::Value& value);     
 
-     Endpoint namedEndpoint(const std::string& name) const;
+     struct Config {
+
+         friend class StaticDiscovery;
+
+         template<typename Endpoint>
+         Config& bind(Endpoint* endpoint, const std::string &endpointName) {
+             auto binding = node.binding(endpointName);
+             Impl::Binder<Endpoint> binder;
+             binder.bindTcp(endpoint, node, binding);
+
+             return *this;
+         }
+
+     private:
+         Config(const Service::Node& node)
+             : node(node)
+         { }
+
+         Service::Node node;
+     };
+
+     Config configure(const std::string& serviceClass, const std::string &serviceName) const {
+         auto it = services.find(serviceClass);
+         if (it == std::end(services))
+             throw ML::Exception("Unknown service '%s'", serviceClass.c_str());
+
+
+         const auto& service = it->second;
+         auto node = service.node(serviceName);
+         return Config(node);
+     }
 
 private:
      Endpoints endpoints;
+     std::map<std::string, Service> services;
 };
 
 } // namespace Discovery

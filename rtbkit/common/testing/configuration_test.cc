@@ -9,6 +9,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "rtbkit/common/static_configuration.h"
+#include "soa/service/zmq_endpoint.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -19,11 +20,20 @@ BOOST_AUTO_TEST_CASE( basic_test )
 {
     auto d = Discovery::StaticDiscovery::fromFile("static.json");
 
-    auto palAgents = d.namedEndpoint("pal.agents");
-    auto port = palAgents.port();
-    std::cout << "serviceName = " << palAgents.serviceName() << std::endl;
-    std::cout << "Port = " << static_cast<uint16_t>(port) << std::endl;
+    auto config = std::make_shared<Datacratic::NullConfigurationService>();
 
-    auto logger = d.namedEndpoint("logger");
-    std::cout << "serviceName = " << logger.serviceName() << std::endl;
+    Datacratic::ServiceProxies proxies;
+    Datacratic::ZmqNamedClientBus agents(proxies.zmqContext);
+    Datacratic::ZmqNamedPublisher logger(proxies.zmqContext);
+
+    Datacratic::RestServiceEndpoint banker(proxies.zmqContext);
+
+    d
+        .configure("router", "rtb1.mtl.router")
+        .bind(&agents, "router.agents")
+        .bind(&logger, "logger");
+
+    d
+        .configure("banker", "rtb1.mtl.masterBanker")
+        .bind(&banker, "banker.rest");
 }

@@ -105,6 +105,19 @@ namespace {
         }
     };
 
+    template<>
+    struct TypedJson<ZmqEndpointType> {
+        static ZmqEndpointType extract(const Json::Value& val, const char*) {
+            auto str = val.asString();
+            if (str == "bus")
+                return ZmqEndpointType::Bus;
+            else if (str == "publisher")
+                return ZmqEndpointType::Publisher;
+
+            throw ML::Exception("Unknown endopint type '%s'", str.c_str());
+        }
+    };
+
     template<typename T>
     T typedJsonMember(const Json::Value& value, const char* fieldName, const char* object) {
         auto val = jsonMember(value, fieldName, object);
@@ -141,9 +154,16 @@ namespace {
             port = Port::parseSingle(jsonMember(value, "port", n), n);
         }
 
-        return Endpoint(
+        Endpoint endpoint(
                 std::move(name), std::move(serviceName),
                 protocol, std::move(port));
+
+        if (protocol == Protocol::Zmq) {
+            endpoint.setData(std::make_shared<ZmqData>(
+                    typedJsonMember<ZmqEndpointType>(value, "type", n)));
+        }
+
+        return endpoint;
 
     }
 }
@@ -238,8 +258,8 @@ operator+(Port lhs, uint16_t value)
 }
 
 Binding::Context
-Binding::context(const Endpoints& endpoints) {
-    return Binding::Context { endpoints };
+Binding::context(const Endpoints& endpoints, std::string name) {
+    return Binding::Context { endpoints, std::move(name) };
 }
 
 Binding
@@ -253,7 +273,7 @@ Binding::fromExpression(const std::string& value, const Context& context) {
     auto findEndpoint = [&](const std::string& name) {
         auto it = context.endpoints.find(name);
         if (it == std::end(context.endpoints))
-            throw ML::Exception("Could not find endpoint '%s' for binding expression", name.c_str());
+            throw ML::Exception("Could not find endpoint '%s' for binding expression '%s'", name.c_str(), context.name.c_str());
 
         return it->second;
     };
@@ -271,12 +291,12 @@ Binding::fromExpression(const std::string& value, const Context& context) {
         const char *raw = p.c_str();
         if (*raw == '$') {
             if (*++raw != '+')
-                throw ML::Exception("Binding expression: expected '+' got '%c' (%d)",
-                    *raw, static_cast<int>(*raw));
+                throw ML::Exception("Binding expression for '%s': expected '+' got '%c' (%d)",
+                    context.name.c_str(), *raw, static_cast<int>(*raw));
 
             uint16_t incr = std::strtol(++raw, nullptr, 10);
             if (incr == 0)
-                throw ML::Exception("Invalid increment for binding expression: '%s'", p.c_str());
+                throw ML::Exception("Invalid operation for binding expression '%s': '%s'", context.name.c_str(), p.c_str());
 
             Port port = ep.port() + incr;
             return Binding(ep, ep.port() + incr);
@@ -284,6 +304,46 @@ Binding::fromExpression(const std::string& value, const Context& context) {
 
         return Binding(ep, ep.port());
     }
+}
+
+Binding
+Service::Node::binding(const std::string& name) const {
+    auto it = std::find_if(std::begin(bindings), std::end(bindings), [&](const Binding& binding) {
+        return binding.endpoint().name() == name;
+    });
+
+    // ExcAssert(it != std::end(bindings))
+    return *it;
+}
+
+void
+Service::addNode(const Service::Node& node) {
+    nodes.insert(std::make_pair(node.serviceName, node));
+}
+
+bool
+Service::hasNode(const std::string& name) const {
+    return nodes.find(name) != std::end(nodes);
+}
+
+Service::Node
+Service::node(const std::string& name) const {
+    if (!hasNode(name))
+        throw ML::Exception("Node '%s' for service '%s' does not exist",
+                name.c_str(), className.c_str());
+
+    return nodes.find(name)->second;
+}
+
+std::vector<Service::Node>
+Service::allNodes() const {
+    std::vector<Service::Node> res;
+    res.reserve(nodes.size());
+    for (const auto& node: nodes) {
+        res.push_back(node.second);
+    }
+
+    return res;
 }
 
 StaticDiscovery
@@ -324,6 +384,7 @@ StaticDiscovery::fromJson(const Json::Value& value) {
         "monitor"
     };
 
+    std::map<std::string, Service> services;
     jsonForeach(srvs, [&](std::string srvClass, const Json::Value& service) {
         auto srvIt = std::find(std::begin(KnownServices), std::end(KnownServices), srvClass);
         if (srvIt == std::end(KnownServices))
@@ -334,29 +395,25 @@ StaticDiscovery::fromJson(const Json::Value& value) {
             if (!bindArr.isArray())
                 throw ML::Exception("bind for '%s': expected array", serviceName.c_str());
 
-            std::cout << serviceName << std::endl;
+            Service service(srvClass);
+            std::vector<Binding> bindings;
             for (const auto& bind: bindArr) {
-                auto binding = Binding::fromExpression(bind, Binding::context(endpoints));
-
-                auto ep = binding.endpoint();
-                auto port = binding.port();
+                auto binding = Binding::fromExpression(bind, Binding::context(endpoints, serviceName));
+                bindings.push_back(std::move(binding));
             }
+
+            service.addNode(Service::Node(std::move(serviceName), std::move(bindings)));
+
+            services.insert(std::make_pair(std::move(srvClass), std::move(service)));
+
         });
 
     });
 
     res.endpoints = std::move(endpoints);
+    res.services = std::move(services);
 
     return res;
-}
-
-Endpoint
-StaticDiscovery::namedEndpoint(const std::string& name) const {
-    auto it = endpoints.find(name);
-    if (it == std::end(endpoints))
-        throw ML::Exception("The endpoint '%s' does not exist", name.c_str());
-
-    return it->second;
 }
 
 } // namespace Discovery
