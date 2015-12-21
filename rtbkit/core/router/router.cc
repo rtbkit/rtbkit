@@ -396,8 +396,8 @@ void
 Router::
 bindTcp()
 {
-    logger.bindTcp(getServices()->ports->getRange("logs"));
-    bridge.agents.bindTcp(getServices()->ports->getRange("router"));
+    logger.bindTcp(getServices()->ports->getRange("logger"));
+    bridge.agents.bindTcp(getServices()->ports->getRange("router.agents"));
 }
 
 void

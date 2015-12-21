@@ -862,8 +862,8 @@ MasterBanker::
 bindTcp()
 {
     return RestServiceEndpoint::bindTcp(
-            getServices()->ports->getRange("banker.zmq"),
-            getServices()->ports->getRange("banker.http"));
+            getServices()->ports->getRange("banker.rest.zeromq"),
+            getServices()->ports->getRange("banker.rest.http"));
 }
 
 void

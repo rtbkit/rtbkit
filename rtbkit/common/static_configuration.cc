@@ -9,6 +9,8 @@
 #include "jml/arch/exception.h"
 #include "jml/utils/file_functions.h"
 
+using Datacratic::PortRange;
+
 namespace RTBKIT {
 namespace Discovery {
 
@@ -309,11 +311,26 @@ Binding::fromExpression(const std::string& value, const Context& context) {
 Binding
 Service::Node::binding(const std::string& name) const {
     auto it = std::find_if(std::begin(bindings), std::end(bindings), [&](const Binding& binding) {
-        return binding.endpoint().name() == name;
+        return binding.endpoint().serviceName() == name;
     });
 
-    // ExcAssert(it != std::end(bindings))
+    if (it == std::end(bindings))
+        throw ML::Exception("Could not find binding '%s' for node '%s'",
+                name.c_str(), serviceName.c_str());
+
     return *it;
+}
+
+std::vector<Binding>
+Service::Node::protocolBindings(Protocol protocol) const {
+    std::vector<Binding> res;
+    for (const auto& bind: bindings) {
+        auto ep = bind.endpoint();
+        if (ep.protocol() == protocol)
+            res.push_back(bind);
+    }
+
+    return res;
 }
 
 void
@@ -355,6 +372,17 @@ StaticDiscovery::fromFile(const std::string& fileName)
 StaticDiscovery
 StaticDiscovery::fromJson(const Json::Value& value) {
     StaticDiscovery res;
+    res.parseFromJson(value);
+    return res;
+}
+
+void
+StaticDiscovery::parseFromFile(const std::string& fileName) {
+    return parseFromJson(loadJsonFromFile(fileName));
+}
+
+void
+StaticDiscovery::parseFromJson(const Json::Value& value) {
 
     if (!value.isObject())
         throw ML::Exception("root: expected a json object");
@@ -375,12 +403,12 @@ StaticDiscovery::fromJson(const Json::Value& value) {
         throw ML::Exception("services: expected a json object");
 
     static constexpr const char* KnownServices[] = {
-        "agentConfiguration",
-        "router",
-        "augmentation",
-        "postAuction",
-        "banker",
-        "adserver",
+        "rtbAgentConfiguration",
+        "rtbRequestRouter",
+        "rtbRouterAugmentation",
+        "rtbPostAuctionService",
+        "rtbBanker",
+        "adServer",
         "monitor"
     };
 
@@ -391,6 +419,7 @@ StaticDiscovery::fromJson(const Json::Value& value) {
             throw ML::Exception("Unknown service class '%s'", srvClass.c_str());
 
         jsonForeach(service, [&](std::string serviceName, const Json::Value& value) {
+            auto hostName = typedJsonMember<std::string>(value, "hostname", serviceName.c_str());
             auto bindArr = jsonMember(value, "bind", serviceName.c_str());
             if (!bindArr.isArray())
                 throw ML::Exception("bind for '%s': expected array", serviceName.c_str());
@@ -402,7 +431,7 @@ StaticDiscovery::fromJson(const Json::Value& value) {
                 bindings.push_back(std::move(binding));
             }
 
-            service.addNode(Service::Node(std::move(serviceName), std::move(bindings)));
+            service.addNode(Service::Node(std::move(serviceName), std::move(hostName), std::move(bindings)));
 
             services.insert(std::make_pair(std::move(srvClass), std::move(service)));
 
@@ -410,8 +439,206 @@ StaticDiscovery::fromJson(const Json::Value& value) {
 
     });
 
-    res.endpoints = std::move(endpoints);
-    res.services = std::move(services);
+    this->endpoints = std::move(endpoints);
+    this->services = std::move(services);
+}
+
+void
+StaticConfigurationService::init(const std::shared_ptr<StaticDiscovery>& discovery) {
+    this->discovery = discovery;
+}
+
+Json::Value
+StaticConfigurationService::getJson(
+        const std::string& value,
+        Datacratic::ConfigurationService::Watch watch)
+{
+    auto keyParts = splitKey(value);
+    Json::Value res;
+    if (keyParts[0] == "serviceClass") {
+        ExcAssertEqual(keyParts.size(), 3);
+
+        auto serviceClass = keyParts[1];
+        auto service = discovery->service(serviceClass);
+        auto node = service.node(keyParts[2]);
+
+        res["serviceLocation"] = currentLocation;
+        res["serviceName"] = node.serviceName;
+        res["servicePath"] = node.serviceName;
+
+
+    }
+    else {
+        auto node = discovery->node(keyParts[0]);
+        auto ep = keyParts[1];
+        if (ep == "zeromq" || ep == "http") {
+            auto bindings = node.protocolBindings(Protocol::Rest);
+            ExcAssertEqual(bindings.size(), 1);
+
+            auto bind = bindings[0];
+            auto port = bind.port();
+            ExcAssert(port.isMulti());
+
+            auto portValue = port.find(ep);
+            ExcAssert(portValue != port.end());
+
+            auto p = portValue->second;
+
+            auto uri = "tcp://" + node.hostName + ":" + std::to_string(p);
+
+            Json::Value info;
+            auto& transports = info["transports"];
+            transports[0]["name"] = "tcp";
+            //transports[0]["addr"] = addr;
+            transports[0]["hostScope"] = "*";
+            transports[0]["port"] = p;
+
+            transports[1]["name"] = "zeromq";
+            // @Todo: hard-coded for now
+            transports[1]["socketType"] = 6;
+            transports[1]["uri"] = uri;
+            info["zmqConnectUri"] = uri;
+            res.append(info);
+
+        }
+        else {
+            auto binding = node.binding(ep);
+            auto port = binding.port();
+            ExcAssert(port.isSingle());
+
+            auto p = static_cast<uint16_t>(port);
+
+            auto uri = "tcp://" + node.hostName + ":" + std::to_string(p);
+
+            Json::Value info;
+            auto& transports = info["transports"];
+            transports[0]["name"] = "tcp";
+            //transports[0]["addr"] = addr;
+            transports[0]["hostScope"] = "*";
+            transports[0]["port"] = p;
+
+            transports[1]["name"] = "zeromq";
+            // @Todo: hard-coded for now
+            transports[1]["socketType"] = 6;
+            transports[1]["uri"] = uri;
+            info["zmqConnectUri"] = uri;
+            res.append(info);
+        }
+
+    }
+
+
+    return res;
+}
+
+void
+StaticConfigurationService::set(
+        const std::string& key,
+        const Json::Value& value)
+{
+}
+
+std::string
+StaticConfigurationService::setUnique(const std::string& key, const Json::Value& value) {
+    return "";
+}
+
+std::vector<std::string>
+StaticConfigurationService::getChildren(
+        const std::string& key,
+        Datacratic::ConfigurationService::Watch watch) {
+    std::vector<std::string> res;
+
+    auto keyParts = splitKey(key);
+    ExcAssert(!keyParts.empty());
+    ExcAssertEqual(keyParts.size(), 2);
+
+    if (keyParts[0] == "serviceClass") {
+
+        auto serviceClass = keyParts[1];
+        auto service = discovery->service(serviceClass);
+        auto nodes = service.allNodes();
+        for (const auto& node: nodes) {
+            res.push_back(node.serviceName);
+        }
+    }
+    else {
+        res.push_back("tcp");
+    }
+
+    return res;
+}
+
+bool
+StaticConfigurationService::forEachEntry(
+        const Datacratic::ConfigurationService::OnEntry& onEntry,
+        const std::string& startPrefix) const {
+    return false;
+}
+
+void
+StaticConfigurationService::removePath(const std::string& path) {
+}
+
+std::vector<std::string>
+StaticConfigurationService::splitKey(const std::string& key) const {
+    std::vector<std::string> res;
+
+    std::istringstream iss(key);
+    std::string part;
+    while (std::getline(iss, part, '/'))
+        res.push_back(std::move(part));
+
+    return res;
+}
+
+StaticPortRangeService::StaticPortRangeService(
+        const std::shared_ptr<StaticDiscovery>& discovery,
+        const std::string& nodeName) 
+    : discovery(discovery)
+    , nodeName(nodeName) {
+}
+
+PortRange
+StaticPortRangeService::getRange(const std::string& name) {
+    auto node = discovery->node(nodeName);
+    auto parts = splitPort(name);
+    auto back = parts.back();
+    if (back == "http" || back == "zeromq") {
+        std::string portName;
+        for (std::vector<std::string>::size_type i = 0; i < parts.size() - 1; ++i) {
+            portName += parts[i];
+            if (i < parts.size() - 1)
+                portName += ".";
+        }
+
+        auto binding = node.binding(portName);
+        auto port = binding.port();
+        ExcAssert(port.isMulti());
+
+        auto it = port.find(back);
+        if (it == std::end(port))
+            throw ML::Exception("Could find PortRange for '%s'", name.c_str());
+
+        return PortRange(it->second);
+    } else {
+        auto binding = node.binding(name);
+        auto port = binding.port();
+        ExcAssert(port.isSingle());
+
+        auto p = static_cast<uint16_t>(port);
+        return PortRange(p);
+    }
+}
+
+std::vector<std::string>
+StaticPortRangeService::splitPort(const std::string& name) const {
+    std::vector<std::string> res;
+
+    std::istringstream iss(name);
+    std::string part;
+    while (std::getline(iss, part, '.'))
+        res.push_back(std::move(part));
 
     return res;
 }

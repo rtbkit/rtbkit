@@ -189,9 +189,9 @@ AgentConfigurationService::
 bindTcp()
 {
     RestServiceEndpoint::bindTcp(
-            getServices()->ports->getRange("agentConfiguration.zmq"),
-            getServices()->ports->getRange("agentConfiguration.http"));
-    listeners.bindTcp(getServices()->ports->getRange("configuration"));
+            getServices()->ports->getRange("agentConfiguration.rest.zmq"),
+            getServices()->ports->getRange("agentConfiguration.rest.http"));
+    listeners.bindTcp(getServices()->ports->getRange("agentConfiguration.listeners"));
     agents.bindTcp();
 }
 

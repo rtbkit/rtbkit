@@ -29,11 +29,11 @@ BOOST_AUTO_TEST_CASE( basic_test )
     Datacratic::RestServiceEndpoint banker(proxies.zmqContext);
 
     d
-        .configure("router", "rtb1.mtl.router")
+        .configure("rtbRequestRouter", "rtb1.mtl.router")
         .bind(&agents, "router.agents")
         .bind(&logger, "logger");
 
     d
-        .configure("banker", "rtb1.mtl.masterBanker")
+        .configure("rtbBanker", "rtb1.mtl.masterBanker")
         .bind(&banker, "banker.rest");
 }

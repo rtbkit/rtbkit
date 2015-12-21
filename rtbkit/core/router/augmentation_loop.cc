@@ -75,7 +75,7 @@ init()
             handleAugmentorMessage(message);
         };
 
-    toAugmentors.bindTcp(getServices()->ports->getRange("augmentors"));
+    toAugmentors.bindTcp(getServices()->ports->getRange("augmentationLoop"));
 
     toAugmentors.onConnection = [=] (const std::string & client)
         {

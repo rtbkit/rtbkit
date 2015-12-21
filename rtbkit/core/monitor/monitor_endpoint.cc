@@ -128,8 +128,8 @@ MonitorEndpoint::
 bindTcp(const std::string& host)
 {
     return RestServiceEndpoint::bindTcp(
-            getServices()->ports->getRange("monitor.zmq"),
-            getServices()->ports->getRange("monitor.http"),
+            getServices()->ports->getRange("monitor.rest.zeromq"),
+            getServices()->ports->getRange("monitor.rest.http"),
             host);
 }
 

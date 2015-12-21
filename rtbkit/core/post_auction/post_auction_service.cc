@@ -90,9 +90,9 @@ void
 PostAuctionService::
 bindTcp()
 {
-    logger.bindTcp(getServices()->ports->getRange("logs"));
-    endpoint.bindTcp(getServices()->ports->getRange("postAuctionLoop"));
-    bridge.agents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
+    logger.bindTcp(getServices()->ports->getRange("logger"));
+    endpoint.bindTcp(getServices()->ports->getRange("pal.events"));
+    bridge.agents.bindTcp(getServices()->ports->getRange("pal.agents"));
 
     if (restEndpoint) {
         restEndpoint->bindTcp(
