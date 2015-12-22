@@ -12,6 +12,7 @@
 #include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/banker/local_banker.h"
+#include "rtbkit/common/args.h"
 #include "soa/service/service_utils.h"
 
 namespace RTBKIT {
@@ -25,7 +26,7 @@ struct PostAuctionRunner {
 
     PostAuctionRunner();     
 
-    ServiceProxyArguments serviceArgs;
+    ProxyArguments serviceArgs;
     SlaveBankerArguments bankerArgs;
 
     size_t shard;

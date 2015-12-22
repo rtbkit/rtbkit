@@ -631,6 +631,10 @@ StaticPortRangeService::getRange(const std::string& name) {
     }
 }
 
+void
+StaticPortRangeService::dump(std::ostream& os) const {
+}
+
 std::vector<std::string>
 StaticPortRangeService::splitPort(const std::string& name) const {
     std::vector<std::string> res;

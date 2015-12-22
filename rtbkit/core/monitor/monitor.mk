@@ -18,6 +18,6 @@ LIBMONITORSERVICE_LINK := \
 
 $(eval $(call library,monitor_service,$(LIBMONITORSERVICE_SOURCES),$(LIBMONITORSERVICE_LINK)))
 
-$(eval $(call program,monitor_service_runner,monitor_service boost_program_options))
+$(eval $(call program,monitor_service_runner,monitor_service rtb_configuration boost_program_options))
 
 $(eval $(call include_sub_make,monitor_testing,testing,monitor_testing.mk))

@@ -14,6 +14,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
+#include "rtbkit/common/args.h"
 #include "soa/service/service_utils.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/timers.h"
@@ -30,7 +31,7 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
-    Datacratic::ServiceProxyArguments args;
+    ProxyArguments args;
 
     options_description options = args.makeProgramOptions();
     options.add_options() ("help,h", "Print this message");
@@ -44,8 +45,8 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto proxies = args.makeServiceProxies();
     auto serviceName = args.serviceName("agentConfigurationService");
+    auto proxies = args.makeServiceProxies(serviceName);
 
     AgentConfigurationService config(proxies, serviceName);
     config.init();

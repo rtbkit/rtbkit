@@ -13,7 +13,7 @@ LIBBANKER_LINK := \
 
 $(eval $(call library,banker,$(LIBBANKER_SOURCES),$(LIBBANKER_LINK)))
 
-$(eval $(call program,banker_service_runner,banker boost_program_options))
+$(eval $(call program,banker_service_runner,banker rtb_configuration boost_program_options))
 
 $(eval $(call library,gobanker,go_account.cc local_banker.cc))
 

@@ -112,8 +112,8 @@ void
 PostAuctionRunner::
 init()
 {
-    auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
+    auto proxies = serviceArgs.makeServiceProxies(serviceName);
 
     auto bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 

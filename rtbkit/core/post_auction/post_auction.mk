@@ -14,6 +14,6 @@ $(eval $(call library,post_auction,$(LIB_POST_AUCTION_SOURCES),$(LIB_POST_AUCTIO
 
 
 # post auction runner
-$(eval $(call program,post_auction_runner,post_auction services banker gobanker boost_program_options))
+$(eval $(call program,post_auction_runner,post_auction services banker gobanker rtb_configuration boost_program_options))
 
 $(eval $(call include_sub_make,post_auction_testing,testing,testing.mk))

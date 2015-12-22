@@ -177,180 +177,78 @@ namespace Discovery {
         std::string className;
     };
 
-namespace Impl {
-    template<typename Endpoint> struct Binder;
+    class StaticDiscovery {
+    public:
+         static StaticDiscovery fromFile(const std::string& fileName);
+         static StaticDiscovery fromJson(const Json::Value& value);
 
-    using Datacratic::PortRange;
+         void parseFromFile(const std::string& fileName);
+         void parseFromJson(const Json::Value& value);
 
-    template<> struct Binder<Datacratic::ZmqNamedClientBus> {
-        void bindTcp(Datacratic::ZmqNamedClientBus* endpoint, const Service::Node& node, const Binding& binding) {
-            auto ep = binding.endpoint();
-            auto name = ep.name();
+         Service::Node node(const std::string& serviceName) const {
+             for (const auto& service: services) {
+                 if (service.second.hasNode(serviceName))
+                     return service.second.node(serviceName);
+             }
 
-            if (ep.protocol() != Protocol::Zmq)
-                throw ML::Exception("Can not bind a ZmqNamedClientBus to endpoint '%s'", name.c_str());
-
-            auto data = ep.data<ZmqData>();
-            if (data->type != ZmqEndpointType::Bus) {
-                throw ML::Exception("Invalid binding to endpoint '%s' for ZmqNamedClientBus (endpoint type is not a bus)",
-                                name.c_str());
-            }
-
-            auto serviceName = node.fullServiceName(ep.serviceName());
-            std::cout << "serviceName = " << serviceName << std::endl;
-            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
-            std::cout << endpoint->bindTcp(PortRange(static_cast<uint16_t>(binding.port()))) << std::endl;
-        }
-    };
-
-    template<> struct Binder<Datacratic::ZmqNamedPublisher> {
-        void bindTcp(Datacratic::ZmqNamedPublisher* endpoint, const Service::Node& node, const Binding& binding) {
-            auto ep = binding.endpoint();
-            auto name = ep.name();
-
-            if (ep.protocol() != Protocol::Zmq)
-                throw ML::Exception("Can not bind a ZmqNamedClientBus to endpoint '%s'", name.c_str());
-
-            auto data = ep.data<ZmqData>();
-            if (data->type != ZmqEndpointType::Publisher)
-                throw ML::Exception("Invalid binding to endpoint '%s' for ZmqNamedPublisher (endpoint type is not a endpoint)",
-                                name.c_str());
-
-            auto serviceName = node.fullServiceName(ep.serviceName());
-            std::cout << "serviceName = " << serviceName << std::endl;
-            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
-            std::cout << endpoint->bindTcp(PortRange(static_cast<uint16_t>(binding.port()))) << std::endl;
-        }
-    };
-
-    template<> struct Binder<Datacratic::RestServiceEndpoint> {
-        void bindTcp(Datacratic::RestServiceEndpoint* endpoint, const Service::Node& node, const Binding& binding) {
-            auto ep = binding.endpoint();
-            auto name = ep.name();
-
-            if (ep.protocol() != Protocol::Rest)
-                throw ML::Exception("Can not bind a RestServiceEndpoint to endpoint '%s'", name.c_str());
-            auto serviceName = node.fullServiceName(ep.serviceName());
-            std::cout << "serviceName = " << serviceName << std::endl;
-            endpoint->init(std::make_shared<Datacratic::NullConfigurationService>(), serviceName);
-
-            auto port = binding.port();
-
-            auto portRange = [&](const char *servicePort) {
-                auto it = port.find(servicePort);
-                if (it == port.end())
-                    throw ML::Exception("Can not bind RestServiceEndpoint to endpoint '%s': missing port '%s'",
-                            name.c_str(), servicePort);
-
-                return PortRange(it->second);
-            };
-
-            auto b = endpoint->bindTcp(portRange("zmq"), portRange("http"));
-            std::cout << b.first << " - " << b.second << std::endl;
-        }
-    };
-};
-
-class StaticDiscovery {
-public:
-     static StaticDiscovery fromFile(const std::string& fileName);
-     static StaticDiscovery fromJson(const Json::Value& value);     
-
-     void parseFromFile(const std::string& fileName);
-     void parseFromJson(const Json::Value& value);
-
-     struct Config {
-
-         friend class StaticDiscovery;
-
-         template<typename Endpoint>
-         Config& bind(Endpoint* endpoint, const std::string &endpointName) {
-             auto binding = node.binding(endpointName);
-             Impl::Binder<Endpoint> binder;
-             binder.bindTcp(endpoint, node, binding);
-
-             return *this;
+             throw ML::Exception("Unknown node '%s'", serviceName.c_str());
          }
 
-     private:
-         Config(const Service::Node& node)
-             : node(node)
-         { }
+         Service service(const std::string& serviceClass) const {
+             auto it = services.find(serviceClass);
+             if (it == std::end(services))
+                 throw ML::Exception("Unknown service '%s'", serviceClass.c_str());
 
-         Service::Node node;
-     };
-
-     Config configure(const std::string& serviceClass, const std::string &serviceName) const {
-
-         const auto& srv = service(serviceClass);;
-         auto node = srv.node(serviceName);
-         return Config(node);
-     }
-
-     Service::Node node(const std::string& serviceName) const {
-         for (const auto& service: services) {
-             if (service.second.hasNode(serviceName))
-                 return service.second.node(serviceName);
+             return it->second;
          }
 
-         throw ML::Exception("Unknown node '%s'", serviceName.c_str());
-     }
+    private:
+         Endpoints endpoints;
+         std::map<std::string, Service> services;
+    };
 
-     Service service(const std::string& serviceClass) const {
-         auto it = services.find(serviceClass);
-         if (it == std::end(services))
-             throw ML::Exception("Unknown service '%s'", serviceClass.c_str());
+    struct StaticConfigurationService : public Datacratic::ConfigurationService {
 
-         return it->second;
-     }
+        void init(const std::shared_ptr<StaticDiscovery>& discovery);
 
-private:
-     Endpoints endpoints;
-     std::map<std::string, Service> services;
-};
+        Json::Value getJson(
+                const std::string& value, Watch watch = Watch());
 
-struct StaticConfigurationService : public Datacratic::ConfigurationService {
+        void set(const std::string& key,
+                const Json::Value& value);
 
-    void init(const std::shared_ptr<StaticDiscovery>& discovery);
+        std::string setUnique(const std::string& key, const Json::Value& value);
 
-    Json::Value getJson(
-            const std::string& value, Watch watch = Watch());
+        std::vector<std::string>
+        getChildren(const std::string& key,
+                    Watch watch = Watch());
 
-    void set(const std::string& key,
-            const Json::Value& value);
+        bool forEachEntry(const OnEntry& onEntry,
+                          const std::string& startPrefix = "") const;
 
-    std::string setUnique(const std::string& key, const Json::Value& value);
+        void removePath(const std::string& path);
 
-    std::vector<std::string>
-    getChildren(const std::string& key,
-                Watch watch = Watch());
+    private:
+        std::vector<std::string> splitKey(const std::string& key) const;
+        std::shared_ptr<StaticDiscovery> discovery;
 
-    bool forEachEntry(const OnEntry& onEntry,
-                      const std::string& startPrefix = "") const;
+    };
 
-    void removePath(const std::string& path);
+    struct StaticPortRangeService : public Datacratic::PortRangeService {
 
-private:
-    std::vector<std::string> splitKey(const std::string& key) const;
-    std::shared_ptr<StaticDiscovery> discovery;
+        StaticPortRangeService(
+                const std::shared_ptr<StaticDiscovery>& discovery,
+                const std::string& nodeName);
 
-};
+        Datacratic::PortRange getRange(const std::string& name);
+        void dump(std::ostream& stream = std::cerr) const;
 
-struct StaticPortRangeService : public Datacratic::PortRangeService {
+    private:
+        std::shared_ptr<StaticDiscovery> discovery;
+        std::string nodeName;
 
-    StaticPortRangeService(
-            const std::shared_ptr<StaticDiscovery>& discovery,
-            const std::string& nodeName);
-
-    Datacratic::PortRange getRange(const std::string& name);
-    void dump(std::ostream& stream = std::cerr) const;
-
-private:
-    std::shared_ptr<StaticDiscovery> discovery;
-    std::string nodeName;
-
-    std::vector<std::string> splitPort(const std::string& name) const;
-};
+        std::vector<std::string> splitPort(const std::string& name) const;
+    };
 
 } // namespace Discovery
 

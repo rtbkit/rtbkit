@@ -14,6 +14,7 @@
 #include "rtbkit/core/banker/local_banker.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/logs.h"
+#include "rtbkit/common/args.h"
 
 namespace RTBKIT {
 
@@ -26,7 +27,7 @@ struct RouterRunner {
 
     RouterRunner();
 
-    ServiceProxyArguments serviceArgs;
+    ProxyArguments serviceArgs;
     SlaveBankerArguments bankerArgs;
     std::vector<std::string> logUris;  ///< TODO: zookeeper
 

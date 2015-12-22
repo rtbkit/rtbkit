@@ -15,6 +15,8 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+#include "rtbkit/common/args.h"
+
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -39,7 +41,7 @@ int main(int argc, char** argv)
 
     std::string configuration = "rtbkit/examples/adserver-config.json";
 
-    ServiceProxyArguments args;
+    RTBKIT::ProxyArguments args;
     options_description options = args.makeProgramOptions();
     options_description more("Ad Server");
     more.add_options()
@@ -57,8 +59,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto proxies = args.makeServiceProxies();
-    auto serviceName = args.serviceName("");
+    auto serviceName = args.serviceName("adServer");
+    auto proxies = args.makeServiceProxies(serviceName);
     auto server = RTBKIT::AdServerConnector::create(serviceName, proxies, loadJsonFromFile(configuration));
     server->start();
 

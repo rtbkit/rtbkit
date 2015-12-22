@@ -143,8 +143,9 @@ void
 RouterRunner::
 init()
 {
-    auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("router");
+
+    auto proxies = serviceArgs.makeServiceProxies(serviceName);
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);

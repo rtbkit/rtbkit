@@ -12,6 +12,7 @@
 #include "jml/arch/timers.h"
 #include "soa/service/service_utils.h"
 #include "monitor_endpoint.h"
+#include "rtbkit/common/args.h"
 
 using namespace boost::program_options;
 using namespace std;
@@ -22,7 +23,7 @@ using namespace RTBKIT;
 
 int main(int argc, char ** argv)
 {
-    Datacratic::ServiceProxyArguments args;
+    ProxyArguments args;
 
     options_description options = args.makeProgramOptions("Monitor Service");
     options.add_options() ("help,h", "Print this message")
@@ -37,8 +38,8 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto proxies = args.makeServiceProxies();
     auto serviceName = args.serviceName("monitor");
+    auto proxies = args.makeServiceProxies(serviceName);
 
     MonitorEndpoint monitor(proxies, serviceName);
     monitor.init({

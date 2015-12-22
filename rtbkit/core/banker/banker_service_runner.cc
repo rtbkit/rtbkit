@@ -16,6 +16,7 @@
 #include <boost/make_shared.hpp>
 
 #include "rtbkit/core/banker/master_banker.h"
+#include "rtbkit/common/args.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/process_stats.h"
 #include "jml/utils/pair_utils.h"
@@ -33,7 +34,7 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
-    ServiceProxyArguments serviceArgs;
+    ProxyArguments serviceArgs;
 
     options_description configuration_options("Configuration options");
 
@@ -86,8 +87,8 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("masterBanker");
+    auto proxies = serviceArgs.makeServiceProxies(serviceName);
 
     MasterBanker banker(proxies, serviceName);
     std::shared_ptr<Redis::AsyncConnection> redis;

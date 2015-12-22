@@ -11,7 +11,6 @@
 
 #include "standard_adserver_connector.h"
 
-
 using namespace std;
 
 using namespace boost::program_options;
