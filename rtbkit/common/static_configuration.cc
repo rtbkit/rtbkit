@@ -308,18 +308,19 @@ Binding::fromExpression(const std::string& value, const Context& context) {
     }
 }
 
+bool
+Service::Node::hasBinding(const std::string& name) const {
+    return hasBindingImpl(name).first;
+}
+
 Binding
 Service::Node::binding(const std::string& name) const {
-    auto it = std::find_if(std::begin(bindings), std::end(bindings), [&](const Binding& binding) {
-        auto ep = binding.endpoint();
-        return ep.serviceName() == name || ep.name() == name;
-    });
-
-    if (it == std::end(bindings))
+    auto binding = hasBindingImpl(name);
+    if (!binding.first)
         throw ML::Exception("Could not find binding '%s' for node '%s'",
                 name.c_str(), serviceName.c_str());
 
-    return *it;
+    return *binding.second;
 }
 
 std::vector<Binding>
@@ -334,6 +335,16 @@ Service::Node::protocolBindings(Protocol protocol) const {
     return res;
 }
 
+std::pair<bool, std::vector<Binding>::const_iterator>
+Service::Node::hasBindingImpl(const std::string& name) const {
+    auto it = std::find_if(std::begin(bindings), std::end(bindings), [&](const Binding& binding) {
+        auto ep = binding.endpoint();
+        return ep.serviceName() == name || ep.name() == name;
+    });
+
+    return std::make_pair(it != std::end(bindings), it);
+}
+
 void
 Service::addNode(const Service::Node& node) {
     nodes.insert(std::make_pair(node.serviceName, node));
@@ -341,27 +352,33 @@ Service::addNode(const Service::Node& node) {
 
 bool
 Service::hasNode(const std::string& name) const {
-    return nodes.find(name) != std::end(nodes);
+    return hasNodeImpl(name).first;
 }
 
 Service::Node
 Service::node(const std::string& name) const {
-    if (!hasNode(name))
+    auto node = hasNodeImpl(name);
+    if (!node.first)
         throw ML::Exception("Node '%s' for service '%s' does not exist",
                 name.c_str(), className.c_str());
 
-    return nodes.find(name)->second;
+    return node.second->second;
 }
 
 std::vector<Service::Node>
 Service::allNodes() const {
     std::vector<Service::Node> res;
-    res.reserve(nodes.size());
     for (const auto& node: nodes) {
         res.push_back(node.second);
     }
 
     return res;
+}
+
+std::pair<bool, std::map<std::string, Service::Node>::const_iterator>
+Service::hasNodeImpl(const std::string& name) const {
+    auto it = nodes.find(name);
+    return std::make_pair(it != std::end(nodes), it);
 }
 
 StaticDiscovery
@@ -606,10 +623,12 @@ StaticPortRangeService::StaticPortRangeService(
 
 PortRange
 StaticPortRangeService::getRange(const std::string& name) {
-    auto node = discovery->node(nodeName);
     auto parts = splitPort(name);
     auto back = parts.back();
+
     if (back == "http" || back == "zeromq") {
+        auto node = discovery->node(nodeName);
+
         std::string portName;
         for (std::vector<std::string>::size_type i = 0; i < parts.size() - 1; ++i) {
             portName += parts[i];
@@ -627,13 +646,23 @@ StaticPortRangeService::getRange(const std::string& name) {
 
         return PortRange(it->second);
     } else {
-        auto binding = node.binding(name);
-        auto port = binding.port();
-        ExcAssert(port.isSingle());
+        auto nodes = discovery->nodes(nodeName);
+        if (nodes.empty())
+            throw ML::Exception("Did not find any node for '%s'", name.c_str());
 
-        auto p = static_cast<uint16_t>(port);
-        return PortRange(p);
+        for (const auto& node: nodes) {
+            if (!node.hasBinding(name)) continue;
+
+            auto binding = node.binding(name);
+            auto port = binding.port();
+            ExcAssert(port.isSingle());
+
+            auto p = static_cast<uint16_t>(port);
+            return PortRange(p);
+        }
     }
+
+    throw ML::Exception("Could not find PortRange for '%s'", name.c_str());
 }
 
 void

@@ -152,6 +152,7 @@ namespace Discovery {
                 , bindings(bindings)
             { }
 
+            bool hasBinding(const std::string& name) const;
             Binding binding(const std::string& name) const;
             std::vector<Binding> protocolBindings(Protocol protocol) const;
             std::string fullServiceName(const std::string& endpointName) const {
@@ -160,7 +161,11 @@ namespace Discovery {
 
             std::string serviceName;
             std::string hostName;
+
+        private:
             std::vector<Binding> bindings;
+            std::pair<bool, std::vector<Binding>::const_iterator>
+            hasBindingImpl(const std::string& name) const;
         };
 
         Service(std::string className)
@@ -173,6 +178,8 @@ namespace Discovery {
         std::vector<Node> allNodes() const;
 
     private:
+        std::pair<bool, std::map<std::string, Node>::const_iterator>
+        hasNodeImpl(const std::string& name) const;
         std::map<std::string, Node> nodes;
         std::string className;
     };
@@ -192,6 +199,18 @@ namespace Discovery {
              }
 
              throw ML::Exception("Unknown node '%s'", serviceName.c_str());
+         }
+
+         std::vector<Service::Node>
+         nodes(const std::string& serviceName) const {
+
+             std::vector<Service::Node> nodes;
+
+             for (const auto& service: services) {
+                 if (service.second.hasNode(serviceName))
+                    nodes.push_back(service.second.node(serviceName));
+             }
+             return nodes;
          }
 
          Service service(const std::string& serviceClass) const {
