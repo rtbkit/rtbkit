@@ -311,7 +311,8 @@ Binding::fromExpression(const std::string& value, const Context& context) {
 Binding
 Service::Node::binding(const std::string& name) const {
     auto it = std::find_if(std::begin(bindings), std::end(bindings), [&](const Binding& binding) {
-        return binding.endpoint().serviceName() == name;
+        auto ep = binding.endpoint();
+        return ep.serviceName() == name || ep.name() == name;
     });
 
     if (it == std::end(bindings))
@@ -551,7 +552,11 @@ StaticConfigurationService::getChildren(
 
     auto keyParts = splitKey(key);
     ExcAssert(!keyParts.empty());
-    ExcAssertEqual(keyParts.size(), 2);
+
+    // @Temporary until I figure out the monitor special hack
+    if (keyParts.size() > 2) return res;
+
+    //ExcAssertEqual(keyParts.size(), 2);
 
     if (keyParts[0] == "serviceClass") {
 
@@ -608,7 +613,7 @@ StaticPortRangeService::getRange(const std::string& name) {
         std::string portName;
         for (std::vector<std::string>::size_type i = 0; i < parts.size() - 1; ++i) {
             portName += parts[i];
-            if (i < parts.size() - 1)
+            if (i < parts.size() - 2)
                 portName += ".";
         }
 

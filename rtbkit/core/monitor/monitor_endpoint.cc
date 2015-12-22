@@ -54,11 +54,11 @@ init(const vector<string> & providerClasses)
     selfWatch.init([&](const std::string &path,
                        ConfigurationService::ChangeType change)
         {
-            auto children = config->getChildren("serviceClass/" + serviceName_,
+            auto children = config->getChildren("serviceClass/monitor/" + serviceName_,
                                                 selfWatch);
         });
 
-    auto children = config->getChildren("serviceClass/" + serviceName_,
+    auto children = config->getChildren("serviceClass/monitor/" + serviceName_,
                                         selfWatch);
 
 
