@@ -318,15 +318,16 @@ handleHttpPayload(const HttpHeader & header,
         dropAuction("endpoint not enabled");
         return;
     }
-    
-    double acceptProbability = endpoint->acceptAuctionProbability;
 
+    double acceptProbability = endpoint->acceptAuctionProbability;
     if (acceptProbability < 1.0
         && random() % 1000000 > 1000000 * acceptProbability) {
         // early drop...
         doEvent("auctionEarlyDrop.randomEarlyDrop");
-        dropAuction("random early drop");
-        return;
+        if(!endpoint->disableAcceptProbability) {
+            dropAuction("random early drop");
+            return;
+        }
     }
 
     double timeAvailableMs = getTimeAvailableMs(header, payload);
@@ -401,6 +402,7 @@ handleHttpPayload(const HttpHeader & header,
                                   "datacratic",
                                   firstData, expiry));
 
+        auction->requestOriginal = payload;
         endpoint->adjustAuction(auction);
 
 

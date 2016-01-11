@@ -21,5 +21,5 @@ tmp
 *.orig
 bootstrap.json
 perf.data
-dox/html
+rtbkit/dox/html
 *.swp

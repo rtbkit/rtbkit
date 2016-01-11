@@ -29,6 +29,39 @@ BOOST_AUTO_TEST_CASE( test1 )
     BOOST_CHECK(cpuid_flags() != 0);
 }
 
+void vec_scale_k_test_case(int nvals)
+{
+    cerr << "testing vec_scale with nvals: " << nvals << endl;
+
+    double x[nvals], r[nvals], r2[nvals];
+
+    double k = 3.0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        r2[i] = x[i] * k;
+    }
+
+    SIMD::vec_scale(x, k, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_scale_k_mixed_test_case )
+{
+    vec_scale_k_test_case(1);
+    vec_scale_k_test_case(2);
+    vec_scale_k_test_case(3);
+    vec_scale_k_test_case(4);
+    vec_scale_k_test_case(5);
+    vec_scale_k_test_case(12);
+    vec_scale_k_test_case(16);
+    vec_scale_k_test_case(123);
+}
+
+
 void vec_add_k_mixed_test_case(int nvals)
 {
     cerr << "testing " << nvals << endl;
@@ -540,3 +573,250 @@ BOOST_AUTO_TEST_CASE( vec_exp_test )
     vec_exp_test_cases<float, double>();
     vec_exp_test_cases<double, double>();
 }
+
+template<typename Float, typename Precision>
+void vec_exp_k_test_case(int nvals)
+{
+    cerr << "testing vec_exp with k " << nvals << " float "
+         << demangle(typeid(Float).name())
+         << " precision " << demangle(typeid(Precision).name())
+         << endl;
+
+    Float x[nvals];
+    Float k = rand();
+    Precision r[nvals], r2[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0 / 1024.0;
+        r2[i] = exp((double)(k * Precision(x[i])));
+    }
+
+    SIMD::vec_exp(x, k, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+template<typename Float, typename Precision>
+void vec_exp_k_test_cases()
+{
+    vec_exp_k_test_case<Float, Precision>(1);
+    vec_exp_k_test_case<Float, Precision>(2);
+    vec_exp_k_test_case<Float, Precision>(3);
+    vec_exp_k_test_case<Float, Precision>(4);
+    vec_exp_k_test_case<Float, Precision>(5);
+    vec_exp_k_test_case<Float, Precision>(8);
+    vec_exp_k_test_case<Float, Precision>(9);
+    vec_exp_k_test_case<Float, Precision>(12);
+    vec_exp_k_test_case<Float, Precision>(15);
+    vec_exp_k_test_case<Float, Precision>(16);
+    vec_exp_k_test_case<Float, Precision>(17);
+    vec_exp_k_test_case<Float, Precision>(123);
+}
+
+BOOST_AUTO_TEST_CASE( vec_exp_k_test )
+{
+    vec_exp_k_test_cases<float, float>();
+    vec_exp_k_test_cases<float, double>();
+    vec_exp_k_test_cases<double, double>();
+}
+
+template<typename T>
+void vec_add_mixed_test_case(int nvals)
+{
+    cerr << "testing vec_add_mixed " << demangle(typeid(T).name()) << 
+        " with " << nvals << endl;
+
+    double x[nvals], r[nvals], r2[nvals];
+    T y[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        r2[i] = x[i] + y[i];
+    }
+
+    SIMD::vec_add(x, y, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_add_mixed_test )
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_add_mixed_test_case<float>(x);
+        vec_add_mixed_test_case<double>(x);
+    }
+}
+
+
+void vec_sum_dp_test_case(int nvals)
+{
+    cerr << "testing vec_sum_dp " << " with " << nvals << endl;
+
+    float x[nvals];
+    double r2 = 0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        r2 += x[i];
+    }
+
+    double r = SIMD::vec_sum_dp(x, nvals);
+
+    BOOST_CHECK_EQUAL(r, r2);
+}
+
+BOOST_AUTO_TEST_CASE( vec_sum_dp ) 
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_sum_dp_test_case(x);
+    }
+}
+
+
+template<typename T>
+void vec_k1_x_plus_k2_y_z_test_case(int nvals)
+{
+    cerr << "testing vec_k1_x_plus_k2_y_z_test_case " << 
+        demangle(typeid(T).name()) << " with " << nvals << endl;
+
+
+    T x[nvals], r[nvals], r2[nvals], y[nvals], z[nvals];
+
+    T k1 = 3.9;
+    T k2 = 8.2;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        z[i] = rand() / 16384.0;
+        r2[i] = k1* x[i] + k2 * y[i] * z[i];
+    }
+
+    SIMD::vec_k1_x_plus_k2_y_z(k1, x, k2, y, z, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_k1_x_plus_k2_y_z ) 
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_k1_x_plus_k2_y_z_test_case<float>(x);
+        vec_k1_x_plus_k2_y_z_test_case<double>(x);
+    }
+}
+
+
+template<typename T>
+void vec_twonorm_sqr_test_case(int nvals)
+{
+    cerr << "testing vec_twonorm_sqr " << demangle(typeid(T).name()) << 
+        " with nvals: " << nvals << endl;
+
+    T x[nvals];
+    T r2 = 0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        r2 += x[i] * x[i];
+    }
+    
+    T r = SIMD::vec_twonorm_sqr(x, nvals);
+
+    BOOST_CHECK_EQUAL(r, r2);
+}
+
+BOOST_AUTO_TEST_CASE( vec_twonorm_sqr_test )
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_twonorm_sqr_test_case<float>(x);
+        vec_twonorm_sqr_test_case<double>(x);
+    }
+}
+
+
+void vec_twonorm_sqr_dp_test_case(int nvals)
+{
+    cerr << "testing vec_twonorm_sqr_dp " << " with nvals: " << nvals << endl;
+
+    float x[nvals];
+    double r2 = 0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        double xx = x[i];
+        r2 += xx * xx;
+    }
+    
+    double r = SIMD::vec_twonorm_sqr_dp(x, nvals);
+
+    BOOST_CHECK_EQUAL(r, r2);
+}
+
+BOOST_AUTO_TEST_CASE( vec_twonorm_sqr_dp_test )
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_twonorm_sqr_dp_test_case(x);
+    }
+}
+
+void vec_kl_test_case(int nvals)
+{
+    cerr << "testing vec_kl " << " with " << nvals << endl;
+
+    float p[nvals], q[nvals];
+    double r2 = 0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        p[i] = rand() / 16384.0;
+        q[i] = rand() / 16384.0;
+        r2 += p[i] * logf(p[i] / q[i]);
+    }
+
+    double r = SIMD::vec_kl(p, q, nvals);
+
+    BOOST_CHECK_CLOSE(r, r2, 0.00001);
+}
+
+BOOST_AUTO_TEST_CASE( vec_kl_test )
+{
+    //for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+    for(int x = 1; x<100; x++) {
+        vec_kl_test_case(x);
+    }
+}
+
+
+void vec_min_max_el_test_case(int nvals)
+{
+    cerr << "testing vec_min_max_el with " << nvals << endl;
+
+    float x[nvals], mins[nvals], maxs[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        mins[i] = rand() / 16384.0;
+        maxs[i] = rand() / 16384.0;
+    }
+
+    SIMD::vec_min_max_el(x, mins, maxs, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK( mins[i] <= x[i] );
+        BOOST_CHECK( maxs[i] >= x[i] );
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_min_max_el_test )
+{
+    for(auto x : {1, 2, 3, 4, 5, 6, 8, 9, 12, 16, 123}) {
+        vec_min_max_el_test_case(x);
+    }
+}
+

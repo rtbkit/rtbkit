@@ -54,15 +54,15 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     };
 
     // BidRequests 
-    BidRequest r0, r1, r2, r3;
+    BidRequest r0, r1, r2, r3, r4;
     doBidRequestInit(r0, { "aaa",  "1" } );
     doBidRequestInit(r1, { "123", "aaa" } );
     doBidRequestInit(r2, { "bbb", "aaa" });
     doBidRequestInit(r3, { "1", "123" });
+    doBidRequestInit(r4, { });
 
-    
     // Test 1
-    title("Bidswtich-wseat-1");
+    title("Bidswitch-wseat-1");
     addConfig(filter, 0, c0, creatives);
     addConfig(filter, 1, c1, creatives);
 
@@ -75,11 +75,20 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     removeConfig(filter, 1, c1, creatives);
 
     // Test 2
-    title("Bidswtich-wseat-2");
+    title("Bidswitch-wseat-2");
     addConfig(filter, 0, c2, creatives);
     check(filter, r0, creatives, 0, { {0}  });
     check(filter, r1, creatives, 0, { {0}  });
     check(filter, r2, creatives, 0, { {0}  });
     check(filter, r3, creatives, 0, { {0}  });
+
+    removeConfig(filter, 0, c2, creatives);
+
+    title("Bidswitch-wseat-3");
+    addConfig(filter, 0, c0, creatives);
+    addConfig(filter, 1, c1, creatives);
+    addConfig(filter, 2, c2, creatives);
+
+    check(filter, r4, creatives, 0, { {0, 1, 2} });
 
 }

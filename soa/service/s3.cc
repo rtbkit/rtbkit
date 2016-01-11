@@ -1569,7 +1569,7 @@ download(const std::string & bucket,
             //      << " and offset : " << part.offset << endl;
 
             auto partResult = get(bucket, "/" + object, part);
-            if (partResult.code_ != 206) {
+            if (!(partResult.code_ == 206 || partResult.code_ == 200)) {
                 cerr << "error getting part " << i << ": "
                      << partResult.bodyXmlStr() << endl;
                 failed = true;
@@ -1873,8 +1873,7 @@ struct StreamingDownloadSource {
                     auto partResult
                         = owner->get(bucket, "/" + object,
                                      S3Api::Range(start, chunkSize));
-                    
-                    if (partResult.code_ != 206) {
+                    if (!(partResult.code_ == 206 || partResult.code_ == 200)) {
                         throw ML::Exception("http error "
                                             + to_string(partResult.code_)
                                             + " while getting part "

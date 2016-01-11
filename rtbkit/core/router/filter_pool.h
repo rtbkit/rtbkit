@@ -87,6 +87,9 @@ struct FilterPool
     unsigned addConfig(const std::string& name, const AgentInfo& info);
     void removeConfig(const std::string& name);
 
+    // Added for test purposes
+    std::vector<string> getFilterNames() const;
+
 private:
 
     struct Data
@@ -117,7 +120,7 @@ private:
 
     std::atomic<Data*> data;
     std::vector< std::shared_ptr<AgentConfig> > configs;
-    Datacratic::GcLock gc;
+    mutable Datacratic::GcLock gc;
 
     EventRecorder* events;
 };

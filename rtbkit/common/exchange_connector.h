@@ -361,17 +361,6 @@ struct ExchangeConnector: public ServiceBase {
     /** plugin interface needs to be able to request the root name of the plugin library */
     static const std::string libNameSufix() {return "exchange";};
 
-    // FIXME: this is being kept just for compatibility reasons.
-    // we don't want to break compatibility now, although this interface does not make
-    // sense any longer  
-    // so any use of it should be considered deprecated
-
-    /** Register the given exchange factory. */
-    static void registerFactory(const std::string & exchange, Factory factory)
-    {
-      PluginInterface<ExchangeConnector>::registerPlugin(exchange, factory);
-    }
-
     /** Register the given exchange factory. */
     template<typename T>
     static void registerFactory() {

@@ -17,6 +17,7 @@
 #include "async_event_source.h"
 #include "typed_message_channel.h"
 #include "logs.h"
+#include <sys/resource.h>
 
 namespace Datacratic {
 
@@ -130,6 +131,7 @@ struct MessageLoop : public Epoller {
         Can be polled regularly to determine the duty cycle of the loop.
      */
     double totalSleepSeconds() const { return totalSleepTime_; }
+    rusage getResourceUsage() const { return resourceUsage; }
 
     void debug(bool debugOn);
     
@@ -189,6 +191,7 @@ private:
 
     /** Number of secs that the message loop has spent sleeping. */
     double totalSleepTime_;
+    rusage resourceUsage;
 
     /** Number of seconds of latency we're allowed to add in order to reduce
         the number of context switches.

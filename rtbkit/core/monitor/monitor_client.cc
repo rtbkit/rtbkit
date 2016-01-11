@@ -26,7 +26,7 @@ MonitorClient::
 init(std::shared_ptr<ConfigurationService> & config,
      const std::string & serviceName)
 {
-    addPeriodic("MonitorClient::checkStatus", 0.5,
+    addPeriodic("MonitorClient::checkStatus", 1.0,
                 std::bind(&MonitorClient::checkStatus, this),
                 true);
 

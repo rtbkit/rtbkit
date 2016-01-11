@@ -33,12 +33,6 @@ struct Epoller: public AsyncEventSource {
 
     void close();
 
-    /** Set the timeout value used when calling epoll_wait. */
-    void setPollTimeout(int newTimeout)
-    {
-        timeout_ = newTimeout;
-    }
-
     /** Add the given fd to multiplex fd.  It will repeatedly wake up the
         loop without being restarted.
     */

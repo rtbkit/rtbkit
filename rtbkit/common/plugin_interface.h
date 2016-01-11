@@ -6,6 +6,7 @@
 #pragma once
 
 #include "rtbkit/common/plugin_table.h"
+#include <vector>
 #include <string>
 
 namespace RTBKIT {
@@ -24,7 +25,7 @@ namespace details {
     };
 }
 
-template<class T>
+template<typename T>
 struct PluginInterface
 {
   static_assert(details::has_factory<T>::value, "The plugin must provide a Factory type");
@@ -32,21 +33,26 @@ struct PluginInterface
   static void registerPlugin(const std::string& name,
 			     typename T::Factory functor);
   static typename T::Factory& getPlugin(const std::string& name);
+  static std::vector<std::string> getNames();
 };
 
-template<class T>
+template<typename T>
 void PluginInterface<T>::registerPlugin(const std::string& name,
 					       typename T::Factory functor)
 {
   PluginTable<typename T::Factory>::instance().registerPlugin(name, functor);
 }
 
-template<class T>
+template<typename T>
 typename T::Factory& PluginInterface<T>::getPlugin(const std::string& name)
 {
   return PluginTable<typename T::Factory>::instance().getPlugin(name, T::libNameSufix());
 }
 
+template<typename T>
+std::vector<std::string> PluginInterface<T>::getNames()
+{
+    return PluginTable<typename T::Factory>::instance().getNames();
+}
 
 };
-

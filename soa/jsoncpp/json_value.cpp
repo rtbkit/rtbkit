@@ -563,8 +563,7 @@ Value::operator=( const Value &other )
 Value &
 Value::operator=( Value &&other )
 {
-   Value temp( other );
-   swap( temp );
+   swap( other );
    return *this;
 }
 
@@ -1176,6 +1175,13 @@ Value &
 Value::append( const Value &value )
 {
    return (*this)[size()] = value;
+}
+
+
+Value &
+Value::append( Value &&value )
+{
+   return (*this)[size()] = std::move(value);
 }
 
 

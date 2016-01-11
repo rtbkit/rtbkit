@@ -930,7 +930,7 @@ void vec_add(const double * x, const double * y, double * r, size_t n)
         }
     }
 
-    for (;  i < n;  ++i) r[i] = x[i] * y[i];
+    for (;  i < n;  ++i) r[i] = x[i] + y[i];
 }
 
 void vec_add(const double * x, double k, const float * y, double * r, size_t n)
@@ -995,7 +995,7 @@ void vec_add(const double * x, double k, const float * y, double * r, size_t n)
 
 void vec_add(const double * x, const float * y, double * r, size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] * y[i];
+    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + y[i];
 }
 
 void vec_prod(const double * x, const double * y, double * r, size_t n)
@@ -1584,7 +1584,7 @@ double vec_twonorm_sqr_dp(const float * x, size_t n)
 double vec_twonorm_sqr(const double * x, size_t n)
 {
     unsigned i = 0;
-    float result = 0.0;
+    double result = 0.0;
     for (; i < n;  ++i) result += x[i] * x[i];
     return result;
 }

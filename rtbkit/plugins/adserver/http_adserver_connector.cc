@@ -26,6 +26,17 @@ HttpAdServerConnectionHandler(HttpAdServerHttpEndpoint & endpoint,
 
 void
 HttpAdServerConnectionHandler::
+handleUnknownHeader(const HttpHeader& header) {
+    if (header.resource == "/ready") {
+        putResponseOnWire(HttpResponse(200, "text/plain", "1"));
+        return;
+    }
+
+    throw ML::Exception("Unknown resource '" + header.resource + "'");
+}
+
+void
+HttpAdServerConnectionHandler::
 handleJson(const HttpHeader & header, const Json::Value & json,
            const string & jsonStr)
 {
@@ -201,3 +212,14 @@ start()
     AdServerConnector::start();
 }
 
+std::vector<int>
+HttpAdServerConnector::
+ports() const
+{
+    vector<int> ports;
+
+    for (const auto & ep: endpoints_)
+        ports.push_back(ep.port());
+
+    return ports;
+}

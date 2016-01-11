@@ -44,10 +44,10 @@ struct HttpMonitor : public HttpEndpoint
     /** Starts the server on the given port. The given argument will be made
         available to the handlers whenever a connection is created.
     */
-    void start(int port, Arg a = Arg())
+    void start(int port, Arg a = Arg(), int numThreads = 1)
     {
         arg = a;
-        init(port, "0.0.0.0");
+        init(port, "0.0.0.0", numThreads);
     }
 
 private:
@@ -91,6 +91,13 @@ struct HttpMonitorHandler :
     */
     virtual void
     doGet(const std::string& resource) {}
+
+    /** Handle a PUT message on the given resource and payload.
+
+        Should call either sendResponse() or sendErrorResponse().
+    */
+    virtual void
+    doPut(const std::string& resource, const std::string& payload) {}
 
     /** Handle a POST message on the given resource and payload.
 
@@ -141,6 +148,9 @@ handleHttpPayload(const HttpHeader & header, const std::string & payload)
     try {
         if (header.verb == "GET")
             doGet(header.resource);
+
+        else if (header.verb == "PUT")
+            doPut(header.resource, payload);
 
         else if (header.verb == "POST")
             doPost(header.resource, payload);

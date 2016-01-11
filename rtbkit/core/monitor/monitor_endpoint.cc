@@ -25,7 +25,7 @@ MonitorEndpoint(shared_ptr<ServiceProxies> proxies,
                 const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
-      checkTimeout_(2),
+      checkTimeout_(10),
       disabled(false)
 {
 }

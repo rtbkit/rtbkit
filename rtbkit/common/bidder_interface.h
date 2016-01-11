@@ -48,6 +48,11 @@ struct BidderInterface : public ServiceBase
                             MatchedWinLoss const & event) = 0;
 
     virtual
+    void sendUnmatchedEventMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
+                            std::string const & agent,
+                            UnmatchedEvent const & event) {};
+
+    virtual
     void sendLossMessage(const std::shared_ptr<const AgentConfig>& agentConfig,
                          std::string const & agent,
                          std::string const & id) = 0;

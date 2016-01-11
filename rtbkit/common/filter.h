@@ -509,32 +509,32 @@ struct FilterBase
     virtual void
     removeConfig(unsigned configIndex, const std::shared_ptr<AgentConfig>& config) = 0;
 
-};
+    /*************************************************************************/
+    /* FACTORY INTERFACE                                                     */
+    /*************************************************************************/
 
+    /** Type of a callback which is registered as an exchange factory */
+    typedef std::function<FilterBase * ()> Factory;
 
-/******************************************************************************/
-/* FILTER REGISTRY                                                            */
-/******************************************************************************/
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "filter";};
 
-/** Global registry for the filters. */
-struct FilterRegistry
-{
-    typedef std::function<FilterBase* ()> ConstructFn;
-
-    /** Add the filter of type Filter to the registry. */
+   /*Register the given filter factory*/
     template<typename Filter>
-    static void registerFilter()
-    {
-        registerFilter(Filter::name, [] () -> FilterBase* {
-                    return new Filter();
-                });
+    static void registerFactory() {
+        PluginInterface<FilterBase>::registerPlugin(Filter::name,
+                               []() -> FilterBase* {
+                              return new Filter();
+                        });
     }
 
-    static void registerFilter(const std::string& name, ConstructFn fn);
-    static FilterBase* makeFilter(const std::string& name);
+    /** Create a new filter from a factory */
+    static std::unique_ptr<FilterBase>
+    create(const std::string & filter){
+        auto factory = PluginInterface<FilterBase>::getPlugin(filter);
+        return std::unique_ptr<FilterBase>(factory());
+    }
 
-    static std::vector<std::string> listFilters();
 };
-
 
 } // namespace RTBKIT

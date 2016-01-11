@@ -13,8 +13,109 @@
 #include <boost/program_options/options_description.hpp>
 #include <vector>
 #include <string>
+#include <stdlib.h>                         // ::getenv()
 #include <sys/utsname.h>
+#include <dlfcn.h>                          // dlopen()
+#include "jml/utils/string_functions.h"     // ML::split()
+#include "jml/utils/file_functions.h"       // ML::fileExists()
+#include "jml/utils/json_parsing.h"
+#include "jml/arch/exception.h"             // ML::Exception
+#include "jml/utils/environment.h"          // ML::Environment
 
+namespace {
+
+/******************************************************************************/
+/* HELPER FUNCTIONS FOR PRELOADING LIBS DYNAMICALLY                           */
+/******************************************************************************/
+
+void loadLib(const std::string & file)
+{
+    void * handle = dlopen(file.c_str(), RTLD_NOW);
+    if (!handle) {
+        std::cerr << dlerror() << std::endl;
+        throw ML::Exception("couldn't load library from %s", file.c_str());
+    }
+}
+
+void loadJsonLib(const std::string & jsonFile)
+{
+    using std::string;
+    using std::vector;
+
+    ML::File_Read_Buffer buf(jsonFile);
+    Json::Value jsonListLibs = Json::parse(std::string(buf.start(), buf.end()));
+
+    if (jsonListLibs == Json::Value::null) return;
+
+    if (!jsonListLibs.isArray())
+        throw ML::Exception("Library list must be an array");
+
+    string file;
+    for (const auto & fileAsJson : jsonListLibs) {
+
+        file = fileAsJson.asString();
+
+        if (file.empty()) throw ML::Exception("File name cannot be empty");
+
+        if (ML::endsWith(file,".so")) {
+            if (!ML::fileExists(file))
+                throw ML::Exception("File %s in %s does not exist", file.c_str(), jsonFile.c_str());
+            loadLib(file);
+            continue;
+        }
+
+        file = file + ".so";
+        if (!ML::fileExists(file))
+            throw ML::Exception("File %s in %s does not exist", file.c_str(), jsonFile.c_str());
+        loadLib(file);
+    }
+}
+
+void loadLibList(const std::string & fileList)
+{
+    using std::string;
+    using std::vector;
+
+    vector<string> listToPreload=ML::split(fileList,',');
+    string fileSo;
+    string fileJson;
+
+    for (const string & file : listToPreload) {
+
+        if (file.empty()) throw ML::Exception("File name cannot be empty");
+
+        if (ML::endsWith(file,".so")) {
+            if (!ML::fileExists(file))
+                throw ML::Exception("File %s does not exist", file.c_str());
+            loadLib(file);
+            continue;
+        }
+
+        if (ML::endsWith(file,".json")) {
+            if (!ML::fileExists(file))
+                throw ML::Exception("File %s does not exist", file.c_str());
+            loadJsonLib(file);
+            continue;
+        }
+
+        fileSo = file + ".so";
+        if (ML::fileExists(fileSo)) {
+            loadLib(fileSo);
+            continue;
+        }
+
+        fileJson = file + ".json";
+        if (ML::fileExists(fileJson)) {
+            loadJsonLib(fileJson);
+            continue;
+        }
+
+        throw ML::Exception("File %s does not exist in neither .so nor .json format", file.c_str());
+    }
+
+}
+
+} // namespace anonymuous
 
 namespace Datacratic {
 
@@ -50,7 +151,9 @@ struct ServiceProxyArguments
             ("installation,I", value(&installation),
              "name of the current installation")
             ("location,L", value(&location),
-             "Name of the current location");
+             "Name of the current location")
+            ("preload,P", value(&preload),
+             "Comma separated list of libraries to preload and/or json files");
 
         if (opt == WITH_ZOOKEEPER) {
             options.add_options()
@@ -69,6 +172,8 @@ struct ServiceProxyArguments
     std::shared_ptr<ServiceProxies>
     makeServiceProxies(ConfigurationServiceType configurationType = CS_ZOOKEEPER)
     {
+        preloadDynamicLibs();
+
         auto services = std::make_shared<ServiceProxies>();
 
         if (!bootstrap.empty())
@@ -101,10 +206,23 @@ struct ServiceProxyArguments
     std::string carbonUri;
     std::string installation;
     std::string location;
+    std::string preload;
 
 private:
 
     std::string serviceName_;
+
+    void preloadDynamicLibs() const
+    { 
+        char * envPreloadC = ::getenv("RTBKIT_PRELOAD");
+        std::string envPreload = envPreloadC ? envPreloadC : "";
+
+        if(!envPreload.empty())
+            loadLibList(envPreload);
+
+        if (!preload.empty())
+            loadLibList(preload);
+    }
 
 };
 

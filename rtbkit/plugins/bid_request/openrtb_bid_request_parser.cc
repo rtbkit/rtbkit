@@ -633,7 +633,7 @@ void
 OpenRTBBidRequestParser2point1::
 onDevice(OpenRTB::Device& device) {
     if(device.devicetype.val > 3) {
-        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
+        //LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
     }
 
     // Call base version

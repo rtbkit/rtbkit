@@ -154,7 +154,7 @@ struct AtInit
     AtInit()
     {
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
-        RTBKIT::FilterRegistry::registerFilter<RTBKIT::CreativeIdsExchangeFilter>();
+        RTBKIT::FilterBase::registerFactory<RTBKIT::CreativeIdsExchangeFilter>();
     }
 } atInit;
 

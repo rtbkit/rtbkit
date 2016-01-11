@@ -32,6 +32,8 @@ struct JsonConnectionHandler : public HttpConnectionHandler {
 
     virtual void handleHttpHeader(const HttpHeader & header);
 
+    virtual void handleUnknownHeader(const HttpHeader& header);
+
     virtual void handleHttpPayload(const HttpHeader & header,
                                    const std::string & payload);
 

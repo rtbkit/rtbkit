@@ -636,3 +636,11 @@ BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing5)
     BOOST_CHECK(!c1.match_double(d));
     BOOST_CHECK_EQUAL(d, -1.0);
 }
+
+BOOST_AUTO_TEST_CASE(test_match_literal_at_eof)
+{
+    string s = "hello";
+    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    BOOST_CHECK(c1.match_literal("hello"));
+    BOOST_CHECK(!c1.match_literal("one"));
+}

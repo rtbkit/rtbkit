@@ -141,35 +141,38 @@ struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
     unsigned priority() const { return 10; }
 
     std::unordered_map<std::string, ConfigSet> data;
-    ConfigSet emptyConfigSet;
+    ConfigSet defaultSet;
 
     void setConfig(unsigned configIndex, const AgentConfig& config, bool value)
     {
-        Json::Value cfg = config.providerConfig["bidswitch"];
-        if(!cfg.empty() && !cfg["seat"].empty()) {
-            // Might change depending if the providerConfig allows more than one seat.
-            data[config.providerConfig["bidswitch"]["seat"].asString()].set(configIndex, value);
+        if (config.providerConfig.isMember("bidswitch")) {
+            auto provConf = config.providerConfig["bidswitch"];
+            if (provConf.isMember("seat")) {
+                auto seat = provConf["seat"].asString();
+                data[seat].set(configIndex, value);
+                return;
+            }
         }
-        else {
-            emptyConfigSet.set(configIndex, value);
-        }
+
+        defaultSet.set(configIndex, value);
     }
 
     void filter(FilterState& state) const
     {
-        ConfigSet mask(emptyConfigSet);
+        const auto& segs = state.request.segments.get("openrtb-wseat");
+        if (segs.empty()) return;
 
-        auto& segs = state.request.segments.get("openrtb-wseat");
+        ConfigSet mask = defaultSet;
  
         // Calls the filter for every wseat in the BR.
         segs.forEach([&](int, const std::string &str, float) {
             auto it = data.find(str);
-            if(!(it == data.end())) {
+            if((it != data.end())) {
                 auto& configs = it->second;
                 mask |= configs;
             }
         });
-        
+
         state.narrowConfigs(mask);
     }
 };

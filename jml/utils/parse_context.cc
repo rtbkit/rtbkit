@@ -508,6 +508,11 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
     //     << " col_ = " << col_ << endl;
     //cerr << buffers_.size() << " buffers" << endl;
 
+    // If we're already there, then it's a no-op
+    if (ofs_ == ofs) {
+        return;
+    }
+
     ofs_ = ofs;
     line_ = line;
     col_ = col;

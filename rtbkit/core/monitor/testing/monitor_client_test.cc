@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE( test_monitor_client_getStatus )
 BOOST_AUTO_TEST_CASE( test_monitor_client_onResponseReceived )
 {
     Date now = Date::now();
-    Date pastDate = now.plusSeconds(-5.0);
+    Date pastDate = now.plusSeconds(-10.0);
 
     /* setup */
     std::shared_ptr<zmq::context_t> zero_context;

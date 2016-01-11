@@ -266,10 +266,32 @@ Router::
 initFilters(const Json::Value & config) {
 
     if (config != Json::Value::null) {
-        if (!config.isArray()) {
-         throw Exception("couldn't parse formats other then array");
+
+        Json::Value extraFilterFiles = config["extraFilterFiles"];
+        if (extraFilterFiles != Json::Value::null) {
+            if (!extraFilterFiles.isArray()) {
+                throw Exception("Filter files must be an array");
+            }
+            for(size_t i=0; i<extraFilterFiles.size(); i++){
+                std::string file="lib"+extraFilterFiles[i].asString()+".so";
+                void * handle = dlopen(file.c_str(),RTLD_NOW);
+                if (!handle) {
+                    std::cerr << dlerror() << std::endl;
+                    throw ML::Exception("couldn't load library from %s", file.c_str());
+                }
+            }
         }
-       filters.initWithFiltersFromJson(config);
+
+        Json::Value filterMask = config["filterMask"];
+        if(filterMask != Json::Value::null) {
+            if (!filterMask.isArray()) {
+                throw Exception("Filter mask must be an array");
+            }
+            filters.initWithFiltersFromJson(filterMask);
+        } else {
+            filters.initWithDefaultFilters();
+        }
+
     } else {
         filters.initWithDefaultFilters();
     }
@@ -1202,7 +1224,7 @@ checkExpiredAuctions()
                         AgentInfo & info = this->agents[agent];
                         ++info.stats->tooLate;
 
-                        this->recordHit("accounts.%s.droppedBids",
+                        this->recordHit("accounts.%s.EXPIRED",
                                         info.config->account.toString('.'));
 
                         bidder->sendBidDroppedMessage(info.config, agent, auctionInfo.auction);
@@ -2292,6 +2314,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         debugAuction(auctionId, "FINISH", originalMessage);
         if (!auctionInfo.auction->finish()) {
             debugAuction(auctionId, "FINISH TOO LATE", originalMessage);
+            recordHit("accounts.%s.FINISH_TOOLATE", agentConfig->account.toString('.'));
         }
         inFlight.erase(auctionId);
         //cerr << "couldn't finish auction " << auctionInfo.auction->id
@@ -2410,12 +2433,14 @@ doSubmitted(std::shared_ptr<Auction> auction)
                 ++info.stats->losses;
                 msg = "LOSS";
                 bidder->sendLossMessage(agentConfig, response.agent, auctionId.toString());
+                recordHit("accounts.%s.LOCAL_LOSS", agentConfig->account.toString('.'));
                 break;
             case Auction::WinLoss::TOOLATE:
                 bidStatus = BS_TOOLATE;
                 ++info.stats->tooLate;
                 msg = "TOOLATE";
                 bidder->sendTooLateMessage(agentConfig, response.agent, auction);
+                recordHit("accounts.%s.TOOLATE", agentConfig->account.toString('.'));
                 break;
             default:
                 throwException("doSubmitted.unknownStatus",

@@ -198,7 +198,10 @@ bidForSpot(int spotIndex)
         if (bid.spotIndex == spotIndex) return bid;
     }
 
-    ExcCheck(false, "Unknown spot index: " + spotIndex);
+    char error[32];
+    snprintf(error, sizeof error, "Unknown spot index '%d'", spotIndex);
+
+    ExcCheck(false, error);
 }
 
 
