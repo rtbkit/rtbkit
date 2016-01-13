@@ -1,0 +1,112 @@
+{
+  "endpoints": {
+    "logger": {
+      "protocol": "zmq",
+       "type": "publisher",
+       "port": 16000
+    },
+    "router.agents": {
+      "serviceName": "agents",
+      "protocol": "zmq",
+      "type": "bus",
+      "port": 17000
+    },
+    "augmentationLoop": {
+      "serviceName": "augmentors",
+      "protocol": "zmq",
+      "type": "bus",
+      "port": 18000
+    },
+    "agentConfiguration.agents": {
+        "serviceName": "agents",
+        "protocol": "zmq",
+        "type": "bus",
+        "port": 19000
+    },
+    "pal.events": {
+      "serviceName": "events",
+      "protocol": "zmq",
+      "type": "bus",
+      "port": 20000
+    },
+    "pal.agents": {
+      "serviceName": "agents",
+      "protocol": "zmq",
+      "type": "bus",
+      "port": 21000
+    },
+    "banker.rest": {
+      "protocol": "rest",
+      "ports": {
+        "http": 9876,
+        "zeromq": 22000
+      }
+    },
+    "agentConfiguration.rest": {
+      "protocol": "rest",
+      "ports": {
+        "http": 9986,
+        "zeromq": 23000
+      }
+    },
+    "monitor.rest": {
+      "protocol": "rest",
+      "ports": {
+        "http": 9987,
+        "zeromq": 24000
+      }
+    },
+    "agentConfiguration.listeners": {
+      "serviceName": "listen",
+      "protocol": "zmq",
+      "type": "bus",
+      "port": 26000
+    }
+  },
+  
+  "services": {
+    "rtbAgentConfiguration": {
+      "mtl.rtb1.agentConfiguration": {
+           "hostname": "rtb1",
+           "bind": [ "agentConfiguration.rest", "agentConfiguration.listeners", "agentConfiguration.agents" ]
+      }
+    },
+    "rtbRequestRouter": {
+        "mtl.rtb1.router": {
+           "hostname": "rtb1",
+            "bind": [ "logger", "router.agents" ]
+         }
+    },
+    "rtbRouterAugmentation": {
+        "mtl.rtb1.router": {
+            "hostname": "rtb1",
+            "bind": [ "augmentationLoop" ]
+      }
+    },
+    "rtbPostAuctionService": {
+       "mtl.rtb1.postAuction": {
+            "hostname": "rtb1",
+            "bind": [ "logger:$+1", "pal.agents", "pal.events" ]
+        }
+    },
+    "rtbBanker": {
+        "mtl.rtb1.masterBanker": {
+             "hostname": "rtb1",
+             "bind": [ "banker.rest" ]
+        }
+    },
+    "adServer": {
+      "mtl.rtb1.adServer": {
+           "hostname": "rtb1",
+           "bind": [ "logger:$+2" ]
+       }
+    },
+    "monitor": {
+      "mtl.rtb1.monitor": {
+           "hostname": "rtb1",
+           "bind": [ "monitor.rest" ]
+        }
+    }
+  }
+  
+}
