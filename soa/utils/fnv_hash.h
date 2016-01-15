@@ -11,12 +11,12 @@ namespace Datacratic {
 /* FNV HASH                                                                   */
 /******************************************************************************/
 
-const uint32_t offset32 = 2166136261;
-const uint64_t offset64 = 14695981039346656037ULL;
-const uint64_t prime32  = 16777619 ;
-const uint64_t prime64  = 1099511628211L;
+static constexpr uint32_t offset32 = 2166136261;
+static constexpr uint64_t offset64 = 14695981039346656037ULL;
+static constexpr uint64_t prime32  = 16777619 ;
+static constexpr uint64_t prime64  = 1099511628211L;
 
-uint32_t fnv_hash32(const std::string &str) {
+inline uint32_t fnv_hash32(const std::string &str) {
 
     uint32_t hash{offset32};
     auto i = 0;
@@ -30,7 +30,7 @@ uint32_t fnv_hash32(const std::string &str) {
     return hash;
 }
 
-uint32_t fnv_hash32a(const std::string &str) {
+inline uint32_t fnv_hash32a(const std::string &str) {
 
     uint32_t hash{offset32};
     auto i = 0;
@@ -44,7 +44,7 @@ uint32_t fnv_hash32a(const std::string &str) {
     return hash;
 }
 
-uint64_t fnv_hash64(const std::string &str) {
+inline uint64_t fnv_hash64(const std::string &str) {
 
     uint64_t hash{offset64};
     auto i = 0;
@@ -58,7 +58,7 @@ uint64_t fnv_hash64(const std::string &str) {
     return hash;
 }
 
-uint64_t fnv_hash64a(const std::string &str) {
+inline uint64_t fnv_hash64a(const std::string &str) {
 
     uint64_t hash{offset64};
     auto i = 0;
@@ -71,6 +71,47 @@ uint64_t fnv_hash64a(const std::string &str) {
 
     return hash;
 }
+
+// constexpr versions
+//
+namespace impl {
+    constexpr uint32_t fnv_hash32(const char head, const char *tail, uint32_t value)
+    {
+        return head == 0 ? value : fnv_hash32(tail[0], tail + 1, (value * prime32) ^ head);
+    }
+
+    constexpr uint32_t fnv_hash32a(const char head, const char *tail, uint32_t value)
+    {
+        return head == 0 ? value : fnv_hash32a(tail[0], tail + 1, (value ^ head) * prime32);
+    }
+
+    constexpr uint64_t fnv_hash64(const char head, const char *tail, uint64_t value)
+    {
+        return head == 0 ? value : fnv_hash64(tail[0], tail + 1, (value * prime64) ^ head);
+    }
+
+    constexpr uint64_t fnv_hash64a(const char head, const char *tail, uint64_t value)
+    {
+        return head == 0 ? value : fnv_hash64a(tail[0], tail + 1, (value ^ head) * prime64);
+    }
+}
+
+constexpr uint32_t fnv_hash32(const char *str) {
+    return impl::fnv_hash32(str[0], str + 1, offset32);
+}
+
+constexpr uint32_t fnv_hash32a(const char *str) {
+    return impl::fnv_hash32a(str[0], str + 1, offset32);
+}
+
+constexpr uint64_t fnv_hash64(const char *str) {
+    return impl::fnv_hash64(str[0], str + 1, offset64);
+}
+
+constexpr uint64_t fnv_hash64a(const char *str) {
+    return impl::fnv_hash64a(str[0], str + 1, offset64);
+}
+
 
 } // namespace Datacratic
 

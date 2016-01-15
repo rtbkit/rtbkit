@@ -18,6 +18,7 @@
 #include "fees.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/core/agent_configuration/latlonrad.h"
+#include "rtbkit/common/extension.h"
 
 namespace RTBKIT {
 
@@ -59,8 +60,8 @@ struct Creative {
     int id;
 
     /// Video creative information
-    uint32_t duration;
-    uint64_t bitrate;
+    int32_t duration;
+    int64_t bitrate;
 
     /// Configuration values; per provider
     /// eg: OpenRTB, ...
@@ -116,6 +117,24 @@ struct Creative {
 
     };
 
+    template<typename Ext>
+    typename std::enable_if<
+                IsExtension<Ext>::value, std::shared_ptr<const Ext>
+             >::type
+    getExt() const {
+        return ext.get<Ext>();
+    }
+
+    std::shared_ptr<const Extension>
+    getExt(const std::string& name) const {
+        return ext.get(name);
+    }
+
+    bool
+    hasExt(const std::string& name) const {
+        return ext.has(name);
+    }
+
     std::map<std::string, SegmentInfo> segments;
 
     /** Is the given ad spot compatible with the given creative format? */
@@ -137,6 +156,7 @@ struct Creative {
 
 private:
     Type type;
+    ExtList ext;
 
     std::string typeString() const;
 
@@ -414,6 +434,24 @@ struct AgentConfig {
         return reinterpret_cast<const T *>(it->second.get());
     }
 
+    template<typename Ext>
+    typename std::enable_if<
+                IsExtension<Ext>::value, std::shared_ptr<const Ext>
+             >::type
+    getExt() const {
+        return ext.get<Ext>();
+    }
+
+    std::shared_ptr<const Extension>
+    getExt(const std::string& name) const {
+        return ext.get(name);
+    }
+
+    bool
+    hasExt(const std::string& name) const {
+        return ext.has(name);
+    }
+
     /** List of channels for which we subscribe to post impression
         visit events.
     */
@@ -425,8 +463,11 @@ struct AgentConfig {
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
 
-    /** custom extensions */
-    Json::Value ext;
+private:
+    ExtList ext;
+
+   // /** custom extensions */
+   // Json::Value ext;
 };
 
 
