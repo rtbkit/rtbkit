@@ -156,7 +156,7 @@ struct Creative {
 
 private:
     Type type;
-    ExtList ext;
+    ExtensionPool ext;
 
     std::string typeString() const;
 
@@ -464,7 +464,7 @@ struct AgentConfig {
     BidResultFormat winFormat, lossFormat, errorFormat;
 
 private:
-    ExtList ext;
+    ExtensionPool ext;
 
    // /** custom extensions */
    // Json::Value ext;

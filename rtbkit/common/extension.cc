@@ -10,17 +10,17 @@
 namespace RTBKIT {
 
 bool
-ExtList::has(const std::string& name) const {
+ExtensionPool::has(const std::string& name) const {
     return getImpl(name).first;
 }
 
 void
-ExtList::add(const std::shared_ptr<Extension>& ext){
+ExtensionPool::add(const std::shared_ptr<Extension>& ext){
     data.insert(std::make_pair(ext->name(), ext));
 }
 
 std::shared_ptr<Extension>
-ExtList::get(const std::string& name) {
+ExtensionPool::get(const std::string& name) {
     auto ext = getImpl(name);
     if (!ext.first) {
         throw ML::Exception("Unknown extension '%s'", name.c_str());
@@ -30,7 +30,7 @@ ExtList::get(const std::string& name) {
 }
 
 std::shared_ptr<const Extension>
-ExtList::get(const std::string& name) const {
+ExtensionPool::get(const std::string& name) const {
     auto ext = getImpl(name);
     if (!ext.first) {
         throw ML::Exception("Unknown extension '%s'", name.c_str());
@@ -40,7 +40,7 @@ ExtList::get(const std::string& name) const {
 }
 
 std::shared_ptr<Extension>
-ExtList::tryGet(const std::string& name) {
+ExtensionPool::tryGet(const std::string& name) {
     auto ext = getImpl(name);
     if (!ext.first) {
         return nullptr;
@@ -50,7 +50,7 @@ ExtList::tryGet(const std::string& name) {
 }
 
 std::shared_ptr<const Extension>
-ExtList::tryGet(const std::string& name) const {
+ExtensionPool::tryGet(const std::string& name) const {
     auto ext = getImpl(name);
     if (!ext.first) {
         return nullptr;
@@ -60,7 +60,7 @@ ExtList::tryGet(const std::string& name) const {
 }
 
 std::vector<std::shared_ptr<Extension>>
-ExtList::list() const {
+ExtensionPool::list() const {
     std::vector<std::shared_ptr<Extension>> result;
     result.reserve(data.size());
     for (const auto& ext: data) {
@@ -71,7 +71,7 @@ ExtList::list() const {
 }
 
 std::pair<bool, std::shared_ptr<Extension>>
-ExtList::getImpl(const std::string& name) const {
+ExtensionPool::getImpl(const std::string& name) const {
     auto it = data.find(name);
     if (it == std::end(data)) {
         return std::make_pair(false, nullptr);

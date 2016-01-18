@@ -80,7 +80,7 @@ extension_cast(const std::shared_ptr<const Extension>& from) {
 }
 #endif
 
-class ExtList {
+class ExtensionPool {
 public:
     template<typename Ext>
     typename std::enable_if<
@@ -162,7 +162,7 @@ struct ExtensionRegistry {
     static typename std::enable_if<
                         IsExtension<Ext>::value, void
                     >::type
-    registerExtension() {
+    registerFactory() {
         PluginInterface<Extension>::registerPlugin(Ext::Name,
             []() {
                 return std::unique_ptr<Extension>(new Ext);
