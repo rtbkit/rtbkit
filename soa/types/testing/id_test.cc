@@ -51,11 +51,30 @@ BOOST_AUTO_TEST_CASE( test_basic_id )
 
 BOOST_AUTO_TEST_CASE( test_uuid_id )
 {
+    // lower case
     string uuid = "0828398c-5965-11e0-84c8-0026b937c8e1";
     Id id(uuid);
     BOOST_CHECK_EQUAL(id.type, Id::UUID);
     BOOST_CHECK_EQUAL(id.toString(), uuid);
     checkSerializeReconstitute(id);
+
+    // upper case
+    string uuidCaps = "0828398C-5965-11E0-84C8-0026B937C8E1";
+    Id idCaps(uuidCaps);
+    BOOST_CHECK_EQUAL(idCaps.type, Id::UUID_CAPS);
+    BOOST_CHECK_EQUAL(idCaps.toString(), uuidCaps);
+    checkSerializeReconstitute(idCaps);
+    BOOST_CHECK_NE(idCaps, id);
+    BOOST_CHECK_EQUAL(idCaps.hash(), id.hash());
+
+    // mixed case
+    string uuidMixed = "0828398C-5965-11e0-84c8-0026b937c8e1";
+    Id idMixed(uuidMixed);
+    BOOST_CHECK_EQUAL(idMixed.type, Id::STR);
+    BOOST_CHECK_EQUAL(idMixed.toString(), uuidMixed);
+    checkSerializeReconstitute(idMixed);
+    BOOST_CHECK_NE(idMixed, id);
+    BOOST_CHECK_NE(idMixed, idCaps);
 }
 
 BOOST_AUTO_TEST_CASE( test_goog64_id )
@@ -329,27 +348,3 @@ BOOST_AUTO_TEST_CASE( test_compound_id )
 {
     Id id(Id("hello"), Id("world"));
 }
-
-#if ID_HASH_AS_STRING
-BOOST_AUTO_TEST_CASE( test_hash_as_string )
-{
-    /* COMPOUND */
-    {
-        Id typical(string("hello:big:world"), Id::STR);
-        Id id(Id("hello"), Id("big:world"));
-        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
-    }
-
-    /* BIGDEC */
-    {
-        Id typical(string("12345678"), Id::STR);
-        BOOST_CHECK_EQUAL(typical.type, Id::STR);
-        Id id(12345678);
-        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
-
-        id = Id("12345678");
-        BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
-        BOOST_CHECK_EQUAL(typical.hash(), id.hash());
-    }
-}
-#endif

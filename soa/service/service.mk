@@ -41,6 +41,7 @@ LIBSERVICES_SOURCES := \
 	passive_endpoint.cc \
 	chunked_http_endpoint.cc \
 	epoller.cc \
+	epoll_loop.cc \
 	http_header.cc \
 	port_range_service.cc \
 	service_base.cc \

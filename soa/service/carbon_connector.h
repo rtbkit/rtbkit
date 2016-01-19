@@ -99,7 +99,7 @@ struct MultiAggregator {
         safe.
     */
     void recordOutcome(const std::string & stat, float value,
-            std::vector<int> percentiles = DefaultOutcomePercentiles);
+            const std::vector<int>& percentiles = DefaultOutcomePercentiles);
 
     /** Dump synchronously (taking the lock).  This should only be used in
         testing or debugging, not when connected to Carbon.

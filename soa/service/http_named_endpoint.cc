@@ -61,7 +61,7 @@ bindTcpAddress(const std::string & address)
             return bindTcp(PortRange(port, last), hostPart);
         }
 
-        throw ML::Exception("invalid port " + port);
+        throw ML::Exception("invalid port %u", port);
     }
 
     return bindTcp(boost::lexical_cast<int>(portPart), hostPart);

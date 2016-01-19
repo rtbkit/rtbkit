@@ -304,8 +304,6 @@ struct JsonRestProxy : HttpRestProxy {
     /* authentication token */
     std::string authToken;
 
-    int protocolDate;
-
     /* number of exponential backoffs, -1 = unlimited */
     int maxRetries;
 

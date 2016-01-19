@@ -4,6 +4,7 @@
 
 */
 
+#include <boost/algorithm/string.hpp>
 #include "id.h"
 #include "jml/arch/bit_range_ops.h"
 #include "jml/arch/format.h"
@@ -135,7 +136,7 @@ parse(const char * value, size_t len, Type type)
         return;
     }
 
-    while ((type == UNKNOWN ||type == UUID) && len == 36) {
+    while ((type == UNKNOWN || type == UUID || type == UUID_CAPS) && len == 36) {
         // not really a while...
         // Try a uuid
         // AGID: --> 0828398c-5965-11e0-84c8-0026b937c8e1
@@ -151,12 +152,34 @@ parse(const char * value, size_t len, Type type)
 
         const char * p = value;
         bool failed = false;
+        int capsType = -1; // -1 = unknown, 0 = no, 1 = yes
 
         auto scanRange = [&] (int start, int len) -> unsigned long long
             {
                 unsigned long long val = 0;
                 for (unsigned i = start;  i != start + len;  ++i) {
                     int c = p[i];
+                    {
+                        // case handling
+                        if (c >= 'a' && c <= 'f') {
+                            if (capsType == -1) {
+                                capsType = 0;
+                            }
+                            else if (capsType != 0) {
+                                failed = true;
+                                return val;
+                            }
+                        }
+                        else if (c >= 'A' && c <= 'F') {
+                            if (capsType == -1) {
+                                capsType = 1;
+                            }
+                            else if (capsType != 1) {
+                                failed = true;
+                                return val;
+                            }
+                        }
+                    }
                     int v = hexToDec(c);
                     if (v == -1) {
                         failed = true;
@@ -175,10 +198,8 @@ parse(const char * value, size_t len, Type type)
         f5 = scanRange(24, 12);
         if (failed) break;
 
-        r.type = UUID;
+        r.type = capsType == 1 ? UUID_CAPS : UUID;
         r.f1 = f1;  r.f2 = f2;  r.f3 = f3;  r.f4 = f4;  r.f5 = f5;
-        //r.val1 = ((uint64_t)f1 << 32) | ((uint64_t)f2 << 16) | f3;
-        //r.val2 = ((uint64_t)f4 << 48) | f5;
         finish();
         return;
     }
@@ -376,10 +397,15 @@ toString() const
     case NULLID:
         return "null";
     case UUID:
-        // AGID: --> 0828398c-5965-11e0-84c8-0026b937c8e1
-        return ML::format("%08lx-%04x-%04x-%04x-%012llx",
-                          (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
-                          (unsigned long long)f5);
+        return ML::format(
+            "%08lx-%04x-%04x-%04x-%012llx",
+            (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
+            (unsigned long long)f5);
+    case UUID_CAPS:
+        return ML::format(
+            "%08lX-%04X-%04X-%04X-%012llX",
+            (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
+            (unsigned long long)f5);
     case GOOG128: {
         // Google ID: --> CAESEAYra3NIxLT9C8twKrzqaA
         string result = "CAESE                     ";
@@ -490,10 +516,6 @@ uint64_t
 Id::
 complexHash() const
 {
-#if ID_HASH_AS_STRING
-    std::string converted = toString();
-    return CityHash64(converted.c_str(), converted.size());
-#else
     if (type == STR)
         return CityHash64(str, len);
     else if (type == COMPOUND2) {
@@ -503,7 +525,6 @@ complexHash() const
     //else if (type == CUSTOM)
     //    return controlFn(CF_HASH, data);
     else throw ML::Exception("unknown Id type");
-#endif
 }
 
 void
@@ -558,6 +579,7 @@ serialize(ML::DB::Store_Writer & store) const
     case NONE: break;
     case NULLID: break;
     case UUID:
+    case UUID_CAPS:
     case GOOG128:
     case BIGDEC:
         store.save_binary(&val1, 8);
@@ -616,6 +638,7 @@ reconstitute(ML::DB::Store_Reader & store)
     case NONE: break;
     case NULLID: break;
     case UUID:
+    case UUID_CAPS:
     case GOOG128:
     case BIGDEC: {
         store.load_binary(&r.val1, 8);

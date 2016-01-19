@@ -156,10 +156,6 @@ Json::Value parse(std::istream & ifs)
 Json::Value parseFromFile(const std::string& filename)
 {
     std::ifstream ifs(filename);
-    if (!ifs.is_open()) {
-        std::string msg = "unable to open JSON file: " + filename;
-        throw Exception(msg);
-    }
     return parse(ifs);
 }
 

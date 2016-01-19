@@ -1390,7 +1390,7 @@ tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
     auto listingResult = get(bucket, "/", Range::Full, "", {}, queryParams);
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
-        throw ML::Exception("error getting object request: %d",
+        throw ML::Exception("error getting object request: %ld",
                             listingResult.code_);
     }
     auto listingResultXml = listingResult.bodyXml();
@@ -1458,7 +1458,7 @@ eraseObject(const std::string & bucket,
 
     if (response.code_ != 204) {
         cerr << response.bodyXmlStr() << endl;
-        throw ML::Exception("error erasing object request: %d",
+        throw ML::Exception("error erasing object request: %ld",
                             response.code_);
     }
 }

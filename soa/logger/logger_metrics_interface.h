@@ -1,26 +1,18 @@
-/* logger_metrics_interface.h                                      -*- C++ -*-
-   François-Michel L'Heureux, 21 May 2013
-   Copyright (c) 2013 Datacratic.  All rights reserved.
-*/
-
 #pragma once
 
 #include <iostream>
 #include <ostream>
 #include <cstring>
-#include <mutex>
-#include <functional>
-#include "boost/variant.hpp"
+#include <boost/shared_ptr.hpp>
 #include "jml/arch/exception.h"
 #include "soa/jsoncpp/json.h"
+#include <mutex>
+#include "boost/variant.hpp"
+#include <functional>
 #include "soa/types/date.h"
 
 
-namespace Datacratic {
-
-/****************************************************************************/
-/* LOGGER METRICS                                                           */
-/****************************************************************************/
+namespace Datacratic{
 
 /**
  * KvpLogger are key-value-pair loggers
@@ -30,122 +22,107 @@ namespace Datacratic {
  * - Provides adaptor functions to avoid defining redundant functions in
  *   implementations
  */
-struct ILoggerMetrics {
-    // ORDER OF VARIANT IMPORTANT!
-    typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
-    typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
+class ILoggerMetrics{
 
-    ILoggerMetrics() = delete;
+    private:
+        static bool failSafe;
+        const Date startDate;
+        ILoggerMetrics(){};
 
-    static std::shared_ptr<ILoggerMetrics> setup(const std::string & configKey,
-                                                 const std::string & coll,
-                                                 const std::string & appName);
-    static std::shared_ptr<ILoggerMetrics>
-        setupFromJson(const Json::Value & config,
-                      const std::string & coll, const std::string & appName);
+    protected:
+        // ORDER OF VARIANT IMPORTANT!
+        typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
+        typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
 
-    /**
-     * Factory like getter for kvp
-     */
-    static std::shared_ptr<ILoggerMetrics> getSingleton();
+        const static std::string METRICS;
+        const static std::string PROCESS;
+        const static std::string META;
 
-    void logMetrics(const Json::Value &);
-    template<typename jsonifiable>
-    void logMetrics(const jsonifiable & j)
-    {
-        auto fct = [&] () {
-            Json::Value root = j.toJson();
-            logMetrics(root);
+        const std::string coll;
+        static std::string parentObjectId;
+
+        ILoggerMetrics(const std::string& coll) :
+            startDate(Date::now()), coll(coll){};
+        virtual void logInCategory(const std::string& category,
+                                   const std::vector<std::string>& path,
+                                   const NumOrStr& val) = 0;
+        virtual void logInCategory(const std::string& category,
+                                   const Json::Value& j) = 0;
+
+        void failSafeHelper(std::function<void()>);
+        virtual const std::string getProcessId() const = 0;
+
+    public:
+        static std::shared_ptr<ILoggerMetrics> setup(
+            const std::string& configKey,
+            const std::string& coll,
+            const std::string& appName);
+        /**
+         * Factory like getter for kvp
+         */
+        static std::shared_ptr<ILoggerMetrics> getSingleton();
+
+        void logMetrics(const Json::Value&);
+        void logProcess(const Json::Value& j){
+            std::function<void()> fct = [&](){
+                logInCategory(PROCESS, j);
+            };
+            failSafeHelper(fct);
+        }
+        void logMeta(const Json::Value& j){
+            std::function<void()> fct = [&](){
+                logInCategory(META, j);
+            };
+            failSafeHelper(fct);
+        }
+
+        template <class jsonifiable>
+        void logMetrics(const jsonifiable& j){
+            std::function<void()> fct = [&](){
+                Json::Value root = j.toJson();
+                logMetrics(root);
+            };
+            failSafeHelper(fct);
         };
-        failSafeHelper(fct);
-    };
-    void logMetrics(const std::vector<std::string> & path, const Numeric & val)
-    {
-        auto fct = [&] () {
-            logInCategory(METRICS, path, val);
+        template <class jsonifiable>
+        void logProcess(const jsonifiable& j){
+            std::function<void()> fct = [&](){
+                Json::Value root = j.toJson();
+                logProcess(root);
+            };
+            failSafeHelper(fct);
         };
-        failSafeHelper(fct);
-    }
-
-    void logProcess(const Json::Value & j)
-    {
-        auto fct = [&]() {
-            logInCategory(PROCESS, j);
+        template <class jsonifiable>
+        void logMeta(const jsonifiable& j){
+            std::function<void()> fct = [&](){
+                Json::Value root = j.toJson();
+                logMeta(root);
+            };
+            failSafeHelper(fct);
         };
-        failSafeHelper(fct);
-    }
-    template<typename jsonifiable>
-    void logProcess(const jsonifiable & j)
-    {
-        auto fct = [&] () {
-            Json::Value root = j.toJson();
-            logProcess(root);
-        };
-        failSafeHelper(fct);
-    };
-    void logProcess(const std::vector<std::string> & path, const NumOrStr & val)
-    {
-        auto fct = [&] () {
-            logInCategory(PROCESS, path, val);
-        };
-        failSafeHelper(fct);
-    }
 
-    void logMeta(const Json::Value & j)
-    {
-        auto fct = [&] () {
-            logInCategory(META, j);
-        };
-        failSafeHelper(fct);
-    }
-    template<typename jsonifiable>
-    void logMeta(const jsonifiable & j)
-    {
-        auto fct = [&] () {
-            Json::Value root = j.toJson();
-            logMeta(root);
-        };
-        failSafeHelper(fct);
-    };
-    void logMeta(const std::vector<std::string> & path, const NumOrStr & val)
-    {
-        auto fct = [&] () {
-            logInCategory(META, path, val);
-        };
-        failSafeHelper(fct);
-    }
+        void logMetrics(const std::vector<std::string>& path, const Numeric& val){
+            std::function<void()> fct = [&](){
+                logInCategory(METRICS, path, val);
+            };
+            failSafeHelper(fct);
+        }
+        void logProcess(const std::vector<std::string>& path, const NumOrStr& val){
+            std::function<void()> fct = [&](){
+                logInCategory(PROCESS, path, val);
+            };
+            failSafeHelper(fct);
+        }
+        void logMeta(const std::vector<std::string>& path, const NumOrStr& val){
+            std::function<void()> fct = [&](){
+                logInCategory(META, path, val);
+            };
+            failSafeHelper(fct);
+        }
 
-    void close();
-    virtual ~ILoggerMetrics(){};
+        void close();
+        virtual ~ILoggerMetrics(){};
 
-protected:
-    const static std::string METRICS;
-    const static std::string PROCESS;
-    const static std::string META;
-
-    ILoggerMetrics(const std::string & coll)
-        : coll(coll), startDate(Date::now())
-    {
-    }
-    virtual void logInCategory(const std::string & category,
-                               const std::vector<std::string> & path,
-                               const NumOrStr & val) = 0;
-    virtual void logInCategory(const std::string & category,
-                               const Json::Value & j) = 0;
-    virtual std::string getProcessId() const = 0;
-
-    void failSafeHelper(const std::function<void()> & fct);
-
-    std::string coll;
-
-private:
-    static void setupLogger(const Json::Value & config,
-                            const std::string & coll,
-                            const std::string & appName);
-    static bool failSafe;
-    static std::string parentObjectId;
-
-    const Date startDate;
 };
+}//namespace Datacratic
 
-} // namespace Datacratic

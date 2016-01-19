@@ -106,6 +106,10 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
     atomic<int> nRunning(0);
 
     activeThreads = nThreads;
+
+    auto onTerminate = [&] (const RunResult &) {
+    };
+
     auto runThread = [&] (int threadNum) {
         /* preparation */
         HelperCommands commands;
@@ -155,7 +159,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
 
         auto & stdInSink = runner.getStdInSink();
         runner.run({"build/x86_64/bin/runner_test_helper"},
-                   nullptr, stdOutSink, stdErrSink);
+                   onTerminate, stdOutSink, stdErrSink);
 
         for (const string & command: commands) {
             while (!stdInSink.write(string(command))) {

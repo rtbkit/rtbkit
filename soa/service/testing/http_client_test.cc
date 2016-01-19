@@ -662,7 +662,6 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
     auto proxies = make_shared<ServiceProxies>();
 
     HttpGetService service(proxies);
-    service.portToUse = 8080;
     service.addResponse("GET", "/", 200, "coucou");
     service.start();
     service.waitListening();

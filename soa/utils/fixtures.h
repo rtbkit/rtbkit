@@ -54,6 +54,15 @@ private:
         _name_() : TestFolderFixture(#_name_) {}        \
     }
 
+struct FileHolder
+{
+    std::string filename;
+    FileHolder(std::string filename) : filename(filename){}
+    ~FileHolder(){
+        remove(filename.c_str());
+    }
+};
+
 
 } // namespace Datacratic
 

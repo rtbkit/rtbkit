@@ -54,6 +54,7 @@ struct Id {
         BASE64_96 = 5,   /// 16 character base64 string
         HEX128LC = 6,    /// 32 character lowercase hex string
         INT64DEC = 7,    /// obsolete type, do not use
+        UUID_CAPS = 8,   /// uuid-ish string eg 0828398C-5965-11E0-84C8-0026B937C8E1
 
         // other integer-encoded values go here
 
@@ -204,14 +205,8 @@ struct Id {
     uint64_t hash() const
     {
         if (type == NONE || type == NULLID) return 0;
-#if ID_HASH_AS_STRING
-        if (type == STR)
-            return CityHash64(str, len);
-        return complexHash();
-#else
         if (JML_UNLIKELY(type >= STR)) return complexHash();
         return Hash128to64(std::make_pair(val1, val2));
-#endif
     }
 
     bool complexEqual(const Id & other) const;

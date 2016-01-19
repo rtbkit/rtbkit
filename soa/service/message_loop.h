@@ -17,7 +17,7 @@
 #include "async_event_source.h"
 #include "typed_message_channel.h"
 #include "logs.h"
-#include <sys/resource.h>
+#include "rusage.h"
 
 namespace Datacratic {
 
@@ -124,6 +124,12 @@ struct MessageLoop : public Epoller {
     */
     bool removeSourceSync(AsyncEventSource * source);
 
+    /** Run the given function in the main message loop thread.
+        WARNING: calling this function from the message loop thread will result
+        in a deadlock.
+    */
+    bool runInMessageLoopThread(std::function<void ()> toRun);
+
     /** Re-check if anything needs to poll. */
     void checkNeedsPoll();
 
@@ -149,12 +155,19 @@ private:
         SourceEntry(const std::string& name,
                     std::shared_ptr<AsyncEventSource> source,
                     int priority)
-            : name(name), source(source), priority(priority)
+            : name(name), source(std::move(source)), priority(priority)
+        {}
+
+        SourceEntry(const std::string& name,
+                    std::function<void ()> run,
+                    int priority)
+            : name(name), priority(priority), run(std::move(run))
         {}
 
         std::string name;
         std::shared_ptr<AsyncEventSource> source;
         int priority;
+        std::function<void ()> run;
     };
 
     std::vector<SourceEntry> sources;
@@ -163,6 +176,7 @@ private:
     struct SourceAction {
         static constexpr int ADD = 0;
         static constexpr int REMOVE = 1;
+        static constexpr int RUN = 2;
 
         SourceAction() = default;
         
@@ -202,6 +216,7 @@ private:
     void handleSourceActions();
     void processAddSource(const SourceEntry & entry);
     void processRemoveSource(const SourceEntry & entry);
+    void processRunAction(const SourceEntry & entry);
 };
 
 } // namespace Datacratic

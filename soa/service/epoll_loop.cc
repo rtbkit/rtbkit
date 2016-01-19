@@ -68,18 +68,12 @@ loop(int maxEvents, int timeout)
 
             for (int i = 0; i < res; i++) {
                 auto * fn = static_cast<EpollCallback *>(events[i].data.ptr);
-                ExcAssert(fn != nullptr);
                 (*fn)(events[i]);
             }
 
-            map<int, OnUnregistered> delayedUnregistrations;
-            {
-                std::unique_lock<mutex> guard(callbackLock_);
-                delayedUnregistrations = move(delayedUnregistrations_);
-                delayedUnregistrations_.clear();
-            }
-            for (const auto & unreg: delayedUnregistrations) {
-                unregisterFdCallback(unreg.first, false, unreg.second);
+            for (auto & unreg: delayedUnregistrations_) {
+                auto cb = move(unreg.second);
+                unregisterFdCallback(unreg.first, false, cb);
             }
         }
         catch (const std::exception & exc) {
@@ -166,7 +160,6 @@ void
 EpollLoop::
 registerFdCallback(int fd, const EpollCallback & cb)
 {
-    std::unique_lock<mutex> guard(callbackLock_);
     if (delayedUnregistrations_.count(fd) == 0) {
         if (fdCallbacks_.find(fd) != fdCallbacks_.end()) {
             throw ML::Exception("callback already registered for fd");
@@ -183,7 +176,6 @@ EpollLoop::
 unregisterFdCallback(int fd, bool delayed,
                      const OnUnregistered & onUnregistered)
 {
-    std::unique_lock<mutex> guard(callbackLock_);
     if (fdCallbacks_.find(fd) == fdCallbacks_.end()) {
         throw ML::Exception("callback not registered for fd");
     }
