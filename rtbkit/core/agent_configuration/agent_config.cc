@@ -117,9 +117,9 @@ fromJson(const Json::Value & val)
             duration = value.asUInt();
         else if (name == "bitrate")
             bitrate = value.asUInt();
-        // Ext
+        // Extension
         else {
-            ext.add(ExtensionRegistry::create(name, value));
+            extensions.add(ExtensionRegistry::create(name, value));
         }
     });
 
@@ -167,7 +167,7 @@ toJson() const
         result["duration"] = duration;
         result["bitrate"] = bitrate;
     }
-    for (const auto& extension: ext.list()) {
+    for (const auto& extension: extensions.list()) {
         result[extension->name()] = extension->toJson();
     }
 
@@ -777,8 +777,11 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "errorFormat") {
             RTBKIT::fromJson(newConfig.errorFormat, *it);
         }
+        else if (it.memberName() == "ext") {
+            newConfig.ext = *it;
+        }
         else {
-            newConfig.ext.add(ExtensionRegistry::create(it.memberName(), *it));
+            newConfig.extensions.add(ExtensionRegistry::create(it.memberName(), *it));
         }
     }
 
@@ -923,7 +926,7 @@ toJson(bool includeCreatives) const
     result["lossFormat"] = RTBKIT::toJson(lossFormat);
     result["errorFormat"] = RTBKIT::toJson(errorFormat);
 
-    for (const auto& extension: ext.list()) {
+    for (const auto& extension: extensions.list()) {
         result[extension->name()] = extension->toJson();
     }
 

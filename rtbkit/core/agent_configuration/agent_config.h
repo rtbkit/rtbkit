@@ -118,21 +118,22 @@ struct Creative {
     };
 
     template<typename Ext>
-    typename std::enable_if<
-                IsExtension<Ext>::value, std::shared_ptr<const Ext>
-             >::type
+    std::shared_ptr<const Ext>
     getExt() const {
-        return ext.get<Ext>();
+        STATIC_ASSERT_EXTENSION(Ext);
+        return extensions.get<Ext>();
     }
 
-    std::shared_ptr<const Extension>
-    getExt(const std::string& name) const {
-        return ext.get(name);
+    template<typename Ext>
+    std::shared_ptr<const Ext>
+    tryGetExt() const {
+        STATIC_ASSERT_EXTENSION(Ext);
+        return extensions.tryGet<Ext>();
     }
 
     bool
     hasExt(const std::string& name) const {
-        return ext.has(name);
+        return extensions.has(name);
     }
 
     std::map<std::string, SegmentInfo> segments;
@@ -156,7 +157,7 @@ struct Creative {
 
 private:
     Type type;
-    ExtensionPool ext;
+    ExtensionPool extensions;
 
     std::string typeString() const;
 
@@ -435,21 +436,22 @@ struct AgentConfig {
     }
 
     template<typename Ext>
-    typename std::enable_if<
-                IsExtension<Ext>::value, std::shared_ptr<const Ext>
-             >::type
+    std::shared_ptr<const Ext>
     getExt() const {
-        return ext.get<Ext>();
+        STATIC_ASSERT_EXTENSION(Ext);
+        return extensions.get<Ext>();
     }
 
-    std::shared_ptr<const Extension>
-    getExt(const std::string& name) const {
-        return ext.get(name);
+    template<typename Ext>
+    std::shared_ptr<const Ext>
+    tryGetExt() const {
+        STATIC_ASSERT_EXTENSION(Ext);
+        return extensions.tryGet<Ext>();
     }
 
     bool
     hasExt(const std::string& name) const {
-        return ext.has(name);
+        return extensions.has(name);
     }
 
     /** List of channels for which we subscribe to post impression
@@ -462,12 +464,12 @@ struct AgentConfig {
 
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
+    //
+    Json::Value ext;
 
 private:
-    ExtensionPool ext;
+    ExtensionPool extensions;
 
-   // /** custom extensions */
-   // Json::Value ext;
 };
 
 
