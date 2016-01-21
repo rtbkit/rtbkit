@@ -36,8 +36,7 @@ AugmentationLoop(ServiceBase & parent,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
-      disconnections(1024),
-      toAugmentors(getZmqContext())
+      disconnections(1024)
 {
     updateAllAugmentors();
 }
@@ -49,8 +48,7 @@ AugmentationLoop(std::shared_ptr<ServiceProxies> proxies,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
-      disconnections(1024),
-      toAugmentors(getZmqContext())
+      disconnections(1024)
 {
     updateAllAugmentors();
 }
@@ -64,36 +62,27 @@ void
 AugmentationLoop::
 init()
 {
-    registerServiceProvider(serviceName(), { "rtbRouterAugmentation" });
+    augmentorInterface->init();
 
-    toAugmentors.init(getServices()->config, serviceName() + "/augmentors");
-
-    toAugmentors.clientMessageHandler
-        = [&] (const std::vector<std::string> & message)
-        {
-            //cerr << "got augmentor message " << message << endl;
-            handleAugmentorMessage(message);
-        };
-
-    toAugmentors.bindTcp(getServices()->ports->getRange("augmentors"));
-
-    toAugmentors.onConnection = [=] (const std::string & client)
-        {
-            cerr << "augmentor " << client << " has connected" << endl;
-        };
+    augmentorInterface->onConnection = [=](std::string&& name, std::shared_ptr<AugmentorInstanceInfo>&& instance) {
+        doConnection(std::move(name), std::move(instance));
+    };
 
     // These events show up on the zookeeper thread so redirect them to our
     // message loop thread.
-    toAugmentors.onDisconnection = [=] (const std::string & client)
-        {
-            cerr << "augmentor " << client << " has disconnected" << endl;
-            disconnections.push(client);
-        };
+    augmentorInterface->onDisconnection = [=](const std::string& client) {
+        disconnections.push(client);
+    };
 
     disconnections.onEvent = [&] (const std::string& addr)
         {
             doDisconnection(addr);
         };
+
+
+    augmentorInterface->onResponse = [=](AugmentationResponse&& response) {
+        doResponse(std::move(response));
+    };
 
     inbox.onEvent = [&] (std::shared_ptr<Entry>&& entry)
         {
@@ -102,7 +91,6 @@ init()
 
     addSource("AugmentationLoop::inbox", inbox);
     addSource("AugmentationLoop::disconnections", disconnections);
-    addSource("AugmentationLoop::toAugmentors", toAugmentors);
 
     addPeriodic("AugmentationLoop::checkExpiries", 0.001,
                 [=] (int) { checkExpiries(); });
@@ -115,7 +103,7 @@ void
 AugmentationLoop::
 start()
 {
-    //toAugmentors.start();
+    augmentorInterface->start();
     MessageLoop::start();
 }
 
@@ -132,7 +120,7 @@ AugmentationLoop::
 shutdown()
 {
     MessageLoop::shutdown();
-    toAugmentors.shutdown();
+    augmentorInterface->shutdown();
 }
 
 size_t
@@ -147,29 +135,11 @@ AugmentationLoop::
 bindAugmentors(const std::string & uri)
 {
     try {
-        toAugmentors.bind(uri.c_str());
+       // toAugmentors.bind(uri.c_str());
     } catch (const std::exception & exc) {
         throw Exception("error while binding augmentation URI %s: %s",
                         uri.c_str(), exc.what());
     }
-}
-
-void
-AugmentationLoop::
-handleAugmentorMessage(const std::vector<std::string> & message)
-{
-    Date now = Date::now();
-
-    const std::string & type = message.at(1); 
-    if (type == "CONFIG") {
-        doConfig(message);
-    }
-    else if (type == "RESPONSE") {
-        doResponse(message);
-    }
-    else throw ML::Exception("error handling unknown "
-                             "augmentor message of type "
-                             + type);
 }
 
 void
@@ -395,24 +365,18 @@ doAugmentation(std::shared_ptr<Entry>&& entry)
             recordHit("augmentor.%s.skippedTooManyInFlight", *it);
             continue;
         }
-        recordHit("augmentor.%s.instances.%s.request", *it, instance->addr);
+        recordHit("augmentor.%s.instances.%s.request", *it, instance->address());
 
         set<string> agents = entry->augmentorAgents[*it];
 
         entry->instances[*it] = instance;
         
-        std::ostringstream availableAgentsStr;
-        ML::DB::Store_Writer writer(availableAgentsStr);
-        writer.save(agents);
-
         // Send the message to the augmentor
-        toAugmentors.sendMessage(
-                instance->addr,
-                "AUGMENT", "1.0", *it,
-                entry->info->auction->id.toString(),
-                entry->info->auction->requestStrFormat,
-                entry->info->auction->requestStr,
-                availableAgentsStr.str(),
+        augmentorInterface->sendAugmentMessage(
+                instance,
+                *it,
+                entry->info->auction,
+                agents,
                 Date::now());
 
         sentToAugmentor = true;
@@ -429,41 +393,26 @@ doAugmentation(std::shared_ptr<Entry>&& entry)
 
 void
 AugmentationLoop::
-doConfig(const std::vector<std::string> & message)
+doConnection(std::string&& name, std::shared_ptr<AugmentorInstanceInfo>&& instance)
 {
-    ExcCheckGreaterEqual(message.size(), 4, "config message has wrong size");
-    ExcCheckLessEqual(message.size(), 5, "config message has wrong size");
-
-    const string & addr = message[0];
-    const string & version = message[2];
-    const string & name = message[3];
-
-    int maxInFlight = -1;
-    if (message.size() >= 5)
-        maxInFlight = std::stoi(message[4]);
-    if (maxInFlight < 0) maxInFlight = 3000;
-
-    ExcCheckEqual(version, "1.0", "unknown version for config message");
-    ExcCheck(!name.empty(), "no augmentor name specified");
-
     //cerr << "configuring augmentor " << name << " on " << connectTo
     //     << endl;
 
-    doDisconnection(addr, name);
+    doDisconnection(instance->address(), name);
 
+    auto addr = instance->address();
     auto& info = augmentors[name];
     if (!info) {
         info = std::make_shared<AugmentorInfo>(name);
         recordHit("augmentor.%s.configured", name);
     }
 
-    info->instances.push_back(std::make_shared<AugmentorInstanceInfo>(addr, maxInFlight));
+    info->instances.push_back(std::move(instance));
     recordHit("augmentor.%s.instances.%s.configured", name, addr);
 
 
     updateAllAugmentors();
 
-    toAugmentors.sendMessage(addr, "CONFIGOK");
 }
 
 
@@ -488,10 +437,10 @@ doDisconnection(const std::string & addr, const std::string & aug)
              it != end; ++it)
         {
             auto & ptr = *it;
-            if (ptr->addr != addr) continue;
+            if (ptr->address() != addr) continue;
 
             recordHit("augmentor.%s.instances.%s.disconnected",
-                    augmentor.name, ptr->addr);
+                    augmentor.name, ptr->address());
 
             augmentor.instances.erase(it);
             break;
@@ -513,23 +462,13 @@ doDisconnection(const std::string & addr, const std::string & aug)
 
 void
 AugmentationLoop::
-doResponse(const std::vector<std::string> & message)
+doResponse(AugmentationResponse&& response)
 {
     recordEvent("augmentation.response");
-    //cerr << "doResponse " << message << endl;
-
-    ExcCheckEqual(message.size(), 7, "response message has wrong size");
-
-    const string & version = message[2];
-    ExcCheckEqual(version, "1.0", "unknown response version");
-
-    const std::string & addr = message[0];
-    Date startTime = Date::parseSecondsSinceEpoch(message[3]);
-    Id id(message[4]);
-    const std::string & augmentor = message[5];
-    const std::string & augmentation = message[6];
-
     ML::Timer timer;
+
+    auto augmentation = response.augmentation;
+    auto augmentor = response.augmentor;
 
     AugmentationList augmentationList;
     if (augmentation != "" && augmentation != "null") {
@@ -540,7 +479,7 @@ doResponse(const std::vector<std::string> & message)
             augmentationJson = Json::parse(augmentation);
             augmentationList = AugmentationList::fromJson(augmentationJson);
         } catch (const std::exception & exc) {
-            string eventName = "augmentor." + augmentor
+            string eventName = "augmentor." + response.augmentor
                 + ".responseParsingExceptions";
             recordEvent(eventName.c_str(), ET_COUNT);
         }
@@ -549,7 +488,7 @@ doResponse(const std::vector<std::string> & message)
     recordLevel(timer.elapsed_wall(), "responseParseTimeMs");
 
     {
-        double timeTakenMs = startTime.secondsUntil(Date::now()) * 1000.0;
+        double timeTakenMs = response.startTime.secondsUntil(Date::now()) * 1000.0;
         string eventName = "augmentor." + augmentor + ".timeTakenMs";
         recordEvent(eventName.c_str(), ET_OUTCOME, timeTakenMs);
     }
@@ -562,15 +501,15 @@ doResponse(const std::vector<std::string> & message)
 
     auto augmentorIt = augmentors.find(augmentor);
     if (augmentorIt != augmentors.end()) {
-        auto instance = augmentorIt->second->findInstance(addr);
+        auto instance = augmentorIt->second->findInstance(response.addr);
         if (instance) instance->numInFlight--;
     }
 
-    auto augmentingIt = augmenting.find(id);
+    auto augmentingIt = augmenting.find(response.auctionId);
     if (augmentingIt == augmenting.end()) {
         recordHit("augmentation.unknown");
-        recordHit("augmentor.%s.unknown", augmentor, addr);
-        recordHit("augmentor.%s.instances.%s.unknown", augmentor, addr);
+        recordHit("augmentor.%s.unknown", augmentor);
+        recordHit("augmentor.%s.instances.%s.unknown", augmentor, response.addr);
         return;
     }
 
@@ -580,7 +519,7 @@ doResponse(const std::vector<std::string> & message)
         (augmentation == "" || augmentation == "null") ?
         "nullResponse" : "validResponse";
     recordHit("augmentor.%s.%s", augmentor, eventType);
-    recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
+    recordHit("augmentor.%s.instances.%s.%s", augmentor, response.addr, eventType);
 
     auto& auctionAugs = entry.second->info->auction->augmentations;
     auctionAugs[augmentor].mergeWith(augmentationList);

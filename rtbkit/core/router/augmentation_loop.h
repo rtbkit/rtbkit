@@ -9,6 +9,7 @@
 #define __rtb_router__augmentation_loop_h__
 
 #include "rtbkit/common/augmentation.h"
+#include "rtbkit/common/augmentor_interface.h"
 #include "soa/service/timeout_map.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
@@ -30,17 +31,6 @@ namespace RTBKIT {
 /* AUGMENTOR CONFIG                                                          */
 /*****************************************************************************/
 
-/** Information about a specific augmentor which belongs to an augmentor class.
- */
-struct AugmentorInstanceInfo {
-    AugmentorInstanceInfo(const std::string& addr = "", int maxInFlight = 0) :
-        addr(addr), numInFlight(0), maxInFlight(maxInFlight)
-    {}
-
-    std::string addr;
-    int numInFlight;
-    int maxInFlight;
-};
 
 /** Information about a given class of augmentor. */
 struct AugmentorInfo {
@@ -55,7 +45,7 @@ struct AugmentorInfo {
              it != end; ++it)
         {
             auto & info = *it;
-            if (info->addr == addr) return info;
+            if (info->address() == addr) return info;
         }
         return nullptr;
     }
@@ -132,6 +122,8 @@ private:
     typedef TimeoutMap<Id, std::shared_ptr<Entry> > Augmenting;
     Augmenting augmenting;
 
+    std::shared_ptr<AugmentorInterface> augmentorInterface;
+
     /** Currently configured augmentors.  Indexed by the augmentor name. */
     std::map<std::string, std::shared_ptr<AugmentorInfo> > augmentors;
 
@@ -158,14 +150,8 @@ private:
     TypedMessageSink<std::shared_ptr<Entry> > inbox;
     TypedMessageSink<std::string> disconnections;
 
-    /// Connection to all of our augmentors
-    ZmqNamedClientBus toAugmentors;
-
     /** Update the augmentors from the configuration settings. */
     void updateAllAugmentors();
-
-
-    void handleAugmentorMessage(const std::vector<std::string> & message);
 
     std::shared_ptr<AugmentorInstanceInfo> pickInstance(AugmentorInfo& aug);
     void doAugmentation(std::shared_ptr<Entry>&& entry);
@@ -175,13 +161,13 @@ private:
     void checkExpiries();
 
     /** Handle a configuration message from an augmentor. */
-    void doConfig(const std::vector<std::string> & message);
+    void doConnection(std::string&& name, std::shared_ptr<AugmentorInstanceInfo>&& instance);
 
     /** Disconnect the instance at addr for type aug. */
-    void doDisconnection(const std::string & addr, const std::string & aug = "");
+    void doDisconnection(const std::string& addr, const std::string& aug = "");
 
     /** Handle a response from an augmentation. */
-    void doResponse(const std::vector<std::string> & message);
+    void doResponse(AugmentationResponse&& response);
 
     /** Handle a message asking for augmentation. */
     void doAugment(const std::vector<std::string> & message);
