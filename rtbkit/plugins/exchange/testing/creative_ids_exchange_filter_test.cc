@@ -19,7 +19,7 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 using namespace RTBKIT;
-using namespace RTBKIT::TEST;
+using namespace RTBKIT::Test;
 
 /******************************************************************************/
 /* EXTERNAL-IDS FILTER                                                        */

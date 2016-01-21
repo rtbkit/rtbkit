@@ -20,7 +20,7 @@
 
 namespace RTBKIT {
 
-namespace TEST {
+namespace Test {
 
 /******************************************************************************/
 /* FILTER EXCHANGE CONNECTOR                                                  */
