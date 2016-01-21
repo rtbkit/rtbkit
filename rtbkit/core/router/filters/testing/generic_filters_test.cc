@@ -17,6 +17,7 @@
 using namespace std;
 using namespace RTBKIT;
 using namespace Datacratic;
+using namespace RTBKIT::TEST;
 
 template<typename T>
 vector<T> makeList(const initializer_list<T>& list)

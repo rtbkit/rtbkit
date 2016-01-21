@@ -27,36 +27,7 @@
 using namespace std;
 using namespace ML;
 using namespace Datacratic;
-
-void check(
-        const FilterBase& filter,
-        BidRequest& request,
-        const string exchangeName,
-        const ConfigSet& mask,
-        const initializer_list<size_t>& exp)
-{
-    FilterExchangeConnector conn(exchangeName);
-
-    /* Note that some filters depends on the bid request's exchange field while
-       others depend on the exchange connector's name. Now you might think that
-       they're always the same but you'd be wrong. To alleviate my endless pain
-       on this subject, let's just fudge it here and call it a day.
-     */
-    request.exchange = exchangeName;
-
-    // A bid request without ad spots doesn't really make any sense and will
-    // accidently make state.configs() to return an empty set.
-    request.imp.emplace_back();
-
-    CreativeMatrix activeConfigs;
-    for (size_t i = mask.next(); i < mask.size(); i = mask.next(i+1))
-        activeConfigs.setConfig(i, 1);
-
-    FilterState state(request, &conn, activeConfigs);
-
-    filter.filter(state);
-    check(state.configs() & mask, exp);
-}
+using namespace RTBKIT::TEST;
 
 void
 add(    AgentConfig& config,
