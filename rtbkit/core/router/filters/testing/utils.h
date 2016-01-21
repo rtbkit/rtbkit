@@ -194,12 +194,30 @@ SegmentList segment(Args&&... args)
     return seg;
 }
 
-void addSegmentList( 
+void addSegment( 
         BidRequest& br,
         const string& name,
         const SegmentList& segment)
 {
     br.segments[name] = make_shared<SegmentList>(segment);
+};
+
+void addSegment(    
+        AgentConfig& config,
+        const string& name,
+        bool excludeIfNotPresent,
+        const SegmentList& includes,
+        const SegmentList& excludes,
+        const IncludeExclude<string>& exchangeIE)
+{
+    AgentConfig::SegmentInfo seg;
+
+    seg.excludeIfNotPresent = excludeIfNotPresent;
+    seg.include = includes;
+    seg.exclude = excludes;
+    seg.applyToExchanges = exchangeIE;
+
+    config.segments[name] = seg;
 };
 
 /******************************************************************************/
