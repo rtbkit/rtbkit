@@ -194,6 +194,14 @@ SegmentList segment(Args&&... args)
     return seg;
 }
 
+void addSegmentList( 
+        BidRequest& br,
+        const string& name,
+        const SegmentList& segment)
+{
+    br.segments[name] = make_shared<SegmentList>(segment);
+};
+
 /******************************************************************************/
 /* IMPRESSION                                                                 */
 /******************************************************************************/
