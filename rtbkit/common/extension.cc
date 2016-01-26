@@ -16,7 +16,7 @@ ExtensionPool::has(const std::string& name) const {
 
 void
 ExtensionPool::add(const std::shared_ptr<Extension>& ext){
-    data.insert(std::make_pair(ext->name(), ext));
+    data.insert(std::make_pair(ext->extensionName(), ext));
 }
 
 std::shared_ptr<Extension>

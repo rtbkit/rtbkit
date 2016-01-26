@@ -26,14 +26,14 @@ struct Extension {
 
     static std::string libNameSufix() { return "extension"; }
 
-    virtual const char* name() const = 0;
+    virtual const char* extensionName() const = 0;
     virtual void parse(const Json::Value& value) = 0;
     virtual Json::Value toJson() const = 0;
 };
 
 #define NAME(extName)                            \
   static constexpr const char* Name = extName; \
-  const char* name() const { return Name; }
+  const char* extensionName() const { return Name; }
 
 template<typename Ext>
 struct IsExtension {

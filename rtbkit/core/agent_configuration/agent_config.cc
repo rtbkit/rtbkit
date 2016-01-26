@@ -168,7 +168,7 @@ toJson() const
         result["bitrate"] = bitrate;
     }
     for (const auto& extension: extensions.list()) {
-        result[extension->name()] = extension->toJson();
+        result[extension->extensionName()] = extension->toJson();
     }
 
     return result;
@@ -927,7 +927,7 @@ toJson(bool includeCreatives) const
     result["errorFormat"] = RTBKIT::toJson(errorFormat);
 
     for (const auto& extension: extensions.list()) {
-        result[extension->name()] = extension->toJson();
+        result[extension->extensionName()] = extension->toJson();
     }
 
     return result;
