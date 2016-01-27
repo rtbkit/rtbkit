@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_2 )
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_3 )
 {
-    string configFile = R"({"extraFilterFiles":["custom_filter"]})";
+    string configFile = R"({"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_3 )
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_4 )
 {
-    string configFile = R"({"filter-activate":["My"],"extraFilterFiles":["custom_filter"]})";
+    string configFile = R"({"filter-activate":["My"],"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_5 )
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_6 )
 {
-    string configFile = R"({"filter-activate":["My","Your"],"filter-deactivate":["Your"],"extraFilterFiles":["custom_filter"]})";
+    string configFile = R"({"filter-activate":["My","Your"],"filter-deactivate":["Your"],"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_6 )
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_7 )
 {
     {
-        string configFile = R"({"extraFilterFiles":["custom_filter"]})";
+        string configFile = R"({"extraFilterLibs":["libcustom_filter.so"]})";
         Json::Value filtersConfig = Json::parse(configFile);
         
         Router router;
@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_7 )
     }
 
     {
-        string configFile = R"({"filter-deactivate":["Segments"],"extraFilterFiles":["custom_filter"]})";
+        string configFile = R"({"filter-deactivate":["Segments"],"extraFilterLibs":["libcustom_filter.so"]})";
         Json::Value filtersConfig = Json::parse(configFile);
         
         Router router;

@@ -267,29 +267,45 @@ initFilters(const Json::Value & config) {
 
     if (config != Json::Value::null) {
 
-        Json::Value extraFilterFiles = config["extraFilterFiles"];
-        if (extraFilterFiles != Json::Value::null) {
-            if (!extraFilterFiles.isArray()) {
-                throw Exception("Filter files must be an array");
-            }
-            for(size_t i=0; i<extraFilterFiles.size(); i++){
-                std::string file="lib"+extraFilterFiles[i].asString()+".so";
-                void * handle = dlopen(file.c_str(),RTLD_NOW);
-                if (!handle) {
-                    std::cerr << dlerror() << std::endl;
-                    throw ML::Exception("couldn't load library from %s", file.c_str());
+        if (config.type() != Json::objectValue) 
+           throw Exception("Filter config json is not of map type");
+
+        Json::Value extraFilterLibs;
+        Json::Value filterDeactivate;
+        Json::Value filterActivate;
+
+        for (const std::string & field : config.getMemberNames()) {
+
+            if (field == "extraFilterLibs") {
+                extraFilterLibs = config[field];
+                if (extraFilterLibs != Json::Value::null) {
+                    if (!extraFilterLibs.isArray()) {
+                        throw Exception("Filter libs must be an array");
+                    }
+                    for(size_t i=0; i<extraFilterLibs.size(); i++){
+                        std::string file=extraFilterLibs[i].asString();
+                        void * handle = dlopen(file.c_str(),RTLD_NOW);
+                        if (!handle) {
+                            std::cerr << dlerror() << std::endl;
+                            throw ML::Exception("couldn't load library from %s", file.c_str());
+                        }
+                    }
+                }
+            } 
+            else if (field == "filter-deactivate") {
+                filterDeactivate = config[field];
+                if ( (filterDeactivate != Json::Value::null) && (!filterDeactivate.isArray()) ) {
+                    throw Exception("Filter-deactivate must be an array");
                 }
             }
-        }
-
-        Json::Value filterDeactivate = config["filter-deactivate"];
-        if ( (filterDeactivate != Json::Value::null) && (!filterDeactivate.isArray()) ) {
-            throw Exception("Filter-deactivate must be an array");
-        }
-        
-        Json::Value filterActivate = config["filter-activate"];
-        if ( (filterActivate != Json::Value::null) && (!filterActivate.isArray()) ) {
-            throw Exception("Filter-activate must be an array");
+            else if (field == "filter-activate") {
+                filterActivate = config[field];
+                if ( (filterActivate != Json::Value::null) && (!filterActivate.isArray()) ) {
+                    throw Exception("Filter-activate must be an array");
+                }
+            }
+            else 
+                throw Exception("Unknown field " + field + " in filter config file");
         }
 
         if (filterActivate != Json::Value::null) {
@@ -331,7 +347,7 @@ initFilters(const Json::Value & config) {
                 filters.initWithDefaultFilters();
             }
         }
-
+        
     } else {
         filters.initWithDefaultFilters();
     }

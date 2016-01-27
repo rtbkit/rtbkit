@@ -12,5 +12,5 @@
     "filter-deactivate":["My"],
 
     // Libraries that will be loaded along with static_filter library
-    "extraFilterFiles":["custom_filter"]
+    "extraFilterLibs":["libcustom_filter.so"]
 }
