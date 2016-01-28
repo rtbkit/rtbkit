@@ -25,13 +25,19 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 
-static const string buildOptions("build/x86_64/bin/libcustom_preload_1.so,"
-                                 "soa/service/testing/libs-to-dynamically-load");
-static const string envOptions("build/x86_64/bin/libcustom_preload_4");
-static const string RtbkitPreload("RTBKIT_PRELOAD");
-
 BOOST_AUTO_TEST_CASE( test_service_utils_preload )
 {
+    string build_path;
+    if (!getenv("BIN"))
+        build_path = "build/x86_64/bin";
+    else
+        build_path = getenv("BIN");
+
+    const string buildOptions(build_path + "/libcustom_preload_1.so,"
+                                                  "soa/service/testing/libs-to-dynamically-load");
+    const string envOptions(build_path + "/libcustom_preload_4");
+    const string RtbkitPreload("RTBKIT_PRELOAD");
+
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_1,0);
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_2,0);
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_3,0);
