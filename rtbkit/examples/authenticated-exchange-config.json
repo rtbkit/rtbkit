@@ -1,0 +1,19 @@
+{
+    "workers": [
+        {
+            "threads": 1,
+            "bids": {
+                "type": "authenticated",
+                "url": "localhost:12339"
+            },
+            "wins": {
+                "type": "authenticated",
+                "url": "localhost:12340"
+            },
+            "events": {
+                "type": "authenticated",
+                "url": "localhost:12341"
+            }
+        }
+    ]
+}

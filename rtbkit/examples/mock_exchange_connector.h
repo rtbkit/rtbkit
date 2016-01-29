@@ -11,7 +11,7 @@
 
 namespace RTBKIT {
 
-    Logging::Category printy("RTBKIT printy");
+    Logging::Category printyy("RTBKIT printy");
 
     struct MockExchangeConnector : public HttpExchangeConnector {
 
