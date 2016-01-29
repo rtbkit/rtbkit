@@ -306,7 +306,7 @@ void fromJson(BidResultFormat & fmt, const Json::Value & j);
     a agent to the router to describe how the routes should be set up.
 */
 struct AgentConfig {
-    AgentConfig();
+    explicit AgentConfig(std::string name = "");
 
     static AgentConfig createFromJson(const Json::Value & json);
 
@@ -435,25 +435,6 @@ struct AgentConfig {
         return reinterpret_cast<const T *>(it->second.get());
     }
 
-    template<typename Ext>
-    std::shared_ptr<const Ext>
-    getExt() const {
-        STATIC_ASSERT_EXTENSION(Ext);
-        return extensions.get<Ext>();
-    }
-
-    template<typename Ext>
-    std::shared_ptr<const Ext>
-    tryGetExt() const {
-        STATIC_ASSERT_EXTENSION(Ext);
-        return extensions.tryGet<Ext>();
-    }
-
-    bool
-    hasExt(const std::string& name) const {
-        return extensions.has(name);
-    }
-
     /** List of channels for which we subscribe to post impression
         visit events.
     */
@@ -467,9 +448,9 @@ struct AgentConfig {
     //
     Json::Value ext;
 
-private:
-    ExtensionPool extensions;
+    std::string name;
 
+    ExtensionPool extensions;
 };
 
 

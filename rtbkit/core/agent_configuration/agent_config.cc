@@ -435,7 +435,7 @@ createFromJson(const Json::Value& json, const std::string& name)
 /*****************************************************************************/
 
 AgentConfig::
-AgentConfig()
+AgentConfig(std::string name)
     : externalId(0),
       external(false),
       test(false),
@@ -447,7 +447,8 @@ AgentConfig()
       bidControlType(BC_RELAY), fixedBidCpmInMicros(0),
       winFormat(BRF_FULL),
       lossFormat(BRF_LIGHTWEIGHT),
-      errorFormat(BRF_LIGHTWEIGHT)
+      errorFormat(BRF_LIGHTWEIGHT),
+      name(name)
 {
     addAugmentation("random");
 }
@@ -591,6 +592,9 @@ createFromJson(const Json::Value & json)
 
         if (it.memberName() == "account") {
             newConfig.account = AccountKey::fromJson(*it);
+        }
+        else if (it.memberName() == "name") {
+            newConfig.name = it->asString();
         }
         else if (it.memberName() == "test") {
             newConfig.test = it->asBool();
@@ -817,6 +821,7 @@ toJson(bool includeCreatives) const
     result["account"] = account.toJson();
     result["externalId"] = externalId;
     result["external"] = external;
+    result["name"] = name;
     result["test"] = test;
     if (roundRobinGroup != "") {
         result["roundRobin"]["group"] = roundRobinGroup;
