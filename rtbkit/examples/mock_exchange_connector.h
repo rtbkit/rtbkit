@@ -32,7 +32,7 @@ struct MockExchangeConnector : public HttpExchangeConnector {
 
     std::string exchangeName() const {
         return exchangeNameString();
-    }
+    } 
 
     void configure(Json::Value const & parameters) {
         numThreads = 1;
@@ -75,7 +75,7 @@ struct MockExchangeConnector : public HttpExchangeConnector {
                                          const HttpHeader & header,
                                          Auction const & auction) const {
         std::string result;
-
+    
         const Auction::Data * current = auction.getCurrentData();
         if (current->hasError())
             return getErrorResponse(handler, current->error + ": " + current->details);
