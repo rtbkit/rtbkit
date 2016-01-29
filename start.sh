@@ -54,6 +54,8 @@ start_rtbkit() {
   ./launch.sh
 }
 
+cd /opt/rtbkit
+
 start_zookeeper
 start_redis
 start_graphite
