@@ -11,7 +11,7 @@
 
 namespace RTBKIT {
 
-    Logging::Category print("RTBKIT Print");
+    Logging::Category printy("RTBKIT printy");
 
     struct MockExchangeConnector : public HttpExchangeConnector {
 
@@ -58,7 +58,7 @@ namespace RTBKIT {
     std::shared_ptr<BidRequest> parseBidRequest(HttpAuctionHandler & handler,
                                                 Datacratic::HttpHeader const & header,
                                                 std::string const & payload) {
-        LOG(print) << "parsin deeez bid reqs";
+        LOG(printy) << "parsin deeez bid reqs";
 
         std::shared_ptr<BidRequest> request;
         request.reset(BidRequest::parse("datacratic", payload));
@@ -68,14 +68,14 @@ namespace RTBKIT {
     double getTimeAvailableMs(HttpAuctionHandler & handler,
                               const HttpHeader & header,
                               const std::string & payload) {
-        LOG(print) << "Get round trip RESPONSES YAAAHHHHHH 35555";
+        LOG(printy) << "Get round trip RESPONSES YAAAHHHHHH 35555";
 
         return 35.0;
     }
 
     double getRoundTripTimeMs(HttpAuctionHandler & handler,
                               const HttpHeader & header) {
-        LOG(print) << "Get round trip RESPONSES YAAAHHHHHH TRICK AAAA";
+        LOG(printy) << "Get round trip RESPONSES YAAAHHHHHH TRICK AAAA";
 
         return 5.0;
     }
@@ -85,7 +85,7 @@ namespace RTBKIT {
                                          Auction const & auction) const {
         std::string result;
 
-        LOG(print) << "Get response DUDERRR WTF MATE";
+        LOG(printy) << "Get response DUDERRR WTF MATE";
 
         const Auction::Data * current = auction.getCurrentData();
         if (current->hasError())
