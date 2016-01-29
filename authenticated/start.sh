@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd ..
+
 TRUE=0
 FALSE=1
 
