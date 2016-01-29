@@ -84,7 +84,7 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     typedef boost::function<void (const std::shared_ptr<AugmentationInfo> &)>
         OnFinished;
 
-    void init();
+    void init(const Json::Value& conf);
 
     void start();
     void sleepUntilIdle();

@@ -25,6 +25,7 @@ HttpAugmentorInterface::HttpAugmentorInterface(
 {
     /*
     {
+        "type":"http",
         "frequencyCap": {
             "instances": [
                 {
@@ -35,7 +36,7 @@ HttpAugmentorInterface::HttpAugmentorInterface(
                 {
                     "address": "http://10.0.0.2:9985",
                     "name": "rtb2.useast1b.freqCap",
-                    "maxInFlight: 20
+                    "maxInFlight": 20
                 }
             ]
         }
@@ -44,6 +45,8 @@ HttpAugmentorInterface::HttpAugmentorInterface(
 
     /* @Validation */
     for (auto it = config.begin(), end = config.end(); it != end; ++it) {
+        if(it.memberName() == "type")
+            continue;
         const std::string augmentorName = it.memberName();
         auto val = *it;
         auto instances = val["instances"];
@@ -57,8 +60,7 @@ HttpAugmentorInterface::HttpAugmentorInterface(
             auto client = std::make_shared<HttpClient>(address);
             info.push_back(std::make_shared<HttpAugmentorInstanceInfo>(maxInFlight, client, path, name));
         }
-
-        augmentors[augmentorName] = std::move(info);
+        augmentors[augmentorName] = info;
     }
 }
 
@@ -118,7 +120,8 @@ HttpAugmentorInterface::sendAugmentMessage(
                 int statusCode, const std::string &, std::string &&body)
             {
                 /* To be continued */
-    });
+            }
+    );
 
 
     HttpRequest::Content reqContent { requestStr, "application/json" };
@@ -126,3 +129,20 @@ HttpAugmentorInterface::sendAugmentMessage(
 }
 
 } // namespace RTBKIT
+
+namespace {
+
+struct AtInit {
+    AtInit()
+    {
+      PluginInterface<AugmentorInterface>::registerPlugin("http",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new HttpAugmentorInterface(proxies, serviceName, json);
+          });
+    }
+} atInit;
+
+}

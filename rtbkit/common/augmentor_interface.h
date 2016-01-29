@@ -12,6 +12,7 @@
 #include "soa/types/id.h"
 #include "soa/service/port_range_service.h"
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/plugin_interface.h"
 
 namespace RTBKIT {
 
@@ -81,7 +82,32 @@ struct AugmentorInterface : public MessageLoop, public ServiceBase {
             const std::set<std::string>& agents,
             Datacratic::Date date = Datacratic::Date::now()) = 0;
 
-    /* @Todo: factory and plugin registration stuff */
+
+    //
+    // factory
+    //
+    static std::shared_ptr<AugmentorInterface>
+    create(std::string serviceName,
+           std::shared_ptr<ServiceProxies> const & proxies,
+           Json::Value const & json);
+
+    typedef std::function<AugmentorInterface *
+                (std::string serviceName,
+                std::shared_ptr<ServiceProxies> const & proxies,
+                Json::Value const & json)> Factory;
+
+    // FIXME: this is being kept just for compatibility reasons.
+    // we don't want to break compatibility now, although this interface does not make
+    // sense any longer
+    // so any use of it should be considered deprecated
+    static void registerFactory(std::string const & name, Factory factory)
+    {
+      PluginInterface<AugmentorInterface>::registerPlugin(name, factory);
+    }
+
+
+    /** plugin interface needs to be able to request the root name of the plugin library */
+    static const std::string libNameSufix() {return "augmentor";};
 
 };
 

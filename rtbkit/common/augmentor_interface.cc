@@ -30,6 +30,25 @@ void AugmentorInterface::shutdown() {
     MessageLoop::shutdown();
 }
 
-} // namespace RTBKIT
+std::shared_ptr<AugmentorInterface> AugmentorInterface::create(
+        std::string serviceName,
+        std::shared_ptr<ServiceProxies> const & proxies,
+        Json::Value const & json) {
 
+    std::string type = "http";
+    if(json == Json::Value::null)
+        type = "zmq";
+    else
+        type = json.get("type", "zmq").asString();
+
+    auto factory = PluginInterface<AugmentorInterface>::getPlugin(type);
+
+    if(serviceName.empty()) {
+        serviceName = json.get("serviceName", "augmentor").asString();
+    }
+
+    return std::shared_ptr<AugmentorInterface>(factory(serviceName, proxies, json));
+}
+
+} // namespace RTBKIT
 

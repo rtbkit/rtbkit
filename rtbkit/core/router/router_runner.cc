@@ -36,8 +36,14 @@ Logging::Category RouterRunner::trace("RouterRunner Trace", RouterRunner::print)
 
 static inline Json::Value loadJsonFromFile(const std::string & filename)
 {
-    ML::File_Read_Buffer buf(filename);
-    return Json::parse(std::string(buf.start(), buf.end()));
+    if(!filename.size())
+        return Json::Value::null;
+    try{
+        ML::File_Read_Buffer buf(filename);
+        return Json::parse(std::string(buf.start(), buf.end()));
+    }catch(Json::Exception& e){
+        return Json::Value::null;
+    }
 }
 
 /*****************************************************************************/
@@ -92,6 +98,8 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
+        ("augmentor,u", value<string>(&augmentorConfigurationFile),
+         "configuration file with augmentor interface data")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -148,6 +156,7 @@ init()
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
+    augmentorConfig = loadJsonFromFile(augmentorConfigurationFile);
 
     if (!enableJsonFiltersFile.empty())
         filtersConfig = loadJsonFromFile(enableJsonFiltersFile);
@@ -187,7 +196,7 @@ init()
         else
             LOG(print) << "analytics-uri is not in the config" << endl;
     }
-    router->init();
+    router->init(augmentorConfig);
 
     if (localBankerUri != "") {
         localBanker = make_shared<LocalBanker>(proxies, ROUTER, router->serviceName());

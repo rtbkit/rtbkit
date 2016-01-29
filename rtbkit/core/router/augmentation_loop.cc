@@ -60,11 +60,14 @@ AugmentationLoop::
 
 void
 AugmentationLoop::
-init()
+init(const Json::Value& conf)
 {
-    augmentorInterface->init();
 
-    augmentorInterface->onConnection = [=](std::string&& name, std::shared_ptr<AugmentorInstanceInfo>&& instance) {
+    augmentorInterface = AugmentorInterface::create(
+            serviceName() + ".augmentor", getServices(), conf);
+
+    augmentorInterface->onConnection = [=](
+            std::string&& name, std::shared_ptr<AugmentorInstanceInfo>&& instance) {
         doConnection(std::move(name), std::move(instance));
     };
 
@@ -83,6 +86,8 @@ init()
     augmentorInterface->onResponse = [=](AugmentationResponse&& response) {
         doResponse(std::move(response));
     };
+
+    augmentorInterface->init();
 
     inbox.onEvent = [&] (std::shared_ptr<Entry>&& entry)
         {

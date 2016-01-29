@@ -29,6 +29,7 @@ ZmqAugmentorInterface::ZmqAugmentorInterface(
 
 void
 ZmqAugmentorInterface::init() {
+
     registerServiceProvider(serviceName(), { "rtbRouterAugmentation" });
 
     toAugmentors.init(getServices()->config, serviceName() + "/augmentors");
@@ -144,3 +145,20 @@ ZmqAugmentorInterface::doResponse(const std::vector<std::string>& message)
 }
 
 } // namespace RTBKIT
+
+namespace {
+
+struct AtInit {
+    AtInit()
+    {
+      PluginInterface<AugmentorInterface>::registerPlugin("zmq",
+          [](std::string const &serviceName,
+             std::shared_ptr<ServiceProxies> const &proxies,
+             Json::Value const &json)
+          {
+              return new ZmqAugmentorInterface(proxies, serviceName, json);
+          });
+    }
+} atInit;
+
+}
