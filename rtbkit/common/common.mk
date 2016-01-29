@@ -20,6 +20,7 @@ LIBRTB_SOURCES := \
 	auction_events.cc \
 	exchange_connector.cc \
 	bidder_interface.cc \
+	augmentor_interface.cc \
 	win_cost_model.cc \
 	post_auction_proxy.cc \
 	analytics_publisher.cc

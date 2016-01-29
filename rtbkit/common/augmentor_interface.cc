@@ -12,13 +12,13 @@ namespace RTBKIT {
 
 AugmentorInterface::AugmentorInterface(
     ServiceBase& parent, const std::string& serviceName)
-  : ServiceBase(parent, serviceName)
+  : ServiceBase(serviceName, parent)
 { }
 
 AugmentorInterface::AugmentorInterface(
     std::shared_ptr<ServiceProxies> proxies,
     const std::string& serviceName)
-  : ServiceBase(std::move(proxies), servicename)
+  : ServiceBase(serviceName, std::move(proxies))
 { }
 
 void
@@ -26,8 +26,8 @@ AugmentorInterface::start() {
     MessageLoop::start();
 }
 
-void AugmentorInterface::stop() {
-    MessageLoop::stop();
+void AugmentorInterface::shutdown() {
+    MessageLoop::shutdown();
 }
 
 } // namespace RTBKIT
