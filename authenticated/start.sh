@@ -50,7 +50,7 @@ start_mock_exchange() {
 }
 
 start_rtbkit() {
-  ./build/x86_64/bin/launcher --node localhost --script ./launch.sh /opt/rtbkit/authenticated/sample.launch.json
+  ./build/x86_64/bin/launcher --node localhost --script ./launch.sh /opt/rtbkit/authenticated/launch.json
   ./launch.sh
 }
 
