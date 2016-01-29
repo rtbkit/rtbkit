@@ -55,6 +55,8 @@ struct MockExchangeConnector : public HttpExchangeConnector {
     std::shared_ptr<BidRequest> parseBidRequest(HttpAuctionHandler & handler,
                                                 Datacratic::HttpHeader const & header,
                                                 std::string const & payload) {
+        LOG(Logs::warning) << "parsin deeez bid reqs";
+
         std::shared_ptr<BidRequest> request;
         request.reset(BidRequest::parse("datacratic", payload));
         return request;
@@ -63,11 +65,15 @@ struct MockExchangeConnector : public HttpExchangeConnector {
     double getTimeAvailableMs(HttpAuctionHandler & handler,
                               const HttpHeader & header,
                               const std::string & payload) {
+        LOG(Logs::warning) << "Get round trip RESPONSES YAAAHHHHHH 35555";
+
         return 35.0;
     }
 
     double getRoundTripTimeMs(HttpAuctionHandler & handler,
                               const HttpHeader & header) {
+        LOG(Logs::warning) << "Get round trip RESPONSES YAAAHHHHHH TRICK AAAA";
+
         return 5.0;
     }
 
@@ -75,7 +81,9 @@ struct MockExchangeConnector : public HttpExchangeConnector {
                                          const HttpHeader & header,
                                          Auction const & auction) const {
         std::string result;
-    
+
+        LOG(Logs::warning) << "Get response DUDERRR WTF MATE";
+
         const Auction::Data * current = auction.getCurrentData();
         if (current->hasError())
             return getErrorResponse(handler, current->error + ": " + current->details);
