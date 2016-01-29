@@ -11,8 +11,9 @@
 
 namespace RTBKIT {
 
-struct MockExchangeConnector : public HttpExchangeConnector {
-    static Logging::Category print;
+    Logging::Category print("RTBKIT Print");
+
+    struct MockExchangeConnector : public HttpExchangeConnector {
 
     MockExchangeConnector(ServiceBase & owner, const std::string & name) :
         HttpExchangeConnector(name, owner)
