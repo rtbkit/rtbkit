@@ -30,7 +30,7 @@ namespace RTBKIT {
     }
 
     static std::string exchangeNameString() {
-        return "mock";
+        return "authenticated";
     }
 
     std::string exchangeName() const {
