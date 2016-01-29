@@ -1,0 +1,12 @@
+{
+    "type": "http",
+    "router": {
+        "host": "http://localhost:7654",
+        "path": "/"
+    },
+    "adserver": {
+          "host": "http://localhost",
+          "winPort": 7653,
+          "eventPort": 7652
+    }
+}
