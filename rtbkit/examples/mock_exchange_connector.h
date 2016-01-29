@@ -11,7 +11,7 @@
 
 namespace RTBKIT {
 
-    Logging::Category printyy("RTBKIT printy");
+    Logging::Category printy("RTBKIT printy");
 
     struct MockExchangeConnector : public HttpExchangeConnector {
 
@@ -35,7 +35,7 @@ namespace RTBKIT {
 
     std::string exchangeName() const {
         return exchangeNameString();
-    } 
+    }
 
     void configure(Json::Value const & parameters) {
         numThreads = 1;
