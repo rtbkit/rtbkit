@@ -1,0 +1,24 @@
+{
+    "installation": "rtb-test",
+    "location": "mtl",
+    "zookeeper-uri": "localhost:2181",
+    "portRanges": {
+        "logs":                   [16000, 17000],
+        "router":                 [17000, 18000],
+        "augmentors":             [18000, 19000],
+        "configuration":          [19000, 20000],
+        "postAuctionLoop":        [20000, 21000],
+        "postAuctionLoopAgents":  [21000, 22000],
+
+        "banker.zmq":             [22000, 23000],
+        "banker.http":              9985,
+
+        "agentConfiguration.zmq": [23000, 24000],
+        "agentConfiguration.http":  9986,
+
+        "monitor.zmq":            [24000, 25000],
+        "monitor.http":             9987,
+
+        "adServer.logger":        [25000, 26000]
+    }
+}
