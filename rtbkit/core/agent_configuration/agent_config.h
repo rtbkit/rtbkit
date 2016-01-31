@@ -117,25 +117,6 @@ struct Creative {
 
     };
 
-    template<typename Ext>
-    std::shared_ptr<const Ext>
-    getExt() const {
-        STATIC_ASSERT_EXTENSION(Ext);
-        return extensions.get<Ext>();
-    }
-
-    template<typename Ext>
-    std::shared_ptr<const Ext>
-    tryGetExt() const {
-        STATIC_ASSERT_EXTENSION(Ext);
-        return extensions.tryGet<Ext>();
-    }
-
-    bool
-    hasExt(const std::string& name) const {
-        return extensions.has(name);
-    }
-
     std::map<std::string, SegmentInfo> segments;
 
     /** Is the given ad spot compatible with the given creative format? */
@@ -155,9 +136,10 @@ struct Creative {
     static Creative video(int width, int height, uint32_t duration, uint64_t bitrate,
                 std::string name = "", int id = -1, std::string dealId = "");
 
+    ExtensionPool extensions;
+
 private:
     Type type;
-    ExtensionPool extensions;
 
     std::string typeString() const;
 
