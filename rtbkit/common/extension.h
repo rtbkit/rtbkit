@@ -72,14 +72,14 @@ public:
     std::shared_ptr<Ext>
     tryGet() {
         STATIC_ASSERT_EXTENSION(Ext);
-        return std::static_pointer_cast<Ext>(get(Ext::Name));
+        return std::static_pointer_cast<Ext>(tryGet(Ext::Name));
     }
 
     template<typename Ext>
     std::shared_ptr<const Ext>
     tryGet() const {
         STATIC_ASSERT_EXTENSION(Ext);
-        return std::static_pointer_cast<const Ext>(get(Ext::Name));
+        return std::static_pointer_cast<const Ext>(tryGet(Ext::Name));
     }
 
     bool has(const std::string& name) const;
