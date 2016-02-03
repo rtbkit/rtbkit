@@ -45,6 +45,8 @@ struct AugmentationResponse {
         , augmentation(std::move(augmentation))
     { }
 
+    AugmentationResponse(){}
+
     std::string addr;
     Datacratic::Date startTime;
     Datacratic::Id auctionId;

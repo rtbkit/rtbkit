@@ -36,7 +36,8 @@ AugmentationLoop(ServiceBase & parent,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
-      disconnections(1024)
+      disconnections(1024),
+      responseInbox(65536)
 {
     updateAllAugmentors();
 }
@@ -48,7 +49,8 @@ AugmentationLoop(std::shared_ptr<ServiceProxies> proxies,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
-      disconnections(1024)
+      disconnections(1024),
+      responseInbox(65536)
 {
     updateAllAugmentors();
 }
@@ -84,7 +86,7 @@ init(const Json::Value& conf)
 
 
     augmentorInterface->onResponse = [=](AugmentationResponse&& response) {
-        doResponse(std::move(response));
+        responseInbox.push(std::move(response));
     };
 
     augmentorInterface->init();
@@ -94,7 +96,13 @@ init(const Json::Value& conf)
             doAugmentation(std::move(entry));
         };
 
+    responseInbox.onEvent = [&] (AugmentationResponse&& response)
+        {
+            doResponse(std::move(response));
+        };
+
     addSource("AugmentationLoop::inbox", inbox);
+    addSource("AugmentationLoop::inbox", responseInbox);
     addSource("AugmentationLoop::disconnections", disconnections);
 
     addPeriodic("AugmentationLoop::checkExpiries", 0.001,

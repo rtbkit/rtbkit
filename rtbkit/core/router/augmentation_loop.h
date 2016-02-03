@@ -149,6 +149,8 @@ private:
     /// We pick up augmentations to be done from here
     TypedMessageSink<std::shared_ptr<Entry> > inbox;
     TypedMessageSink<std::string> disconnections;
+    /// We pick up augmentation responses from here
+    TypedMessageSink<AugmentationResponse> responseInbox;
 
     /** Update the augmentors from the configuration settings. */
     void updateAllAugmentors();
