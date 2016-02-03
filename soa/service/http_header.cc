@@ -10,6 +10,9 @@
 #include "jml/db/persistent.h"
 #include "jml/utils/vector_utils.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/iter_find.hpp>
+#include <boost/algorithm/string/finder.hpp>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace ML;
@@ -68,6 +71,25 @@ getValue(const std::string & key) const
         if (kv.first == key)
             return kv.second;
     throw ML::Exception("key " + key + " not found in RestParams");
+}
+
+RestParams
+RestParams::fromString(const std::string& head){
+    RestParams params;
+    std::string headers = boost::trim_copy(head);
+    size_t pos = 0;
+    std::string token;
+    std::string delimiter = "\r\n";
+    while ((pos = headers.find("\r\n")) != std::string::npos) {
+        token = headers.substr(0, pos);
+        headers.erase(0, pos + delimiter.length());
+        std::vector<std::string> avp;
+        boost::split(avp, token, boost::is_any_of(":"));
+        if(avp.size() == 2)
+            boost::trim(avp[1]);
+            params.emplace_back(std::make_pair(avp[0], avp[1]));
+    }
+    return params;
 }
 
 RestParams

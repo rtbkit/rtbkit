@@ -131,7 +131,7 @@ HttpAugmentorInterface::doSendAugmentMessage(
                 if(errorCode == HttpClientError::None && statusCode == 200){
                     try{
                         RestParams headers_;
-                        headers_ = RestParams::fromBinary(headers);
+                        headers_ = RestParams::fromString(headers);
 
                         // get the version
                         std::string version = headers_.getValue("X-Rtbkit-Protocol-Version");
