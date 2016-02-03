@@ -116,10 +116,16 @@ HttpAugmentorInterface::doSendAugmentMessage(
     desc.printJson(&openrtbRequest, context);
     requestStr = context.output.toString();
 
-    RestParams headers { { "X-Openrtb-Version", openrtbVersion } };
-
     std::string aid = auction->id.toString();
     std::string addr = instance->address();
+
+    ostringstream secs;
+    secs << date.secondsSinceEpoch();
+    RestParams headers {
+        { "X-Openrtb-Version", openrtbVersion },
+        { "X-Rtbkit-Augmentor-Name", name },
+        { "X-Rtbkit-Auction-Id", aid},
+        { "X-Rtbkit-Timestamp", secs.str()} };
 
     auto callback = std::make_shared<HttpClientSimpleCallbacks>(
             [=](const HttpRequest& request, HttpClientError errorCode,
