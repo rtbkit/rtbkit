@@ -72,17 +72,17 @@ struct AugmentorInterface : public MessageLoop, public ServiceBase {
         std::shared_ptr<Datacratic::ServiceProxies> proxies, const std::string& serviceName);
 
 
-    virtual void init() = 0;
+    virtual void init();
     virtual void bindTcp(const Datacratic::PortRange& range) = 0;
     virtual void start();
     virtual void shutdown();
 
-    virtual void sendAugmentMessage(
+    void sendAugmentMessage(
             const std::shared_ptr<AugmentorInstanceInfo>& instance,
             const std::string& augmentorName,
             const std::shared_ptr<Auction>& auction,
             const std::set<std::string>& agents,
-            Datacratic::Date date = Datacratic::Date::now()) = 0;
+            Datacratic::Date date = Datacratic::Date::now());
 
 
     //
@@ -111,6 +111,24 @@ struct AugmentorInterface : public MessageLoop, public ServiceBase {
     /** plugin interface needs to be able to request the root name of the plugin library */
     static const std::string libNameSufix() {return "augmentor";};
 
+protected:
+
+    struct AugmentMessage{
+        std::shared_ptr<AugmentorInstanceInfo> instance;
+        std::string augmentorName;
+        std::shared_ptr<Auction> auction;
+        std::set<std::string> agents;
+        Datacratic::Date date;
+    };
+
+    TypedMessageSink<AugmentMessage> inbox;
+
+    virtual void doSendAugmentMessage(
+                const std::shared_ptr<AugmentorInstanceInfo>& instance,
+                const std::string& augmentorName,
+                const std::shared_ptr<Auction>& auction,
+                const std::set<std::string>& agents,
+                Datacratic::Date date) = 0;
 };
 
 

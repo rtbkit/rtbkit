@@ -32,6 +32,8 @@ ZmqAugmentorInterface::init() {
 
     registerServiceProvider(serviceName(), { "rtbRouterAugmentation" });
 
+    AugmentorInterface::init();
+
     toAugmentors.init(getServices()->config, serviceName() + "/augmentors");
 
     toAugmentors.clientMessageHandler
@@ -64,7 +66,7 @@ ZmqAugmentorInterface::bindTcp(const PortRange& range) {
 }
 
 void
-ZmqAugmentorInterface::sendAugmentMessage(
+ZmqAugmentorInterface::doSendAugmentMessage(
         const std::shared_ptr<AugmentorInstanceInfo>& instance,
         const std::string& name,
         const std::shared_ptr<Auction>& auction,

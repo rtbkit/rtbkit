@@ -68,6 +68,8 @@ HttpAugmentorInterface::HttpAugmentorInterface(
 void
 HttpAugmentorInterface::init()
 {
+    AugmentorInterface::init();
+
     for (auto& augmentor: augmentors) {
         std::string augmentorName = std::move(augmentor.first);
 
@@ -86,7 +88,7 @@ HttpAugmentorInterface::bindTcp(const PortRange& range)
 }
 
 void
-HttpAugmentorInterface::sendAugmentMessage(
+HttpAugmentorInterface::doSendAugmentMessage(
     const std::shared_ptr<AugmentorInstanceInfo>& instance,
     const std::string& name,
     const std::shared_ptr<Auction>& auction,

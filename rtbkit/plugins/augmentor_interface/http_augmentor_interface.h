@@ -45,12 +45,14 @@ struct HttpAugmentorInterface : public AugmentorInterface {
     void init();
     void bindTcp(const Datacratic::PortRange& range);
 
-    void sendAugmentMessage(
-        const std::shared_ptr<AugmentorInstanceInfo>& instance,
-        const std::string& name,
-        const std::shared_ptr<Auction>& auction,
-        const std::set<std::string>& agents,
-        Date date);
+protected:
+
+    void doSendAugmentMessage(
+                const std::shared_ptr<AugmentorInstanceInfo>& instance,
+                const std::string& augmentorName,
+                const std::shared_ptr<Auction>& auction,
+                const std::set<std::string>& agents,
+                Datacratic::Date date);
 
 private:
     // We keep a list of augmentors ourself so that we can add the http clients

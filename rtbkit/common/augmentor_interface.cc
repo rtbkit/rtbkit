@@ -12,14 +12,46 @@ namespace RTBKIT {
 
 AugmentorInterface::AugmentorInterface(
     ServiceBase& parent, const std::string& serviceName)
-  : ServiceBase(serviceName, parent)
+  : ServiceBase(serviceName, parent),
+    inbox(65536)
 { }
 
 AugmentorInterface::AugmentorInterface(
     std::shared_ptr<ServiceProxies> proxies,
     const std::string& serviceName)
-  : ServiceBase(serviceName, std::move(proxies))
+  : ServiceBase(serviceName, std::move(proxies)),
+    inbox(65536)
 { }
+
+void AugmentorInterface::init(){
+    inbox.onEvent = [&] (AugmentMessage&& message)
+        {
+            doSendAugmentMessage(
+                message.instance,
+                std::move(message.augmentorName),
+                message.auction,
+                message.agents,
+                std::move(message.date));
+        };
+
+    addSource("AugmentorInterface::inbox", inbox);
+}
+
+void AugmentorInterface::sendAugmentMessage(
+            const std::shared_ptr<AugmentorInstanceInfo>& instance,
+            const std::string& augmentorName,
+            const std::shared_ptr<Auction>& auction,
+            const std::set<std::string>& agents,
+            Datacratic::Date date){
+
+    AugmentMessage m;
+    m.instance = instance;
+    m.augmentorName = std::move(augmentorName);
+    m.auction = auction;
+    m.agents = agents;
+    m.date = std::move(date);
+    inbox.push(std::move(m));
+}
 
 void
 AugmentorInterface::start() {
