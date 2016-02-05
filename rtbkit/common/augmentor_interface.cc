@@ -46,7 +46,7 @@ void AugmentorInterface::sendAugmentMessage(
 
     AugmentMessage m;
     m.instance = instance;
-    m.augmentorName = std::move(augmentorName);
+    m.augmentorName = augmentorName;
     m.auction = auction;
     m.agents = agents;
     m.date = std::move(date);
