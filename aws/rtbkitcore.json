@@ -1,0 +1,578 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "",
+  "Parameters": {
+    "InstanceType": {
+      "Description": "RTBKit EC2 instance type",
+      "Type": "String",
+      "Default": "m4.xlarge",
+      "AllowedValues": [
+        "m1.xlarge",
+        "m2.2xlarge",
+        "m2.4xlarge",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "c1.xlarge",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "cc2.8xlarge",
+        "cg1.4xlarge",
+        "cr1.8xlarge",
+        "d2.xlarge",
+        "d2.2xlarge",
+        "d2.4xlarge",
+        "d2.8xlarge",
+        "hi1.4xlarge",
+        "hs1.8xlarge",
+        "i2.xlarge",
+        "i2.2xlarge",
+        "i2.4xlarge",
+        "i2.8xlarge",
+        "r3.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
+
+    "VPC" : {
+      "Description" : "Existing VPC to use",
+      "Type" : "String",
+       "Default": "vpc-d39ba6b6"
+    },
+    "Subnet" : {
+      "Description" : "Existing subnet in the VPC",
+      "Type" : "String",
+       "Default": "subnet-98c4a4c1"
+
+    },
+    "AdminLocation": {
+      "Description": "The IP address range that will be granted remote access (SSH+Web) to the EC2 instance(s)",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+  
+  "Mappings": {
+    "AWSInstanceType2Arch": {
+      "m3.xlarge"   : { "Arch" : "HVM64"  },
+      "m3.2xlarge"  : { "Arch" : "HVM64"  },
+      "m4.xlarge"   : { "Arch" : "HVM64"  },
+      "m4.2xlarge"  : { "Arch" : "HVM64"  },
+      "m4.4xlarge"  : { "Arch" : "HVM64"  },
+      "m4.10xlarge" : { "Arch" : "HVM64"  },
+      "c3.xlarge"   : { "Arch" : "HVM64"  },
+      "c3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c3.4xlarge"  : { "Arch" : "HVM64"  },
+      "c3.8xlarge"  : { "Arch" : "HVM64"  },
+      "c4.xlarge"   : { "Arch" : "HVM64"  },
+      "c4.2xlarge"  : { "Arch" : "HVM64"  },
+      "c4.4xlarge"  : { "Arch" : "HVM64"  },
+      "c4.8xlarge"  : { "Arch" : "HVM64"  },
+      "cc2.8xlarge" : { "Arch" : "HVM64"  },
+      "cr1.8xlarge" : { "Arch" : "HVM64"  },
+      "d2.xlarge"   : { "Arch" : "HVM64"  },
+      "d2.2xlarge"  : { "Arch" : "HVM64"  },
+      "d2.4xlarge"  : { "Arch" : "HVM64"  },
+      "d2.8xlarge"  : { "Arch" : "HVM64"  },
+      "hi1.4xlarge" : { "Arch" : "HVM64"  },
+      "hs1.8xlarge" : { "Arch" : "HVM64"  },
+      "i2.xlarge"   : { "Arch" : "HVM64"  },
+      "i2.2xlarge"  : { "Arch" : "HVM64"  },
+      "i2.4xlarge"  : { "Arch" : "HVM64"  },
+      "i2.8xlarge"  : { "Arch" : "HVM64"  },
+      "r3.xlarge"   : { "Arch" : "HVM64"  },
+      "r3.2xlarge"  : { "Arch" : "HVM64"  },
+      "r3.4xlarge"  : { "Arch" : "HVM64"  },
+      "r3.8xlarge"  : { "Arch" : "HVM64"  }
+    },
+    "AWSRegionArch2AMI": {
+      "us-east-1"        : {"HVM64" : "ami-d05e75b8", "Note": "(N. Virginia)   Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "us-west-2"        : {"HVM64" : "ami-5189a661", "Note": "(Oregon)        Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "us-west-1"        : {"HVM64" : "ami-df6a8b9b", "Note": "(N. California) Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "eu-west-1"        : {"HVM64" : "ami-47a23a30", "Note": "(Ireland)       Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "eu-central-1"     : {"HVM64" : "ami-accff2b1", "Note": "(Frankfurt)     Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "ap-southeast-1"   : {"HVM64" : "ami-96f1c1c4", "Note": "(Singapore)     Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "ap-northeast-1"   : {"HVM64" : "ami-936d9d93", "Note": "(Tokyo)         Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "ap-southeast-2"   : {"HVM64" : "ami-69631053", "Note": "(Sydney)        Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "sa-east-1"        : {"HVM64" : "ami-4d883350", "Note": "(Sao Paulo)     Ubuntu Server 14.04 LTS (HVM), SSD Volume Type"},
+      "cn-north-1"       : {"HVM64" : "NOT_SUPPORTED"}
+    }
+  },
+  
+  "Resources": {
+    "InstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "GroupDescription": "Enable remote access via port 22, 80 and 4888",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": {
+              "Ref": "AdminLocation"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": {
+              "Ref": "AdminLocation"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "4888",
+            "ToPort": "4888",
+            "CidrIp": {
+              "Ref": "AdminLocation"
+            }
+          }
+        ]
+      }
+    },
+    "RtbKitInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Metadata": {
+        "Comment": "Install Zookeeper, Redis, Graphite and RTBkit",
+        "AWS::CloudFormation::Init": {
+          "config": {
+            "packages": {
+              "apt": {
+                "linux-tools-generic"     : [],
+                "libbz2-dev"              : [],
+                "python-dev"              : [],
+                "scons"                   : [],
+                "libtool"                 : [],
+                "liblzma-dev"             : [],
+                "libblas-dev"             : [],
+                "make"                    : [],
+                "automake"                : [],
+                "ccache"                  : [],
+                "ant"                     : [],
+                "openjdk-7-jdk"           : [],
+                "libcppunit-dev"          : [],
+                "doxygen"                 : [],
+                "libcrypto++-dev"         : [],
+                "libACE-dev"              : [],
+                "gfortran"                : [],
+                "liblapack-dev"           : [],
+                "libevent-dev"            : [],
+                "libssh2-1-dev"           : [],
+                "libicu-dev"              : [],
+                "libv8-dev"               : [],
+                "g++"                     : [],
+                "google-perftools"        : [],
+                "libgoogle-perftools-dev" : [],
+                "zlib1g-dev"              : [],
+                "git"                     : [],
+                "pkg-config"              : [],
+                "valgrind"                : [],
+                "autoconf"                : [],
+                "zookeeper"               : [],
+                "zookeeperd"              : [],
+                "redis-server"            : [],
+                "graphite-carbon"         : [],
+                "graphite-web"            : [],
+                "nginx"                   : [],
+                "uwsgi"                   : [],
+                "uwsgi-plugin-python"     : []
+              }
+            },
+            "users": {
+              "rtbkit" : {
+                "homeDir": "/home/rtbkit"
+              }
+            },
+            "files": {
+              "/etc/default/graphite-carbon": {
+                "content": "CARBON_CACHE_ENABLED=true"
+              },
+              "/usr/share/graphite-web/graphite.ini": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                    "[uwsgi]",
+                    "buffer-size = 65535",
+                    "socket = 127.0.0.1:9001",
+                    "wsgi-file = /usr/share/graphite-web/graphite.wsgi",
+                    "processes = 4",
+                    "plugin = python",
+                    " "
+                    ]
+                  ]
+                }
+              },
+              "/etc/init.d/graphite": {
+                "mode": "000744",
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "#!/bin/bash",
+                      " ",
+                      "### BEGIN INIT INFO",
+                      "# Provides:          graphite",
+                      "# Required-Start:    $all",
+                      "# Required-Stop:     $all",
+                      "# Default-Start:     2 3 4 5",
+                      "# Default-Stop:      0 1 6",
+                      "# Short-Description: starts the graphite uwsgi app server",
+                      "# Description:       starts graphite app server using start-stop-daemon",
+                      "### END INIT INFO",
+                      " ",
+                      "PATH=/opt/uwsgi:/sbin:/bin:/usr/sbin:/usr/bin",
+                      "DAEMON=/usr/bin/uwsgi",
+                      " ",
+                      "OWNER=_graphite",
+                      " ",
+                      "NAME=uwsgi",
+                      "DESC=uwsgi",
+                      " ",
+                      "test -x $DAEMON || exit 0",
+                      " ",
+                      "# Include uwsgi defaults if available",
+                      "if [ -f /etc/default/uwsgi-graphite ] ; then",
+                              ". /etc/default/uwsgi-graphite",
+                      "fi",
+                      " ",
+                      "set -e",
+                      " ",
+                      "APPNAME=graphite",
+                      "BASEPATH=/var/lib/graphite",
+                      "PIDFILE=$BASEPATH/graphite.pid",
+                      " ",
+                      "DAEMON_OPTS=\"$VENV_ARG --ini /usr/share/graphite-web/graphite.ini --stats /tmp/uwsgi-stats-${APPNAME}.sock --need-app --lazy --master --pidfile $PIDFILE --daemonize $BASEPATH/graphite.log\"",
+                      " ",
+                      "function do_start {",
+                      "        start-stop-daemon --start --pid $PIDFILE --chuid $OWNER:$OWNER --user $OWNER --exec $DAEMON -- $DAEMON_OPTS",
+                      "}",
+                      " ",
+                      "function do_stop {",
+                      "        start-stop-daemon --signal QUIT --pid $PIDFILE --user $OWNER --quiet --retry 2 --stop  --oknodo",
+                      "}",
+                      "case \"$1\" in",
+                      "  start)",
+                      "        echo -n \"Starting $DESC: \"",
+                      "        do_start",
+                      "        echo \"$NAME.\"",
+                      "        ;;",
+                      "  stop)",
+                      "        echo -n \"Stopping $DESC: \"",
+                      "        do_stop",
+                      "        echo \"$NAME.\"",
+                      "        ;;",
+                      "  restart)",
+                      "        echo -n \"Restarting $DESC: \"",
+                      "        do_stop",
+                      "        sleep 1",
+                      "        do_start",
+                      "        echo \"$NAME.\"",
+                      "        ;;",
+                      "  status)",
+                      "        killall -10 $DAEMON",
+                      "        ;;",
+                      "      *)",
+                      "            N=/etc/init.d/$NAME",
+                      "            echo \"Usage: $N {start|stop|restart|reload|force-reload|status}\" >&2",
+                      "            exit 1",
+                      "            ;;",
+                      "    esac",
+                      "    exit 0"
+                    ]
+                  ]
+                }
+              },
+              "/home/rtbkit/.profile": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "# Add local directory for libraries, etc",
+                      "HOME=/home/rtbkit",
+                      "mkdir -p $HOME/local/bin",
+                      "PATH=\"$HOME/local/bin:$PATH\"",
+                      "mkdir -p $HOME/local/lib",
+                      "export LD_LIBRARY_PATH=\"$HOME/local/lib:$LD_LIBRARY_PATH\"",
+                      "export PKG_CONFIG_PATH=\"$HOME/local/lib/pkgconfig/:$HOME/local/lib/pkg-config/\""
+                    ]
+                  ]
+                }
+              },
+              "/etc/init/rtbkit-mock.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "description \"RTBkit Mock Exchange\"",
+                      "limit nofile 32768 32768",
+                      "start on runlevel [2345]",
+                      "stop on runlevel [!2345]",
+                      "respawn",
+                      "respawn limit 2 5",
+                      "umask 007",
+                      "kill timeout 300",
+                      "setuid rtbkit",
+                      "setgid rtbkit",
+                      "chdir /home/rtbkit/rtbkit/",
+                      "script",
+                      "/bin/bash -c 'source /home/rtbkit/.profile && ./build/x86_64/bin/mock_exchange_runner'",
+                      "end script",
+                      ""
+                    ]
+                  ]
+                }
+              },
+              "/etc/init/rtbkit.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "description \"RTBkit\"",
+                      "limit nofile 32768 32768",
+                      "start on runlevel [2345]",
+                      "stop on runlevel [!2345]",
+                      "respawn",
+                      "respawn limit 2 5",
+                      "umask 007",
+                      "kill timeout 300",
+                      "setuid rtbkit",
+                      "setgid rtbkit",
+                      "chdir /home/rtbkit/rtbkit/",
+                      "script",
+                      "/bin/bash -c 'source /home/rtbkit/.profile && ./build/x86_64/bin/launcher --node localhost --script ./launch.sh rtbkit/sample.launch.json && ./launch.sh'",
+                      "end script",
+                      ""
+                    ]
+                  ]
+                }
+              },
+              "/etc/nginx/sites-enabled/quickboard.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "server {",
+                      "listen 80;",
+                      "access_log /var/log/nginx/quickboard.access.log;",
+                      "error_log /var/log/nginx/quickboard.error.log;",
+                      "root /var/www/quickboard/;",
+                      "}"
+                    ]
+                  ]
+                }
+              },
+              "/etc/nginx/sites-enabled/graphite.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "server {",
+                      "    listen 4888;",
+                      "    access_log /var/log/nginx/graphite.access.log;",
+                      "    error_log /var/log/nginx/graphite.error.log;",
+                      "    client_max_body_size 4M;",
+                      "    client_body_buffer_size 128k;",
+                      "    expires 10s;",
+                      "    root html;",
+                      "    index index.html index.htm;",
+                      "    location / {",
+                      "        uwsgi_pass 127.0.0.1:9001;",
+                      "        uwsgi_read_timeout 60;",
+                      "        include /etc/nginx/uwsgi_params;",
+                      "        add_header Access-Control-Allow-Origin *;",
+                      "    }",
+                      "}"
+                    ]
+                  ]
+                }
+              }
+            },
+            "commands": {
+              "aa-graphite-setup": {
+                "command": "su _graphite -s /bin/bash -c '/usr/bin/python /usr/lib/python2.7/dist-packages/graphite/manage.py syncdb --noinput'"
+              },
+              "am-rtbkit-own-home": {
+                "cwd": "/home/rtbkit",
+                "command": "chown -v rtbkit /home/rtbkit"
+              },
+              "an-rtbkit-envcheck": {
+                "cwd": "/home/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'echo $HOME > /home/rtbkit/home.txt'"
+              },
+              "az-rtbkitdeps-clone": {
+                "cwd": "/home/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'git clone https://github.com/rtbkit/rtbkit-deps.git'"
+              },
+              "bz-rtbkitdeps-submodules": {
+                "cwd": "/home/rtbkit/rtbkit-deps",
+                "command": "su rtbkit -s /bin/bash -c 'git submodule update --init'"
+              },
+              "cz-rtbkitdeps-make": {
+                "cwd": "/home/rtbkit/rtbkit-deps",
+                "command": "su rtbkit -s /bin/bash -c 'source ~/.profile && make all NODEJS_ENABLED=0'"
+              },
+              "dz-rtbkit-clone": {
+                "cwd": "/home/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'git clone https://github.com/rtbkit/rtbkit.git'"
+              },
+              "ez-rtbkit-branch": {
+                "cwd": "/home/rtbkit/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'git checkout ubuntu14'"
+              },
+              "fm-ulimit-set" : {
+                  "command" : "ulimit -S 65536"
+              },
+              "fv-rtbkit-make": {
+                "cwd": "/home/rtbkit/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'cp jml-build/sample.local.mk local.mk && source ~/.profile && make -j8 NODEJS_ENABLED=0 compile'"
+              },
+              "fz-rtbkit-config": {
+                "cwd": "/home/rtbkit/rtbkit/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'sed -i \"s/\\/\\/ \\\"carbon-uri\\\".*$/\\\"carbon-uri\\\"\\: \\[\\\"127.0.0.1\\:2003\\\"\\],/\" sample.bootstrap.json'"
+              },
+              "ga-quickboard-clone": {
+                "cwd": "/home/rtbkit",
+                "command": "su rtbkit -s /bin/bash -c 'git clone https://github.com/rtbkit/quickboard.git'"
+              },
+              "gm-quickboard-install": {
+                "cwd": "/home/rtbkit/quickboard",
+                "command": "rm -f /etc/nginx/sites-enabled/default ; mkdir -p /var/www/quickboard && cp index.html /var/www/quickboard/"
+              },
+              "gz-quickboard-configure": {
+                "cwd": "/var/www/quickboard",
+                "command": "sed -i \"s/^.*graphite\\.host.*$/host:\\\"http:\\/\\/`curl 169.254.169.254/latest/meta-data/public-ipv4`:4888\\\", prefix:\\\"rtb-test\\\",/\" index.html"
+              },
+              "iz-reload-nginx": {
+                "command": "/etc/init.d/nginx reload"
+              },
+              "zz-start-rtbkit": {
+                "command": "/sbin/start rtbkit-mock ; /sbin/start rtbkit"
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "carbon-cache": {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": ["/etc/init.d/carbon-cache"]
+                },
+                "graphite" : {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": ["/etc/init.d/graphite"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Properties": {
+        "ImageId": {
+         "Fn::FindInMap": [
+           "AWSRegionArch2AMI",
+           {
+             "Ref": "AWS::Region"
+           },
+           {
+             "Fn::FindInMap": [
+               "AWSInstanceType2Arch",
+               {
+                 "Ref": "InstanceType"
+               },
+               "Arch"
+              ]
+           }
+          ] 
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join" : ["",["CoreInstance-", { "Ref" : "AWS::StackId" }]]
+            }
+          }
+        ],
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+            "#!/bin/bash\n",
+            "apt-get -y update\n",
+            "function error_exit\n",
+            "{\n",
+            "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "RTBKitServerWaitHandle" }, "'\n",
+            "  exit 1\n",
+            "}\n",
+
+            "apt-get -y install python-setuptools\n",
+            "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+            "cfn-init -v --region ", { "Ref" : "AWS::Region" },
+            "    -s ", { "Ref" : "AWS::StackId" }, " -r RtbKitInstance ", "|| error_exit 'Failed to run cfn-init'\n",
+            "apt-get -y upgrade\n",
+            "cfn-signal -e $? -r 'RtbKit wait handle done' '", { "Ref" : "RTBKitServerWaitHandle" }, "'\n"
+        ]]}},
+        "NetworkInterfaces": [
+          {
+            "GroupSet": [
+              {
+                "Ref": "InstanceSecurityGroup"
+              }
+            ],
+            "AssociatePublicIpAddress": "true",
+            "DeviceIndex": "0",
+            "DeleteOnTermination": "true",
+            "SubnetId": {
+              "Ref": "Subnet"
+            }
+          }
+        ]
+      }
+    },
+    "RTBKitServerWaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    }
+  },
+  
+  "Outputs": {
+    "RTBKitCoreServerPublicIP" : {
+      "Description" : "RTBKit Core Server IP",
+      "Value" : {"Fn::GetAtt" : ["RtbKitInstance","PublicIp"]}
+    }
+  }
+}
