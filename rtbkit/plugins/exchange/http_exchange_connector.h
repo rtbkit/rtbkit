@@ -15,6 +15,7 @@
 #include "rtbkit/common/auction.h"
 #include <limits>
 #include "rtbkit/common/exchange_connector.h"
+#include "rtbkit/common/bid_request_pipeline.h"
 #include <boost/algorithm/string.hpp>
 
 
@@ -58,6 +59,8 @@ struct HttpExchangeConnector
         interpreted by the exchange connector itself.
     */
     virtual void configure(const Json::Value & parameters);
+
+    void configurePipeline(const Json::Value& config);
 
     /** Configure just the HTTP part of the server. */
     void configureHttp(int numThreads,
@@ -263,6 +266,14 @@ struct HttpExchangeConnector
     /** Method invoked every second for accounting */
     virtual void periodicCallback(uint64_t numWakeups) const;
 
+    /** Invokes the pre bid-request pipeline operation */
+    PipelineStatus
+    preBidRequest(const HttpHeader& header, const std::string& payload);
+
+    /** Invokes the post bid-request pipeline operation */
+    PipelineStatus
+    postBidRequest(const std::shared_ptr<Auction>& auction);
+
 protected:
     virtual std::shared_ptr<ConnectionHandler> makeNewHandler();
     virtual std::shared_ptr<HttpAuctionHandler> makeNewHandlerShared();
@@ -311,6 +322,7 @@ private:
     friend class HttpAuctionHandler;
 
     std::shared_ptr<HttpAuctionLogger> logger;
+    std::shared_ptr<BidRequestPipeline> pipeline;
 
     Lock handlersLock;
     std::set<std::shared_ptr<HttpAuctionHandler> > handlers;

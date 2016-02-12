@@ -130,6 +130,7 @@ struct HttpAuctionHandler
     parseBidRequest(const HttpHeader & header,
                     const std::string & payload);
 
+
     /** Return the available time for the bid request in milliseconds.  This
         method should not parse the bid request, as when shedding load
         we want to do as little work as possible.

@@ -23,7 +23,8 @@ LIBRTB_SOURCES := \
 	win_cost_model.cc \
 	post_auction_proxy.cc \
 	analytics_publisher.cc \
-	extension.cc
+	extension.cc \
+	bid_request_pipeline.cc
 
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request
