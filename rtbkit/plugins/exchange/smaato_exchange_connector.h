@@ -4,6 +4,7 @@
 
 #pragma once
  
+#include "rtbkit/common/creative_configuration.h"
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
  
 namespace RTBKIT {
@@ -72,6 +73,11 @@ struct SmaatoExchangeConnector: public OpenRTBExchangeConnector {
                              const void * info) const;
 
   private:
+    void init();
+
+    typedef TypedCreativeConfiguration<CreativeInfo> SmaatoCreativeConfiguration;
+    SmaatoCreativeConfiguration configuration_;
+
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;

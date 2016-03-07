@@ -58,16 +58,16 @@ struct CasaleExchangeConnector : public OpenRTBExchangeConnector {
         std::vector<std::string> adomain;
     };
 
-    typedef CreativeConfiguration<CreativeInfo> CasaleCreativeConfiguration;
-
 private:
-    void initCreativeConfiguration();
+    void init();
 
+    typedef TypedCreativeConfiguration<CreativeInfo> CasaleCreativeConfiguration;
+    CasaleCreativeConfiguration configuration_;
+    
     void setSeatBid(const Auction& auction,
                     int spotNum,
                     OpenRTB::BidResponse& response) const;
 
-    CasaleCreativeConfiguration creativeConfig;
 };
 
 } // namespace RTBKIT

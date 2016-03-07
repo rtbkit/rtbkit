@@ -6,6 +6,7 @@
 #pragma once
 
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/common/creative_configuration.h"
 #include "rtbkit/core/router/filters/generic_creative_filters.h"
 
 namespace RTBKIT {
@@ -174,6 +175,7 @@ struct RTBKitExchangeConnector : public OpenRTBExchangeConnector {
 
     virtual void
     adjustAuction(std::shared_ptr<Auction>& auction) const;
+
 protected:
 
     virtual void

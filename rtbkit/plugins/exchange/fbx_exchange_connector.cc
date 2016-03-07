@@ -73,8 +73,9 @@ BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 /*****************************************************************************/
 
 FBXExchangeConnector::
-FBXExchangeConnector(ServiceBase & owner, const std::string & name) :
-	HttpExchangeConnector(name, owner) {
+FBXExchangeConnector(ServiceBase & owner, const std::string & name)
+    : HttpExchangeConnector(name, owner)
+{
 }
 
 FBXExchangeConnector::
@@ -83,6 +84,7 @@ FBXExchangeConnector(const std::string & name,
     : HttpExchangeConnector(name, proxies)
 {
 }
+
 
 std::shared_ptr<BidRequest>
 FBXExchangeConnector::

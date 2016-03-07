@@ -61,18 +61,17 @@ struct SpotXExchangeConnector : public OpenRTBExchangeConnector {
     static Logging::Category print;
     static Logging::Category warning;
 
-    typedef CreativeConfiguration<CreativeInfo> SpotXCreativeConfiguration;
-
 private:
-    void initCreativeConfiguration();
+    void init();
+
+    typedef TypedCreativeConfiguration<CreativeInfo> SpotXCreativeConfiguration;
+    SpotXCreativeConfiguration configuration_;
 
     void setSeatBid(const Auction& auction,
                     int spotNum,
                     OpenRTB::BidResponse& response) const;
 
     Json::Value getSeatBidExtension(const CampaignInfo* info) const;
-
-    SpotXCreativeConfiguration creativeConfig;
 
 };
 

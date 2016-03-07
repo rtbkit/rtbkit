@@ -7,6 +7,7 @@
 
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/common/creative_configuration.h"
+#include "rtbkit/common/creative_expander.h"
 
 const std::string providerConfigEmpty = R"FIXTURE(
 {
@@ -64,8 +65,9 @@ struct Dummy
 };
 }
 
+using RTBKIT::TypedCreativeConfiguration;
 using RTBKIT::CreativeConfiguration;
-typedef CreativeConfiguration<Dummy> TestCreativeConfiguration;
+typedef TypedCreativeConfiguration<Dummy> TestCreativeConfiguration;
 
 RTBKIT::Creative example1 = RTBKIT::Creative::sampleLB;
 RTBKIT::Creative example2 = RTBKIT::Creative::sampleBB;
@@ -194,13 +196,12 @@ const std::string EXPECTED = "testid";
 
 }
 
-typedef CreativeConfiguration<MyNiceStruct> CreativeConfigurationInst;
+typedef TypedCreativeConfiguration<MyNiceStruct> CreativeConfigurationInst;
 
-
-template <>
+template<>
 const std::string CreativeConfigurationInst::VARIABLE_MARKER_BEGIN = "{{{";
 
-template <>
+template<>
 const std::string CreativeConfigurationInst::VARIABLE_MARKER_END = "}}}";
 
 
@@ -277,4 +278,55 @@ BOOST_AUTO_TEST_CASE(test_error)
     example1.providerConfig = Json::parse(providerConfigInvalidVar);
     BOOST_CHECK_THROW(conf.handleCreativeCompatibility(example1, true),
                       std::runtime_error);
+}
+
+BOOST_AUTO_TEST_CASE(test_expander)
+{
+    using namespace RTBKIT;
+
+    struct GlobalExpander : public RTBKIT::ExpanderBase {
+        void registerExpanders(CreativeConfiguration& config) {
+            config.addExpanderVariable("location",
+                    [](const CreativeConfiguration::Context& context) {
+                        return "mrs";
+            });
+        }
+    };
+
+    PluginInterface<ExpanderBase>::registerPlugin("global",
+            []() { return new GlobalExpander(); });
+
+    struct CreativeInfo { };
+
+    typedef TypedCreativeConfiguration<CreativeInfo> MyCreativeConfig;
+
+    MyCreativeConfig config("dummy");
+    config.addField("snippet",
+        [](const Json::Value& value, CreativeInfo&)
+        {
+            return true;
+        }
+    ).snippet();
+
+    example1.providerConfig = Json::parse(
+            R"JSON(
+                {
+                    "dummy": {
+                        "snippet": "%{location}"
+                    }
+                }
+            )JSON");
+
+    config.handleCreativeCompatibility(example1, true);
+
+
+    RTBKIT::BidRequest br;
+    br.auctionId = Datacratic::Id("1");
+
+    RTBKIT::Auction::Response response;
+    MyCreativeConfig::Context context {
+        example1, response, br, 0
+    };
+
+    BOOST_CHECK_EQUAL(config.expand("%{location}", context), "mrs");
 }

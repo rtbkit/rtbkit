@@ -38,17 +38,28 @@ namespace RTBKIT {
 
 MoPubExchangeConnector::
 MoPubExchangeConnector(ServiceBase & owner, const std::string & name)
-    : OpenRTBExchangeConnector(owner, name) {
+    : OpenRTBExchangeConnector(owner, name),
+      configuration_("mopub")
+{
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
 }
 
 MoPubExchangeConnector::
 MoPubExchangeConnector(const std::string & name,
                        std::shared_ptr<ServiceProxies> proxies)
-    : OpenRTBExchangeConnector(name, proxies) {
+    : OpenRTBExchangeConnector(name, proxies),
+      configuration_("mopub")
+{
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
+}
+
+void
+MoPubExchangeConnector::init()
+{
 }
 
 ExchangeConnector::ExchangeCompatibility
