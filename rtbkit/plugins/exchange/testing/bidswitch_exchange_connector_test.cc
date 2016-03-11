@@ -22,6 +22,9 @@
 #include "jml/arch/info.h"
 
 #include <type_traits>
+#include <thread>
+#include <mutex>
+#include <chrono>
 
 
 using namespace RTBKIT;
@@ -114,6 +117,11 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
         c.providerConfig["bidswitch"]["adid"] = c.name;
     }
 
+
+    std::condition_variable cv;
+    std::mutex mtx;
+    std::unique_lock<std::mutex> lock(mtx);
+
     agent.onBidRequest = [&] (
                              double timestamp,
                              const Id & id,
@@ -122,6 +130,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
                              double timeLeftMs,
                              const Json::Value & augmentations,
     const WinCostModel & wcm) {
+
+        std::unique_lock<std::mutex> lock(mtx);
 
         std::cerr << "************************ ON BID REQ\n";
         Bid& bid = bids[0];
@@ -132,6 +142,7 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
         ML::atomic_inc(agent.numBidRequests);
 
         std::cerr << "bid count=" << agent.numBidRequests << std::endl;
+        cv.notify_one();
     };
 
     agent.init();
@@ -162,18 +173,18 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
 
     // and send it
     source.write(httpRequest);
-    std::string resp = source.read();
-    
-    std::cerr << resp << std::endl;
 
-    BOOST_CHECK_EQUAL(agent.numBidRequests, 1);
+    std::string resp = source.read();
+    std::cerr << resp << std::endl;
+    proxies->events->dump(std::cerr);
+
+    BOOST_REQUIRE(cv.wait_for(lock, std::chrono::seconds(30)) == std::cv_status::no_timeout);
+    BOOST_REQUIRE_EQUAL(agent.numBidRequests, 1);
 
     // Validate bidrequest.id was re-written
     BOOST_CHECK_EQUAL(resp.find("%{bidrequest.id}"), std::string::npos);
     BOOST_CHECK_EQUAL(resp.find("%{bidrequest.timestamp}"), std::string::npos);
     BOOST_CHECK_EQUAL(resp.find("%{response.account}"), std::string::npos);
-
-    proxies->events->dump(std::cerr);
 
     router.shutdown();
     agentConfig.shutdown();
