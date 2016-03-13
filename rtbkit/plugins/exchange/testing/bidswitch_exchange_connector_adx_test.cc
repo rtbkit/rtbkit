@@ -22,6 +22,9 @@
 #include "jml/arch/info.h"
 
 #include <type_traits>
+#include <thread>
+#include <mutex>
+#include <chrono>
 
 
 using namespace RTBKIT;
@@ -115,6 +118,10 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
 
     }
 
+    std::condition_variable cv;
+    std::mutex mtx;
+    std::unique_lock<std::mutex> lock(mtx);
+
     agent.onBidRequest = [&] (
                              double timestamp,
                              const Id & id,
@@ -125,14 +132,18 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
     const WinCostModel & wcm) {
 
         std::cerr << "************************ ON BID REQ\n";
+
+        std::unique_lock<std::mutex> lock(mtx);
+
         Bid& bid = bids[0];
 
         bid.bid(bid.availableCreatives[0], USD_CPM(1.234));
 
-        agent.doBid(id, bids, Json::Value(), wcm);
         ML::atomic_inc(agent.numBidRequests);
-
         std::cerr << "bid count=" << agent.numBidRequests << std::endl;
+        agent.doBid(id, bids, Json::Value(), wcm);
+ 
+        cv.notify_one();
     };
 
     agent.init();
@@ -163,12 +174,18 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
 
     // and send it
     source.write(httpRequest);
-    std::cerr << source.read() << std::endl;
+    if (cv.wait_for(lock, std::chrono::seconds(10)) != std::cv_status::no_timeout) {
+        std::cerr << "=====> TIMEOUT" << std::endl;
+        source.write(httpRequest);
+        BOOST_REQUIRE(cv.wait_for(lock, std::chrono::seconds(10)) == std::cv_status::no_timeout);
+    }
 
+    std::string resp = source.read();
+    std::cerr << "RESPONSE:\n" << resp << std::endl;
     BOOST_CHECK_EQUAL(agent.numBidRequests, 1);
 
     proxies->events->dump(std::cerr);
-
+    
     router.shutdown();
     agentConfig.shutdown();
 }
