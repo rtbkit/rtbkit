@@ -426,7 +426,10 @@ Datacratic::UnicodeString
 Location::
 fullLocationString() const
 {
-    Datacratic::UnicodeString result(countryCode + ":" + regionCode + ":") ;
+    Datacratic::UnicodeString result(countryCode) ;
+    result += ":";
+    result += regionCode;
+    result += ":";
     result += cityName ;
     result += ":";
     result += postalCode;
