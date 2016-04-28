@@ -11,6 +11,7 @@
 #include <string>
 #include <stdlib.h>
 #include <vector>
+#include <fstream>
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread/thread.hpp>
@@ -33,10 +34,21 @@ BOOST_AUTO_TEST_CASE( test_service_utils_preload )
     else
         build_path = getenv("BIN");
 
-    const string buildOptions(build_path + "/libcustom_preload_1.so,"
-                                                  "soa/service/testing/libs-to-dynamically-load");
+    const char * test_file = "soa/service/testing/libs-to-dynamically-load";
+    const char * test_file_with_extension = "soa/service/testing/libs-to-dynamically-load.json";
+    const string buildOptions(build_path + "/libcustom_preload_1.so," + test_file);
     const string envOptions(build_path + "/libcustom_preload_4");
     const string RtbkitPreload("RTBKIT_PRELOAD");
+
+    // TEST FILE CREATION
+    std::remove(test_file_with_extension);
+    ofstream of(test_file_with_extension);
+    of << "[\n";
+    of << "\t\"" << build_path << "/libcustom_preload_2.so\",\n";
+    of << "\t\"" << build_path << "/libcustom_preload_3\"\n";
+    of << "]";
+    of.close();
+
 
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_1,0);
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_2,0);
@@ -52,4 +64,7 @@ BOOST_AUTO_TEST_CASE( test_service_utils_preload )
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_2,1);
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_3,1);
     BOOST_REQUIRE_EQUAL(TEST::DynamicLoading::custom_lib_4,1);
+
+    // TEST FILE REMOVAL
+    std::remove(test_file_with_extension);
 }
