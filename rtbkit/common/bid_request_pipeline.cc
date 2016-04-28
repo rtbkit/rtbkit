@@ -1,7 +1,7 @@
 /* bid_request_pipeline.cc
    Mathieu Stefani, 12 février 2016
    Copyright (c) 2015 Datacratic.  All rights reserved.
-   
+
    The Bid Request Pipeline
 */
 

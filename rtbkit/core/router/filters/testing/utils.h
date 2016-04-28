@@ -194,7 +194,7 @@ SegmentList segment(Args&&... args)
     return seg;
 }
 
-void addSegment( 
+void addSegment(
         BidRequest& br,
         const string& name,
         const SegmentList& segment)
@@ -202,7 +202,7 @@ void addSegment(
     br.segments[name] = make_shared<SegmentList>(segment);
 };
 
-void addSegment(    
+void addSegment(
         AgentConfig& config,
         const string& name,
         bool excludeIfNotPresent,

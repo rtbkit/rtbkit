@@ -267,7 +267,7 @@ initFilters(const Json::Value & config) {
 
     if (config != Json::Value::null) {
 
-        if (config.type() != Json::objectValue) 
+        if (config.type() != Json::objectValue)
            throw Exception("Filter config json is not of map type");
 
         Json::Value extraFilterLibs;
@@ -291,7 +291,7 @@ initFilters(const Json::Value & config) {
                         }
                     }
                 }
-            } 
+            }
             else if (field == "filter-deactivate") {
                 filterDeactivate = config[field];
                 if ( (filterDeactivate != Json::Value::null) && (!filterDeactivate.isArray()) ) {
@@ -304,7 +304,7 @@ initFilters(const Json::Value & config) {
                     throw Exception("Filter-activate must be an array");
                 }
             }
-            else 
+            else
                 throw Exception("Unknown field " + field + " in filter config file");
         }
 
@@ -347,7 +347,7 @@ initFilters(const Json::Value & config) {
                 filters.initWithDefaultFilters();
             }
         }
-        
+
     } else {
         filters.initWithDefaultFilters();
     }

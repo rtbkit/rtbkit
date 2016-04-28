@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
         ML::atomic_inc(agent.numBidRequests);
         std::cerr << "bid count=" << agent.numBidRequests << std::endl;
         agent.doBid(id, bids, Json::Value(), wcm);
- 
+
         cv.notify_one();
     };
 

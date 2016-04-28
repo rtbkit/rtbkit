@@ -1,7 +1,7 @@
 /* extension.cc
    Mathieu Stefani, 14 janvier 2016
    Copyright (c) 2015 Datacratic.  All rights reserved.
-   
+ 
 */
 
 #include "extension.h"

@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_6 )
 {
     string configFile = R"({"filter-activate":["My","Your"],"filter-deactivate":["Your"],"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
-    
+
     Router router;
     router.initFilters(filtersConfig);
 
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_7 )
     {
         string configFile = R"({"extraFilterLibs":["libcustom_filter.so"]})";
         Json::Value filtersConfig = Json::parse(configFile);
-        
+
         Router router;
         router.initFilters(filtersConfig);
 
