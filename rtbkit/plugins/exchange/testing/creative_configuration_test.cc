@@ -6,7 +6,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "rtbkit/core/agent_configuration/agent_config.h"
-#include "rtbkit/common/creative_configuration.h"
+#include "rtbkit/plugins/exchange/creative_configuration.h"
 
 const std::string providerConfigEmpty = R"FIXTURE(
 {

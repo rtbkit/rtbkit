@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/core/router/filters/generic_filters.h"
-#include "rtbkit/common/creative_configuration.h"
+#include "rtbkit/plugins/exchange/creative_configuration.h"
 
 namespace RTBKIT {
 

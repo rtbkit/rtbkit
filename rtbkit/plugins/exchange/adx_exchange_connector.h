@@ -11,7 +11,7 @@
 #include <sstream>
 #include <unordered_set>
 
-#include "rtbkit/common/creative_configuration.h"
+#include "rtbkit/plugins/exchange/creative_configuration.h"
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
 
 namespace RTBKIT {

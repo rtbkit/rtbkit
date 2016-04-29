@@ -3,5 +3,3 @@
 
 $(eval $(call test,rtb_agent_config_validator_test,agent_configuration,boost))
 $(eval $(call test,rtb_fees_test,agent_configuration,boost))
-
-
