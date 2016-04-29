@@ -27,64 +27,7 @@
 using namespace std;
 using namespace ML;
 using namespace Datacratic;
-
-void check(
-        const FilterBase& filter,
-        BidRequest& request,
-        const string exchangeName,
-        const ConfigSet& mask,
-        const initializer_list<size_t>& exp)
-{
-    FilterExchangeConnector conn(exchangeName);
-
-    /* Note that some filters depends on the bid request's exchange field while
-       others depend on the exchange connector's name. Now you might think that
-       they're always the same but you'd be wrong. To alleviate my endless pain
-       on this subject, let's just fudge it here and call it a day.
-     */
-    request.exchange = exchangeName;
-
-    // A bid request without ad spots doesn't really make any sense and will
-    // accidently make state.configs() to return an empty set.
-    request.imp.emplace_back();
-
-    CreativeMatrix activeConfigs;
-    for (size_t i = mask.next(); i < mask.size(); i = mask.next(i+1))
-        activeConfigs.setConfig(i, 1);
-
-    FilterState state(request, &conn, activeConfigs);
-
-    filter.filter(state);
-    check(state.configs() & mask, exp);
-}
-
-void
-add(    AgentConfig& config,
-        const string& name,
-        bool excludeIfNotPresent,
-        const SegmentList& includes,
-        const SegmentList& excludes,
-        const IncludeExclude<string>& exchangeIE)
-{
-    AgentConfig::SegmentInfo seg;
-
-    seg.excludeIfNotPresent = excludeIfNotPresent;
-    seg.include = includes;
-    seg.exclude = excludes;
-    seg.applyToExchanges = exchangeIE;
-
-    config.segments[name] = seg;
-};
-
-
-void
-add(    BidRequest& br,
-        const string& name,
-        const SegmentList& segment)
-{
-    br.segments[name] = make_shared<SegmentList>(segment);
-};
-
+using namespace RTBKIT::Test;
 
 /** Simple test to check that all a config will fail if one of its segment
     fails. Nothing to interesting really.
@@ -103,33 +46,33 @@ BOOST_AUTO_TEST_CASE( segmentFilter_simple )
     };
 
     AgentConfig c0;
-    add(c0, "seg1", false, segment(1), segment(), ie<string>());
-    add(c0, "seg2", false, segment(2), segment(), ie<string>());
-    add(c0, "seg3", false, segment(3), segment(), ie<string>());
+    addSegment(c0, "seg1", false, segment(1), segment(), ie<string>());
+    addSegment(c0, "seg2", false, segment(2), segment(), ie<string>());
+    addSegment(c0, "seg3", false, segment(3), segment(), ie<string>());
 
     BidRequest r0;
-    add(r0, "seg1", segment(1));
-    add(r0, "seg2", segment(2));
-    add(r0, "seg3", segment(3));
-    add(r0, "seg4", segment(4));
+    addSegment(r0, "seg1", segment(1));
+    addSegment(r0, "seg2", segment(2));
+    addSegment(r0, "seg3", segment(3));
+    addSegment(r0, "seg4", segment(4));
 
     BidRequest r1;
-    add(r1, "seg1", segment(0));
-    add(r1, "seg2", segment(2));
-    add(r1, "seg3", segment(3));
-    add(r1, "seg4", segment(4));
+    addSegment(r1, "seg1", segment(0));
+    addSegment(r1, "seg2", segment(2));
+    addSegment(r1, "seg3", segment(3));
+    addSegment(r1, "seg4", segment(4));
 
     BidRequest r2;
-    add(r2, "seg1", segment(1));
-    add(r2, "seg2", segment(0));
-    add(r2, "seg3", segment(3));
-    add(r2, "seg4", segment(4));
+    addSegment(r2, "seg1", segment(1));
+    addSegment(r2, "seg2", segment(0));
+    addSegment(r2, "seg3", segment(3));
+    addSegment(r2, "seg4", segment(4));
 
     BidRequest r3;
-    add(r3, "seg1", segment(1));
-    add(r3, "seg2", segment(2));
-    add(r3, "seg3", segment(0));
-    add(r3, "seg4", segment(4));
+    addSegment(r3, "seg1", segment(1));
+    addSegment(r3, "seg2", segment(2));
+    addSegment(r3, "seg3", segment(0));
+    addSegment(r3, "seg4", segment(4));
 
     title("segment-simple-1");
     addConfig(filter, 0, c0); mask.set(0);
@@ -157,23 +100,23 @@ BOOST_AUTO_TEST_CASE( segmentFilter_excludeIfNotPresent )
     AgentConfig c0;
 
     AgentConfig c1;
-    add(c1, "seg1", false, segment(), segment(), ie<string>());
+    addSegment(c1, "seg1", false, segment(), segment(), ie<string>());
 
     AgentConfig c2;
-    add(c2, "seg1", true, segment(), segment(), ie<string>());
+    addSegment(c2, "seg1", true, segment(), segment(), ie<string>());
 
     BidRequest r0;
 
     BidRequest r1;
-    add(r1, "seg1", segment("a"));
+    addSegment(r1, "seg1", segment("a"));
 
     BidRequest r2;
-    add(r2, "seg1", segment("a"));
-    add(r2, "seg2", segment("b"));
+    addSegment(r2, "seg1", segment("a"));
+    addSegment(r2, "seg2", segment("b"));
 
     BidRequest r3;
-    add(r3, "seg2", segment("b"));
-    add(r3, "seg3", segment("c"));
+    addSegment(r3, "seg2", segment("b"));
+    addSegment(r3, "seg3", segment("c"));
 
     title("segment-excludeIfNotPresent-1");
     addConfig(filter, 0, c0); mask.set(0);
@@ -233,14 +176,14 @@ BOOST_AUTO_TEST_CASE( segmentFilter_filter_reasons )
     };
 
     AgentConfig c0;
-    add(c0, "seg1", false, segment(1), segment(), ie<string>());
+    addSegment(c0, "seg1", false, segment(1), segment(), ie<string>());
 
     AgentConfig c1;
-    add(c1, "seg1", false, segment(), segment(1), ie<string>());
-    add(c1, "seg2", false, segment(2), segment(), ie<string>());
+    addSegment(c1, "seg1", false, segment(), segment(1), ie<string>());
+    addSegment(c1, "seg2", false, segment(2), segment(), ie<string>());
 
     AgentConfig c2;
-    add(c2, "seg1", false, segment(), segment(1), ie<string>());
+    addSegment(c2, "seg1", false, segment(), segment(1), ie<string>());
 
     AgentConfig c3;
 
@@ -250,15 +193,15 @@ BOOST_AUTO_TEST_CASE( segmentFilter_filter_reasons )
     addConfig(filter, 3, c3); mask.set(3);
 
     BidRequest r0;
-    add(r0, "seg1", segment(1));
-    add(r0, "seg2", segment(2));
+    addSegment(r0, "seg1", segment(1));
+    addSegment(r0, "seg2", segment(2));
 
     BidRequest r1;
-    add(r1, "seg1", segment(2));
+    addSegment(r1, "seg1", segment(2));
 
     BidRequest r2;
-    add(r2, "seg1", segment(2));
-    add(r2, "seg2", segment(0));
+    addSegment(r2, "seg1", segment(2));
+    addSegment(r2, "seg2", segment(0));
 
 
     std::map<std::string, std::list<int>> exp;
@@ -307,36 +250,36 @@ BOOST_AUTO_TEST_CASE( segmentFilter_exchange )
     };
 
     AgentConfig c0;
-    add(c0, "seg1", false, segment(1), segment(), ie<string>({ "ex1" }, {}));
+    addSegment(c0, "seg1", false, segment(1), segment(), ie<string>({ "ex1" }, {}));
 
     AgentConfig c1;
-    add(c1, "seg1", false, segment(1), segment(), ie<string>({ "ex2" }, {}));
+    addSegment(c1, "seg1", false, segment(1), segment(), ie<string>({ "ex2" }, {}));
 
     AgentConfig c2;
-    add(c2, "seg1", false, segment(1), segment(), ie<string>({ "ex1" }, {}));
-    add(c2, "seg2", false, segment(2), segment(), ie<string>({ "ex2" }, {}));
+    addSegment(c2, "seg1", false, segment(1), segment(), ie<string>({ "ex1" }, {}));
+    addSegment(c2, "seg2", false, segment(2), segment(), ie<string>({ "ex2" }, {}));
 
     // Control case with no exchange filters.
     AgentConfig c3;
-    add(c3, "seg1", false, segment(1), segment(), ie<string>());
+    addSegment(c3, "seg1", false, segment(1), segment(), ie<string>());
 
     // excludeIfNotPresent = true && segment does exist
     AgentConfig c4;
-    add(c4, "seg1", true, segment(), segment(), ie<string>({ "ex1" }, {}));
-    add(c4, "seg2", true, segment(), segment(), ie<string>({ "ex3" }, {}));
+    addSegment(c4, "seg1", true, segment(), segment(), ie<string>({ "ex1" }, {}));
+    addSegment(c4, "seg2", true, segment(), segment(), ie<string>({ "ex3" }, {}));
 
     // excludeIfNotPresent = true && segment doesn't exist.
     AgentConfig c5;
-    add(c5, "seg3", true, segment(), segment(), ie<string>({ "ex1" }, {}));
-    add(c5, "seg4", true, segment(), segment(), ie<string>({ "ex3" }, {}));
+    addSegment(c5, "seg3", true, segment(), segment(), ie<string>({ "ex1" }, {}));
+    addSegment(c5, "seg4", true, segment(), segment(), ie<string>({ "ex3" }, {}));
 
     BidRequest r0;
-    add(r0, "seg1", segment(1));
-    add(r0, "seg2", segment(1));
+    addSegment(r0, "seg1", segment(1));
+    addSegment(r0, "seg2", segment(1));
 
     BidRequest r1;
-    add(r1, "seg1", segment(2));
-    add(r1, "seg2", segment(2));
+    addSegment(r1, "seg1", segment(2));
+    addSegment(r1, "seg2", segment(2));
 
     title("segment-exchange-1");
     addConfig(filter, 0, c0); mask.set(0);

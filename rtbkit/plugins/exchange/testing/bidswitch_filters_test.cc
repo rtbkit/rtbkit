@@ -25,7 +25,7 @@
 using namespace std;
 using namespace ML;
 using namespace Datacratic;
-
+using namespace RTBKIT::Test;
 
 /** Simple test to check that all a config will fail if one of its segment
     fails. Nothing to interesting really.

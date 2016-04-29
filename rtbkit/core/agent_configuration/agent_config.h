@@ -18,6 +18,7 @@
 #include "fees.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/core/agent_configuration/latlonrad.h"
+#include "rtbkit/common/extension.h"
 
 namespace RTBKIT {
 
@@ -59,8 +60,8 @@ struct Creative {
     int id;
 
     /// Video creative information
-    uint32_t duration;
-    uint64_t bitrate;
+    int32_t duration;
+    int64_t bitrate;
 
     /// Configuration values; per provider
     /// eg: OpenRTB, ...
@@ -134,6 +135,8 @@ struct Creative {
     static Creative image(int width, int height, std::string name = "", int id = -1, std::string dealId = "");
     static Creative video(int width, int height, uint32_t duration, uint64_t bitrate,
                 std::string name = "", int id = -1, std::string dealId = "");
+
+    ExtensionPool extensions;
 
 private:
     Type type;
@@ -285,7 +288,7 @@ void fromJson(BidResultFormat & fmt, const Json::Value & j);
     a agent to the router to describe how the routes should be set up.
 */
 struct AgentConfig {
-    AgentConfig();
+    explicit AgentConfig(std::string name = "");
 
     static AgentConfig createFromJson(const Json::Value & json);
 
@@ -424,9 +427,12 @@ struct AgentConfig {
 
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
-
-    /** custom extensions */
+    //
     Json::Value ext;
+
+    std::string name;
+
+    ExtensionPool extensions;
 };
 
 

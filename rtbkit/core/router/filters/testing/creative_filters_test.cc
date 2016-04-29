@@ -21,7 +21,7 @@
 using namespace std;
 using namespace ML;
 using namespace Datacratic;
-
+using namespace RTBKIT::Test;
 
 /******************************************************************************/
 /* FORMAT FILTER                                                              */

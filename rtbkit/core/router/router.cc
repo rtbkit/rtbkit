@@ -267,29 +267,85 @@ initFilters(const Json::Value & config) {
 
     if (config != Json::Value::null) {
 
-        Json::Value extraFilterFiles = config["extraFilterFiles"];
-        if (extraFilterFiles != Json::Value::null) {
-            if (!extraFilterFiles.isArray()) {
-                throw Exception("Filter files must be an array");
-            }
-            for(size_t i=0; i<extraFilterFiles.size(); i++){
-                std::string file="lib"+extraFilterFiles[i].asString()+".so";
-                void * handle = dlopen(file.c_str(),RTLD_NOW);
-                if (!handle) {
-                    std::cerr << dlerror() << std::endl;
-                    throw ML::Exception("couldn't load library from %s", file.c_str());
+        if (config.type() != Json::objectValue)
+           throw Exception("Filter config json is not of map type");
+
+        Json::Value extraFilterLibs;
+        Json::Value filterDeactivate;
+        Json::Value filterActivate;
+
+        for (const std::string & field : config.getMemberNames()) {
+
+            if (field == "extraFilterLibs") {
+                extraFilterLibs = config[field];
+                if (extraFilterLibs != Json::Value::null) {
+                    if (!extraFilterLibs.isArray()) {
+                        throw Exception("Filter libs must be an array");
+                    }
+                    for(size_t i=0; i<extraFilterLibs.size(); i++){
+                        std::string file=extraFilterLibs[i].asString();
+                        void * handle = dlopen(file.c_str(),RTLD_NOW);
+                        if (!handle) {
+                            std::cerr << dlerror() << std::endl;
+                            throw ML::Exception("couldn't load library from %s", file.c_str());
+                        }
+                    }
                 }
             }
+            else if (field == "filter-deactivate") {
+                filterDeactivate = config[field];
+                if ( (filterDeactivate != Json::Value::null) && (!filterDeactivate.isArray()) ) {
+                    throw Exception("Filter-deactivate must be an array");
+                }
+            }
+            else if (field == "filter-activate") {
+                filterActivate = config[field];
+                if ( (filterActivate != Json::Value::null) && (!filterActivate.isArray()) ) {
+                    throw Exception("Filter-activate must be an array");
+                }
+            }
+            else
+                throw Exception("Unknown field " + field + " in filter config file");
         }
 
-        Json::Value filterMask = config["filterMask"];
-        if(filterMask != Json::Value::null) {
-            if (!filterMask.isArray()) {
-                throw Exception("Filter mask must be an array");
+        if (filterActivate != Json::Value::null) {
+            if (filterDeactivate != Json::Value::null) {
+                Json::Value filtersToLoad(Json::arrayValue);
+                for (unsigned i=0; i<filterActivate.size(); ++i) {
+                    bool addFilter = true;
+                    for (unsigned j=0; j<filterDeactivate.size(); ++j) {
+                        if (filterActivate[i] == filterDeactivate[j]) {
+                            addFilter = false;
+                            break;
+                        }
+                    }
+                    if (addFilter) {
+                        filtersToLoad.append(filterActivate[i]);
+                    }
+                }
+                filters.initWithFiltersFromJson(filtersToLoad);
+            } else {
+                filters.initWithFiltersFromJson(filterActivate);
             }
-            filters.initWithFiltersFromJson(filterMask);
         } else {
-            filters.initWithDefaultFilters();
+            if (filterDeactivate != Json::Value::null) {
+                Json::Value filtersToLoad(Json::arrayValue);
+                for (const std::string & ele: PluginInterface<FilterBase>::getNames()) {
+                    bool addFilter = true;
+                    for (unsigned j=0; j<filterDeactivate.size(); ++j) {
+                        if (filterDeactivate[j] == ele) {
+                            addFilter = false;
+                            break;
+                        }
+                    }
+                    if (addFilter) {
+                        filtersToLoad.append(ele);
+                    }
+                }
+                filters.initWithFiltersFromJson(filtersToLoad);
+            } else {
+                filters.initWithDefaultFilters();
+            }
         }
 
     } else {

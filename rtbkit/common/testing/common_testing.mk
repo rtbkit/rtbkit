@@ -5,6 +5,7 @@ $(eval $(call test,bid_request_synth_test,bid_request_synth,boost))
 $(eval $(call test,currency_test,bid_request,boost))
 $(eval $(call test,filter_test,filter_registry,boost))
 $(eval $(call test,bids_test,rtb,boost))
+$(eval $(call test,creative_configuration_test,rtb_router, boost))
 
 $(eval $(call library,custom_1_plugin,custom_1_plugin.cc,))
 $(eval $(call test,plugin_table_test,utils,boost))

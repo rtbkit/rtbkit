@@ -1253,4 +1253,13 @@ struct hash<OpenRTB::AdPosition>
     }
 };
 
+template<>
+struct hash<OpenRTB::DeviceType>
+{
+    size_t operator() (OpenRTB::DeviceType obj) const
+    {
+        return std::hash<int>()(static_cast<int>(obj.val));
+    }
+};
+
 } // namespace std

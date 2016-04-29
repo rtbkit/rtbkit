@@ -22,7 +22,7 @@ using namespace RTBKIT;
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_1 )
 {
-    string configFile = R"({"filterMask":["My"]})";
+    string configFile = R"({"filter-activate":["My"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_2 )
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_3 )
 {
-    string configFile = R"({"extraFilterFiles":["custom_filter"]})";
+    string configFile = R"({"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_3 )
 
 BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_4 )
 {
-    string configFile = R"({"filterMask":["My"],"extraFilterFiles":["custom_filter"]})";
+    string configFile = R"({"filter-activate":["My"],"extraFilterLibs":["libcustom_filter.so"]})";
     Json::Value filtersConfig = Json::parse(configFile);
     
     Router router;
@@ -108,4 +108,74 @@ BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_5 )
     BOOST_REQUIRE(refined_filters.size()==2);
     BOOST_REQUIRE(refined_filters[0]=="Your");
     BOOST_REQUIRE(refined_filters[1]=="My");
+}
+
+BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_6 )
+{
+    string configFile = R"({"filter-activate":["My","Your"],"filter-deactivate":["Your"],"extraFilterLibs":["libcustom_filter.so"]})";
+    Json::Value filtersConfig = Json::parse(configFile);
+
+    Router router;
+    router.initFilters(filtersConfig);
+
+    std::vector<string> refined_filters = router.filters.getFilterNames();
+
+    bool found_My = false;
+    bool found_Your = false;
+
+    for(int i=0; i<refined_filters.size(); i++){
+        if (refined_filters[i] == "My")
+           found_My = true;
+
+        if (refined_filters[i] == "Your")
+           found_Your = true;
+    }
+
+    BOOST_REQUIRE(refined_filters.size()==1);
+    BOOST_REQUIRE(found_My==true);
+    BOOST_REQUIRE(found_Your==false);
+}
+
+
+BOOST_AUTO_TEST_CASE( test_filter_dynamic_loading_7 )
+{
+    {
+        string configFile = R"({"extraFilterLibs":["libcustom_filter.so"]})";
+        Json::Value filtersConfig = Json::parse(configFile);
+
+        Router router;
+        router.initFilters(filtersConfig);
+
+        std::vector<string> refined_filters = router.filters.getFilterNames();
+
+        bool found_Segments = false;
+
+        for(int i=0; i<refined_filters.size(); i++){
+            if (refined_filters[i] == "Segments")
+               found_Segments = true;
+        }
+
+        BOOST_REQUIRE(refined_filters.size()>2);
+        BOOST_REQUIRE(found_Segments==true);
+    }
+
+    {
+        string configFile = R"({"filter-deactivate":["Segments"],"extraFilterLibs":["libcustom_filter.so"]})";
+        Json::Value filtersConfig = Json::parse(configFile);
+        
+        Router router;
+        router.initFilters(filtersConfig);
+
+        std::vector<string> refined_filters = router.filters.getFilterNames();
+
+        bool found_Segments = false;
+
+        for(int i=0; i<refined_filters.size(); i++){
+            if (refined_filters[i] == "Segments")
+               found_Segments = true;
+        }
+
+        BOOST_REQUIRE(refined_filters.size()>2);
+        BOOST_REQUIRE(found_Segments==false);
+    }
 }

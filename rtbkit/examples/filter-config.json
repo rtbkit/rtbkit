@@ -3,8 +3,14 @@
     // If left empty or not present, all loaded filters will be used.
     // Note: Make sure that the filter names given here exists in one of the files
     // given in extraFilters field or in static_filters or creative_filters
-    "filterMask":["My","Your"],
+    "filter-activate":["My","Your"],
+
+    // Filters given here are the filters that will be deleted from activated filter
+    // list. If left empty or not present, all activated filters will be used.
+    // Note: Make sure that the filter names given here exists in one of the files
+    // given in extraFilters field or in static_filters or creative_filters
+    "filter-deactivate":["My"],
 
     // Libraries that will be loaded along with static_filter library
-    "extraFilterFiles":["custom_filter"]
+    "extraFilterLibs":["libcustom_filter.so"]
 }
