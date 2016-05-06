@@ -32,16 +32,30 @@ public:
     }
 };
 
-namespace details {
-    template<typename Exchange>
-    struct IsExchangeConnector {
-        template<typename U> auto test(U *) -> decltype(&U::exchangeNameString(), std::true_type());
-        template<typename U> auto test(...) -> std::false_type;
+namespace meta {
+    template<typename... > struct void_t { typedef void type; };
 
-        static constexpr bool value =
-            std::is_base_of<ExchangeConnector, Exchange>::value &&
-            std::is_same<decltype(test<Exchange>(nullptr)), std::true_type>::value;
+    template<bool B> struct true_t;
+
+    template<> struct true_t<true> {
+        typedef std::true_type type;
+
+        static constexpr bool value = false;
     };
+
+}
+
+namespace details {
+    template<typename Exchange, typename = void> struct IsExchangeConnector : public std::false_type { };
+
+    template<typename Exchange>
+    struct IsExchangeConnector<Exchange,
+        typename meta::void_t<
+            typename meta::true_t<std::is_base_of<ExchangeConnector, Exchange>::value>::type,
+            decltype(&Exchange::exchangeNameString())
+        >::type
+    > : public std::true_type { };
+
 }
 
 template<typename Exchange>
