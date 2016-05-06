@@ -52,7 +52,7 @@ namespace details {
     struct IsExchangeConnector<Exchange,
         typename meta::void_t<
             typename meta::true_t<std::is_base_of<ExchangeConnector, Exchange>::value>::type,
-            decltype(&Exchange::exchangeNameString())
+            decltype(&Exchange::exchangeNameString)
         >::type
     > : public std::true_type { };
 
@@ -66,7 +66,7 @@ class ExchangeExpander : public ExpanderBase {
     virtual void registerExchangeExpanders(CreativeConfiguration& config) = 0;
 
     void registerExpanders(CreativeConfiguration& config) {
-        if (config.exchange_ == Exchange::exchangeNameString()) {
+        if (config.exchange() == Exchange::exchangeNameString()) {
             registerExchangeExpanders(config);
         }
     }

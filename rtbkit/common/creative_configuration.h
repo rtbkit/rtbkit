@@ -65,7 +65,7 @@ private:
     void registerDefaultFilters();
     void registerCustomExpanders();
 
-public:
+protected:
     const std::string exchange_;
 
     ExpanderMap expanderDict_;
