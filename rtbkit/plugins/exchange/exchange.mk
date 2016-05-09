@@ -2,7 +2,8 @@
 
 LIBRTB_EXCHANGE_SOURCES := \
 	http_exchange_connector.cc \
-	http_auction_handler.cc
+	http_auction_handler.cc \
+	creative_configuration.cc
 
 LIBRTB_EXCHANGE_LINK := \
 	zeromq boost_thread utils endpoint services rtb bid_request

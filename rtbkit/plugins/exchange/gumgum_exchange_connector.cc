@@ -11,7 +11,6 @@
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 
-
 using namespace std;
 using namespace Datacratic;
 
@@ -80,19 +79,28 @@ BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 
 GumgumExchangeConnector::
 GumgumExchangeConnector(ServiceBase & owner, const std::string & name)
-    : HttpExchangeConnector(name, owner)
+    : HttpExchangeConnector(name, owner),
+      configuration_("gumgum")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
 }
 
 GumgumExchangeConnector::
 GumgumExchangeConnector(const std::string & name,
                         std::shared_ptr<ServiceProxies> proxies)
-    : HttpExchangeConnector(name, proxies)
+    : HttpExchangeConnector(name, proxies),
+      configuration_("gumgum")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
+}
+
+void
+GumgumExchangeConnector::init()
+{
 }
 
 std::shared_ptr<BidRequest>

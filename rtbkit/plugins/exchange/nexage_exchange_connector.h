@@ -77,7 +77,7 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
         OpenRTB::List<OpenRTB::CreativeAttribute>  attr;///< Creative attributes Appendix 6.3
     };
 
-    typedef CreativeConfiguration<CreativeInfo> NexageCreativeConfiguration;
+    typedef TypedCreativeConfiguration<CreativeInfo> NexageCreativeConfiguration;
 
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,

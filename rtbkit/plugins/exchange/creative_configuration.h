@@ -19,16 +19,9 @@
 
 namespace RTBKIT {
 
-template <typename CreativeData>
 class CreativeConfiguration
 {
-
 public:
-    static const std::string VARIABLE_MARKER_BEGIN;
-    static const std::string VARIABLE_MARKER_END;
-
-    typedef CreativeField<CreativeData> Field;
-
     struct Context {
         const Creative& creative;
         const Auction::Response& response;
@@ -43,132 +36,56 @@ public:
     typedef std::function<std::string(const Context &)> ExpanderCallable;
     typedef std::map<std::string, ExpanderCallable> ExpanderMap;
 
+
+    CreativeConfiguration(const std::string& exchange);
+
+    virtual RTBKIT::ExchangeConnector::ExchangeCompatibility
+    handleCreativeCompatibility(const Creative& creative,
+                                const bool includeReasons,
+                                Verbosity verbosity = Verbosity::Quiet) const = 0;
+
+    virtual std::string expand(const std::string& templateString,
+                       const Context& context) const = 0;
+
+    void addExpanderVariable(const std::string& key, ExpanderCallable value)
+    {
+        expanderDict_[key] = value;
+    }
+
+    void addExpanderFilter(const std::string& filter,
+                           ExpanderFilterCallable callable)
+    {
+        filters_[filter] = callable;
+    }
+
+    std::string exchange() const { return exchange_; }
+
+private:
+    void registerDefaultExpanders();
+    void registerDefaultFilters();
+    void registerCustomExpanders();
+
+protected:
+    const std::string exchange_;
+
+    ExpanderMap expanderDict_;
+    ExpanderFilterMap filters_;
+};
+
+template <typename CreativeData>
+class TypedCreativeConfiguration : public CreativeConfiguration
+{
+public:
+    static const std::string VARIABLE_MARKER_BEGIN;
+    static const std::string VARIABLE_MARKER_END;
+
+    typedef CreativeField<CreativeData> Field;
+
     struct Expander;
 
-    CreativeConfiguration(const std::string& exchange)
-    : exchange_(exchange)
-    {
-        expanderDict_ = {
-        {
-                "exchange",
-                std::bind(&CreativeConfiguration::exchange_, this)
-        },
-
-        {
-            "creative.id",
-            [](const Context& ctx)
-            { return std::to_string(ctx.creative.id); }
-        },
-
-        {
-            "creative.name",
-            [](const Context& ctx)
-            { return ctx.creative.name; }
-        },
-
-        {
-            "creative.width",
-            [](const Context& ctx)
-            { return std::to_string(ctx.creative.format.width); }
-        },
-
-        {
-            "creative.height",
-            [](const Context& ctx)
-            { return std::to_string(ctx.creative.format.height); }
-        },
-
-        {
-            "bidrequest.id",
-            [](const Context& ctx)
-            { return ctx.bidrequest.auctionId.toString(); }
-        },
-
-        {
-            "bidrequest.user.id",
-            [](const Context& ctx) -> std::string
-            {
-                if ( ctx.bidrequest.user){
-                    return ctx.bidrequest.user->id.toString();
-                }
-                return "";
-            }
-        },
-
-        {
-            "bidrequest.publisher.id",
-            /* [this](const Context& ctx)  this triggers a gcc bug:
-                * http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58824
-                */
-            [](const Context& ctx) -> std::string
-            {
-                auto const& br = ctx.bidrequest;
-                if (br.site && br.site->publisher) {
-                    return br.site->publisher->id.toString();
-                } else if (br.app && br.app->publisher) {
-                    return br.app->publisher->id.toString();
-                } else {
-                    std::cerr << "In bid request: " << br.toJson().toString()
-                                << " no publisher id found" << std::endl;
-
-                    throw std::runtime_error("No publisher id available");
-                }
-            }
-        },
-
-        {
-            "bidrequest.timestamp",
-            [](const Context& ctx)
-            { return std::to_string( ctx.bidrequest.timestamp.secondsSinceEpoch() ); }
-        },
-
-        {
-            "response.account",
-            [](const Context& ctx)
-            { return ctx.response.account.toString(); }
-        },
-        {
-            "imp.id",
-            [](const Context& context)
-            { return context.bidrequest.imp[context.spotNum].id.toString(); }
-        }
-        };
-
-        filters_ = {
-            {
-                "lower",
-                [](std::string& value) -> std::string&
-                {
-                    boost::algorithm::to_lower(value);
-                    return value;
-                }
-            },
-            {
-                "upper",
-                [](std::string& value) -> std::string&
-                {
-                    boost::algorithm::to_upper(value);
-                    return value;
-                }
-            },
-            {
-                "urlencode",
-                [](std::string& value) -> std::string&
-                {
-                    std::string result;
-                    for (auto c: value) {
-                        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
-                            result += c;
-                        else result += ML::format("%%%02X", c);
-                    }
-
-                    value = std::move(result);
-                    return value;
-                }
-            },
-        };
-
-    }
+    TypedCreativeConfiguration(const std::string& exchange)
+        : CreativeConfiguration(exchange)
+    { }
 
     Field & addField(const std::string & name,
                      typename Field::Handler handler)
@@ -184,17 +101,6 @@ public:
     std::string expand(const std::string& templateString,
                        const Context& context) const;
 
-    void addExpanderVariable(const std::string& key, ExpanderCallable value)
-    {
-        expanderDict_[key] = value;
-    }
-
-    void addExpanderFilter(const std::string& filter,
-                           ExpanderFilterCallable callable)
-    {
-        filters_[filter] = callable;
-    }
-
 private:
     std::vector<ExpandVariable>
     extractVariables(const std::string& snippet) const;
@@ -205,12 +111,6 @@ private:
     ExpanderCallable getAssociatedCallable(ExpandVariable const& var) const;
     std::string jsonValueToStr(Json::Value const& val) const;
 
-    ExpanderMap expanderDict_;
-    ExpanderFilterMap filters_;
-
-    std::map<std::string, Field> fields_;
-    const std::string exchange_;
-
     /**
      * The map is mutable because it is populated in the
      * getCreativeCompatibility and this member function is required to be
@@ -218,17 +118,55 @@ private:
      */
     mutable std::unordered_map<std::string, Expander> expanders_;
     mutable boost::shared_mutex mutex_;
+
+    std::map<std::string, Field> fields_;
 };
 
-template <typename CreativeData>
-const std::string CreativeConfiguration<CreativeData>::VARIABLE_MARKER_BEGIN = "%{";
+template<typename CreativeData>
+const std::string TypedCreativeConfiguration<CreativeData>::VARIABLE_MARKER_BEGIN = "%{";
 
-template <typename CreativeData>
-const std::string CreativeConfiguration<CreativeData>::VARIABLE_MARKER_END = "}";
+template<typename CreativeData>
+const std::string TypedCreativeConfiguration<CreativeData>::VARIABLE_MARKER_END = "}";
+
+template<typename CreativeData>
+struct TypedCreativeConfiguration<CreativeData>::Expander
+{
+    typedef std::vector<std::pair<ExpandVariable, ExpanderCallable>> FunctorCollection;
+
+    void addFunctor(const ExpandVariable& var, ExpanderCallable fn)
+    {
+        collection.push_back(std::make_pair(var, fn));
+    }
+
+    void finalize()
+    {
+        std::reverse(collection.begin(), collection.end());
+    }
+
+    std::string expand(std::string toExpand, const Context& ctx) const
+    {
+        for (auto& element : collection) {
+            auto const& var = element.first;
+            auto const& fn = element.second;
+
+            auto const& location = var.getReplaceLocation();
+
+            toExpand.replace(
+                location.first, location.second - location.first, fn(ctx));
+        }
+
+        return toExpand;
+    }
+
+    FunctorCollection collection;
+
+};
+
+
 
 template <typename CreativeData>
 RTBKIT::ExchangeConnector::ExchangeCompatibility
-CreativeConfiguration<CreativeData>::handleCreativeCompatibility(
+TypedCreativeConfiguration<CreativeData>::handleCreativeCompatibility(
     const Creative& creative, const bool includeReasons, Verbosity verbosity) const
 {
 
@@ -300,7 +238,7 @@ CreativeConfiguration<CreativeData>::handleCreativeCompatibility(
 
 template <typename CreativeData>
 std::vector<ExpandVariable>
-CreativeConfiguration<CreativeData>::extractVariables(
+TypedCreativeConfiguration<CreativeData>::extractVariables(
     const std::string& snippet) const
 {
     std::vector<ExpandVariable> variables;
@@ -326,8 +264,8 @@ CreativeConfiguration<CreativeData>::extractVariables(
 }
 
 template <typename CreativeData>
-typename CreativeConfiguration<CreativeData>::ExpanderCallable
-CreativeConfiguration<CreativeData>::getAssociatedCallable(
+CreativeConfiguration::ExpanderCallable
+TypedCreativeConfiguration<CreativeData>::getAssociatedCallable(
     ExpandVariable const& var) const
 {
     auto it = expanderDict_.find(var.getVariable());
@@ -384,8 +322,8 @@ CreativeConfiguration<CreativeData>::getAssociatedCallable(
 
 
 template <typename CreativeData>
-typename CreativeConfiguration<CreativeData>::Expander
-CreativeConfiguration<CreativeData>::generateExpander(
+typename TypedCreativeConfiguration<CreativeData>::Expander
+TypedCreativeConfiguration<CreativeData>::generateExpander(
     const std::vector<ExpandVariable>& variables) const
 {
     Expander expander;
@@ -432,7 +370,8 @@ CreativeConfiguration<CreativeData>::generateExpander(
 }
 
 template <typename CreativeData>
-std::string CreativeConfiguration<CreativeData>::jsonValueToStr(
+std::string
+TypedCreativeConfiguration<CreativeData>::jsonValueToStr(
     Json::Value const& val) const
 {
     if (val.isUInt()) {
@@ -456,7 +395,7 @@ std::string CreativeConfiguration<CreativeData>::jsonValueToStr(
 
 template <typename CreativeData>
 std::string
-CreativeConfiguration<CreativeData>::expand(const std::string& templateString,
+TypedCreativeConfiguration<CreativeData>::expand(const std::string& templateString,
                                             const Context& context) const
 {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
@@ -464,38 +403,5 @@ CreativeConfiguration<CreativeData>::expand(const std::string& templateString,
     return expander.expand(templateString, context);
 }
 
-template <typename CreativeData>
-struct CreativeConfiguration<CreativeData>::Expander
-{
-    typedef std::vector<std::pair<ExpandVariable, ExpanderCallable>> FunctorCollection;
-
-    void addFunctor(const ExpandVariable& var, ExpanderCallable fn)
-    {
-        collection.push_back(std::make_pair(var, fn));
-    }
-
-    void finalize()
-    {
-        std::reverse(collection.begin(), collection.end());
-    }
-
-    std::string expand(std::string toExpand, const Context& ctx) const
-    {
-        for (auto& element : collection) {
-            auto const& var = element.first;
-            auto const& fn = element.second;
-
-            auto const& location = var.getReplaceLocation();
-
-            toExpand.replace(
-                location.first, location.second - location.first, fn(ctx));
-        }
-
-        return toExpand;
-    }
-
-    FunctorCollection collection;
-
-};
 
 } // namespace RTBKIT

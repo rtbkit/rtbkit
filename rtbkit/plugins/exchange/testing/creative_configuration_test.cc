@@ -7,6 +7,8 @@
 
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/plugins/exchange/creative_configuration.h"
+#include "rtbkit/plugins/exchange/creative_expander.h"
+#include "rtbkit/common/exchange_connector.h"
 
 const std::string providerConfigEmpty = R"FIXTURE(
 {
@@ -64,8 +66,9 @@ struct Dummy
 };
 }
 
+using RTBKIT::TypedCreativeConfiguration;
 using RTBKIT::CreativeConfiguration;
-typedef CreativeConfiguration<Dummy> TestCreativeConfiguration;
+typedef TypedCreativeConfiguration<Dummy> TestCreativeConfiguration;
 
 RTBKIT::Creative example1 = RTBKIT::Creative::sampleLB;
 RTBKIT::Creative example2 = RTBKIT::Creative::sampleBB;
@@ -194,13 +197,12 @@ const std::string EXPECTED = "testid";
 
 }
 
-typedef CreativeConfiguration<MyNiceStruct> CreativeConfigurationInst;
+typedef TypedCreativeConfiguration<MyNiceStruct> CreativeConfigurationInst;
 
-
-template <>
+template<>
 const std::string CreativeConfigurationInst::VARIABLE_MARKER_BEGIN = "{{{";
 
-template <>
+template<>
 const std::string CreativeConfigurationInst::VARIABLE_MARKER_END = "}}}";
 
 
@@ -277,4 +279,124 @@ BOOST_AUTO_TEST_CASE(test_error)
     example1.providerConfig = Json::parse(providerConfigInvalidVar);
     BOOST_CHECK_THROW(conf.handleCreativeCompatibility(example1, true),
                       std::runtime_error);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_global_expander)
+{
+    using namespace RTBKIT;
+
+    struct GlobalExpander : public RTBKIT::ExpanderBase {
+        void registerExpanders(CreativeConfiguration& config) {
+            config.addExpanderVariable("location",
+                    [](const CreativeConfiguration::Context& context) {
+                        return "mrs";
+            });
+        }
+    };
+
+    PluginInterface<ExpanderBase>::registerPlugin("global",
+            []() { return new GlobalExpander(); });
+
+    struct CreativeInfo { };
+
+    typedef TypedCreativeConfiguration<CreativeInfo> MyCreativeConfig;
+
+    MyCreativeConfig config("dummy");
+    config.addField("snippet",
+        [](const Json::Value& value, CreativeInfo&)
+        {
+            return true;
+        }
+    ).snippet();
+
+    example1.providerConfig = Json::parse(
+            R"JSON(
+                {
+                    "dummy": {
+                        "snippet": "%{location}"
+                    }
+                }
+            )JSON");
+
+    config.handleCreativeCompatibility(example1, true);
+
+
+    RTBKIT::BidRequest br;
+    br.auctionId = Datacratic::Id("1");
+
+    RTBKIT::Auction::Response response;
+    MyCreativeConfig::Context context {
+        example1, response, br, 0
+    };
+
+    BOOST_CHECK_EQUAL(config.expand("%{location}", context), "mrs");
+}
+
+BOOST_AUTO_TEST_CASE(test_exchange_expander)
+{
+    using namespace RTBKIT;
+
+    struct DummyExchangeConnector : public RTBKIT::ExchangeConnector {
+        DummyExchangeConnector()
+            : ExchangeConnector("dummy")
+        { }
+
+        std::string exchangeName() const { return exchangeNameString(); }
+        static std::string exchangeNameString() { return "dummy"; }
+
+        void configure(const Json::Value& parameters) { }
+        void enableUntil(Datacratic::Date date) { }
+    };
+
+
+    struct DummyExpander : public RTBKIT::ExchangeExpander<DummyExchangeConnector> {
+        void registerExchangeExpanders(CreativeConfiguration& config) {
+            config.addExpanderVariable("city",
+                    [](const CreativeConfiguration::Context& context) {
+                        return "mtl";
+            });
+        }
+    };
+
+    PluginInterface<ExpanderBase>::registerPlugin("dummy",
+            []() { return new DummyExpander(); });
+
+    auto test = [](const char* name, const char* expected) {
+
+        struct CreativeInfo { };
+
+        typedef TypedCreativeConfiguration<CreativeInfo> MyCreativeConfig;
+
+        MyCreativeConfig config(name);
+        config.addField("snippet",
+            [](const Json::Value& value, CreativeInfo&)
+            {
+                return true;
+            }
+        ).snippet();
+
+        Json::Value provConf;
+        provConf["snippet"] = "%{city}";
+
+        example1.providerConfig[name] = provConf;
+        std::cout << example1.providerConfig;
+
+        config.handleCreativeCompatibility(example1, true);
+
+        RTBKIT::BidRequest br;
+        br.auctionId = Datacratic::Id("1");
+
+        RTBKIT::Auction::Response response;
+        MyCreativeConfig::Context context {
+            example1, response, br, 0
+        };
+
+        BOOST_CHECK_EQUAL(config.expand("%{city}", context), expected);
+    };
+
+    test("dummy", "mtl");
+
+    // Note that it currently throws because %{city} is an unknown variable for rubicon.
+    BOOST_CHECK_THROW(test("rubicon", "%{city}"), std::runtime_error);
 }

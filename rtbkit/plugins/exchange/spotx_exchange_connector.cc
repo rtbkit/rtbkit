@@ -22,28 +22,28 @@ Logging::Category SpotXExchangeConnector::warning("SpotXExchangeConnector Warnin
 
 SpotXExchangeConnector::SpotXExchangeConnector(
         ServiceBase& owner, std::string name)
-    : OpenRTBExchangeConnector(owner, std::move(name))
-    , creativeConfig("spotx")
+    : OpenRTBExchangeConnector(owner, std::move(name)),
+      configuration_("spotx")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
-    initCreativeConfiguration();
+    init();
 }
 
 SpotXExchangeConnector::SpotXExchangeConnector(
         std::string name, std::shared_ptr<ServiceProxies> proxies)
-    : OpenRTBExchangeConnector(std::move(name), std::move(proxies))
-    , creativeConfig("spotx")
+    : OpenRTBExchangeConnector(std::move(name), std::move(proxies)),
+      configuration_("spotx")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
-    initCreativeConfiguration();
+    init();
 }
 
 void
-SpotXExchangeConnector::initCreativeConfiguration()
+SpotXExchangeConnector::init()
 {
-    creativeConfig.addField(
+    configuration_.addField(
         "adm",
         [](const Json::Value& value, CreativeInfo& info) {
             Datacratic::jsonDecode(value, info.adm);
@@ -58,7 +58,7 @@ SpotXExchangeConnector::initCreativeConfiguration()
             return true;
     }).snippet();
 
-    creativeConfig.addField(
+    configuration_.addField(
         "adomain",
         [](const Json::Value& value, CreativeInfo& info) {
             Datacratic::jsonDecode(value, info.adomain);
@@ -69,7 +69,7 @@ SpotXExchangeConnector::initCreativeConfiguration()
             return true;
     }).required();
 
-    creativeConfig.addField(
+    configuration_.addField(
         "adid",
         [](const Json::Value& value, CreativeInfo& info) {
             Datacratic::jsonDecode(value, info.adid);
@@ -161,7 +161,7 @@ SpotXExchangeConnector::getCreativeCompatibility(
         }
     }
 
-    return creativeConfig.handleCreativeCompatibility(creative, includeReasons);
+    return configuration_.handleCreativeCompatibility(creative, includeReasons);
 }
 
 void
@@ -222,7 +222,7 @@ SpotXExchangeConnector::setSeatBid(
 
     bid.adomain = creativeInfo->adomain;
     bid.adid = Id(creativeInfo->adid);
-    bid.adm = creativeConfig.expand(creativeInfo->adm, context);
+    bid.adm = configuration_.expand(creativeInfo->adm, context);
 
     response.bidid = Id(campaignInfo->bidid);
     response.cur = "USD";

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "soa/service/logs.h"
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/plugins/exchange/creative_configuration.h"
 
@@ -49,6 +50,7 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CreativeInfo {
         std::string adm;                                ///< Ad markup
+        std::string nurl;                               ///< Nurl the VAST url
         std::vector<std::string> adomain;               ///< Advertiser domains
         Id cid;                                         ///< Optional Campaign ID
         Id crid;                                        ///< Creative ID
@@ -56,9 +58,6 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
         std::string ext_creativeapi;                    ///< Creative API
     };
 
-    typedef CreativeConfiguration<CreativeInfo> RubiconCreativeConfiguration;
-
-    void init();
 
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,
@@ -69,11 +68,18 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
                                 const std::string & winPriceStr);
 
 private:
+    void init();
+
+    typedef TypedCreativeConfiguration<CreativeInfo> RubiconCreativeConfiguration;
+    RubiconCreativeConfiguration configuration_;
+    
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;
 
-    RubiconCreativeConfiguration configuration_;
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
 };
 
 
