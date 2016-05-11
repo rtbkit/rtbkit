@@ -81,7 +81,7 @@ doOptions(int argc, char ** argv,
         ("slowModeTimeout", value<int>(&slowModeTimeout),
          "number of seconds after which the system consider to be in SlowMode")
         ("slowModeTolerance", value<int>(&slowModeTolerance),
-         "number of seconds allowed to bid normally since last successful monitor check") 
+         "number of seconds allowed to bid normally since last successful monitor check")
         ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
          "don't connect to the post auction loop")
         ("no-bidprob", bool_switch(&noBidProb),
@@ -124,7 +124,7 @@ doOptions(int argc, char ** argv,
         .add(bankerArgs.makeProgramOptions());
     all_opt.add_options()
         ("help,h", "print this message");
-    
+
     variables_map vm;
     store(command_line_parser(argc, argv)
           .options(all_opt)
@@ -173,7 +173,10 @@ init()
                                       enableBidProbability,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout, amountSlowModeMoneyLimit, augmentationWindow);
+                                      slowModeTimeout,
+                                      amountSlowModeMoneyLimit,
+                                      augmentationWindow,
+                                      exchangeConfig.get("numAugmentationLoops", 1).asInt());
     router->slowModeTolerance = slowModeTolerance;
     router->initBidderInterface(bidderConfig);
     if (dableSlowMode) {

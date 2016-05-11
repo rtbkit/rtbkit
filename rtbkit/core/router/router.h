@@ -113,7 +113,8 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5));
+           Seconds augmentationWindow = std::chrono::milliseconds(5),
+           int numAugmentationLoops = 1);
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -125,7 +126,8 @@ struct Router : public ServiceBase,
            Amount maxBidAmount = USD_CPM(40),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
            Amount slowModeAuthorizedMoneyLimit = USD_CPM(100),
-           Seconds augmentationWindow = std::chrono::milliseconds(5));
+           Seconds augmentationWindow = std::chrono::milliseconds(5),
+           int numAugmentationLoops = 1);
 
     ~Router();
 
@@ -194,7 +196,7 @@ struct Router : public ServiceBase,
 
     /** How many things (auctions, etc) are non-idle? */
     virtual size_t numNonIdle() const;
-    
+
     virtual void shutdown();
 
     /** Iterate exchanges */
@@ -248,7 +250,7 @@ struct Router : public ServiceBase,
         exchanges.emplace_back(ML::make_unowned_std_sp(exchange));
         connectExchange(exchange);
     }
-    
+
     /** Register the exchange */
     void addExchange(std::unique_ptr<ExchangeConnector> && exchange)
     {
@@ -294,9 +296,9 @@ struct Router : public ServiceBase,
     */
     void injectAuction(std::shared_ptr<Auction> auction,
                        double lossTime = INFINITY);
-    
+
     /** Inject an auction into the router given its components.
-        
+
         onAuctionFinished: this is the callback that will be called once
                            the auction is finished
         requestStr:        JSON string with the bid request
@@ -363,17 +365,17 @@ struct Router : public ServiceBase,
     /** Return information about all agents bidding on the given
         account. */
     Json::Value getAccountInfo(const AccountKey & account) const;
-    
+
     /** Multiplier for the bid probability of all agents. */
     void setGlobalBidProbability(double val) { globalBidProbability = val; }
-    
-    /** Proportion of bids that should be rejected with an arbitrary 
+
+    /** Proportion of bids that should be rejected with an arbitrary
         error.
     */
     void setBidsErrorRate(double val) { bidsErrorRate = val; }
 
-    /** Proportion of bids that should be rejected with an out of budget 
-        error. 
+    /** Proportion of bids that should be rejected with an out of budget
+        error.
     */
     void setBudgetErrorRate(double val) { budgetErrorRate = val; }
 
@@ -783,7 +785,7 @@ public:
     /** Debug only */
     bool doDebug;
 
-    /* Disable auction probability for testing only : don't drop any BR*/ 
+    /* Disable auction probability for testing only : don't drop any BR*/
     bool disableAuctionProb;
 
     mutable ML::Spinlock debugLock;
@@ -801,7 +803,7 @@ public:
     MonitorClient monitorClient;
     // TODO Make this thread safe
     Date slowModeLastAuction;
-    std::atomic<bool> slowModePeriodicSpentReached;    
+    std::atomic<bool> slowModePeriodicSpentReached;
     Amount slowModeAuthorizedMoneyLimit;
     uint64_t accumulatedBidMoneyInThisPeriod;
 
@@ -811,13 +813,15 @@ public:
 
     Amount maxBidAmount;
 
-
     /* MonitorProvider interface */
     std::string getProviderClass() const;
     MonitorIndicator getProviderIndicators() const;
 
     double slowModeTolerance;
     Seconds augmentationWindow;
+
+    int numAugmentationLoops;
+    std::vector<std::shared_ptr<AugmentationLoop>> augmentationLoops;
 };
 
 
