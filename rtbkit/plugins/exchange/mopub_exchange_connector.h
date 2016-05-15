@@ -58,7 +58,6 @@ struct MoPubExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CampaignInfo {
         Id seat;          ///< ID of the MoPub exchange seat
-        std::string iurl; ///< Image URL for content checking
     };
 
     virtual ExchangeCompatibility
@@ -71,6 +70,7 @@ struct MoPubExchangeConnector: public OpenRTBExchangeConnector {
     struct CreativeInfo {
         std::string adm;                                ///< Ad markup
         std::vector<std::string> adomain;               ///< Advertiser domains
+        std::string iurl;                               ///< Image URL for content checking
         Id crid;                                        ///< Creative ID
         std::set<std::string> cat;                      ///< Creative category Appendix 6.1
         std::set<int>  type;                            ///< Creative type Appendix 6.2

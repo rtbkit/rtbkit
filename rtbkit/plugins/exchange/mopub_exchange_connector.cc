@@ -85,18 +85,6 @@ getCampaignCompatibility(const AgentConfig & config,
         return result;
     }
 
-    try {
-        cpinfo->iurl = pconf["iurl"].asString();
-        if (!cpinfo->iurl.size())
-            result.setIncompatible("providerConfig.mopub.iurl is null",
-                                   includeReasons);
-    } catch (const std::exception & exc) {
-        result.setIncompatible
-        (string("providerConfig.mopub.iurl parsing error: ")
-         + exc.what(), includeReasons);
-        return result;
-    }
-
     result.info = cpinfo;
 
     return result;
@@ -211,6 +199,12 @@ getCreativeCompatibility(const Creative & creative,
         ("creative[].providerConfig.mopub.nurl is empty",
          includeReasons);
 
+    getAttr(result, pconf, "iurl", crinfo->iurl, includeReasons);
+    if (crinfo->iurl.empty())
+        result.setIncompatible
+        ("creative[].providerConfig.mopub.iurl is empty",
+         includeReasons);
+
     // Cache the information
     result.info = crinfo;
 
@@ -247,81 +241,16 @@ parseBidRequest(HttpAuctionHandler & connection,
     //4) per slot: check for mraid object.. not supported for now
     std::vector<int> intv;
     for (auto& spot: res->imp) {
-        for (const auto& t: spot.banner->btype) {
-            intv.push_back (t.val);
-        }
-        spot.restrictions.addInts("blockedTypes", intv);
-        intv.clear();
-        for (const auto& a: spot.banner->battr) {
-            intv.push_back (a.val);
-        }
-        spot.restrictions.addInts("blockedAttrs", intv);
-
-        // Check for a video bid
-        if(spot.ext.isMember("video")) {
-            auto video = spot.ext["video"];
-
-            if(video.isMember("linearity")) {
-                spot.video->linearity.val = video["linearity"].asInt();
+        if(spot.banner.get()){
+            for (const auto& t: spot.banner->btype) {
+                intv.push_back (t.val);
             }
-
-            if(video.isMember("type")) {
-
-                bool vast = false;
-                bool html = false;
-                // Type is defined as an array in MoPub 2.1 spec
-                for(auto it = video["type"].begin(); it != video["type"].end(); it++) {
-                    
-                    const std::string &s = (*it).asString();
-
-                    if(s == "VAST 2.0") {
-                        // If VAST 2.0 is there.. protocol will be 2
-                        // according to Table 6.7 of OpenRTB 2.1
-                        spot.video->protocol.val = 2;
-                        vast = true;
-                    }
-
-                    if(s == "HTML5") {
-                        // Not sure what to do with this
-                        html = true;
-                    }
-                }
-
-                if(html && vast) {
-                    // TO DO figure out which openrtb video protocol when we have both these tags
-                    // for now, assume protocol = vast 2.0
-                    spot.video->protocol.val = 2;
-                }
+            spot.restrictions.addInts("blockedTypes", intv);
+            intv.clear();
+            for (const auto& a: spot.banner->battr) {
+                intv.push_back (a.val);
             }
-
-            /** Minimum video duration
-             *  Maximum video duration
-             *  Making sure that max >= min
-             */
-
-            int minduration = -1;
-
-            if(video.isMember("minduration")) {
-                minduration = video["minduration"].asInt();
-                spot.video->minduration = minduration;   
-            }
-
-            if(video.isMember("maxduration")) {
-                if(video.isMember("minduration") && 
-                   minduration <= video["maxduration"].asInt()) {
-                    spot.video->maxduration = video["maxduration"].asInt();   
-                } else {
-                    // Makes no sense that maxduration < minduration
-                    THROW(mopubExchangeConnectorError) << "minduration cannot be higher than maxduration" << endl;
-                }
-            }
-
-            // Since MoPub removes the Mime type, we will add none as a Mime-Type
-            spot.video->mimes.push_back(OpenRTB::MimeType("none"));
-
-            // Note : There is no need to add height and width since they
-            // should be included in the banner object and thus will be populated
-            // in the format object of the AdSpot object.
+            spot.restrictions.addInts("blockedAttrs", intv);
         }
 
         if(spot.ext.isMember("mraid")) {
@@ -390,7 +319,7 @@ setSeatBid(Auction const & auction,
     b.adm = crinfo->adm;
     b.adomain = crinfo->adomain;
     b.crid = crinfo->crid;
-    b.iurl = cpinfo->iurl;
+    b.iurl = crinfo->iurl;
     b.nurl = crinfo->nurl;
 }
 

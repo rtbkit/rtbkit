@@ -1,0 +1,137 @@
+{
+    "app": {
+        "bundle": "com.withbuddies.dice.free",
+        "cat": [
+            "IAB24",
+            "IAB9",
+            "IAB9-30",
+            "games",
+            "social_networking"
+        ],
+        "id": "agltb3B1Yi1pbmNyDAsSA0FwcBjZnfkSDA",
+        "name": "Dice with Buddies Free Android",
+        "publisher": {
+            "id": "agltb3B1Yi1pbmNyEAsSB0FjY291bnQY-afzEgw",
+            "name": "Scopely, Inc."
+        },
+        "ver": "4.4.1"
+    },
+    "at": 2,
+    "badv": [
+        "ads.undertone.com",
+        "benjaminmoore.com",
+        "club1616.com",
+        "dice",
+        "durex",
+        "fab.com",
+        "garmin.com",
+        "gmogame.com",
+        "hbo.com",
+        "jumptap",
+        "makeitrain:vegasstyle.bigfish.com",
+        "marriott.com",
+        "millennial",
+        "mtv.com",
+        "pretiointeractive.com",
+        "scopely.com",
+        "skeeball",
+        "squaremeals.org",
+        "texasagriculture.gov",
+        "tresensa.com",
+        "usaa.com",
+        "withbuddies.com/dice",
+        "www.maginteractive.com"
+    ],
+    "bcat": [
+        "IAB7-28",
+        "IAB7-39",
+        "IAB7-42",
+        "IAB7-44",
+        "IAB8-5",
+        "IAB8-18",
+        "IAB9-7",
+        "IAB9-9",
+        "IAB9-30",
+        "IAB11",
+        "IAB14-1",
+        "IAB14-3",
+        "IAB23",
+        "IAB25",
+        "IAB25-1",
+        "IAB25-2",
+        "IAB25-3",
+        "IAB25-4",
+        "IAB25-5",
+        "IAB25-6",
+        "IAB25-7",
+        "IAB26",
+        "IAB26-1",
+        "IAB3-7"
+    ],
+    "device": {
+        "carrier": "311-480",
+        "connectiontype": 3,
+        "devicetype": 1,
+        "dnt": 0,
+        "dpidmd5": "d234756be489bf6a88cc191485c9521e",
+        "dpidsha1": "5c01efdc654f1aaeacb69dd0431ead692c04c803",
+        "ext": {
+            "idfa": "3a6d402f-b25a-4c19-b051-5579c393f915"
+        },
+        "geo": {
+            "city": "West Des Moines",
+            "country": "USA",
+            "lat": 42.306305,
+            "lon": -95.06543,
+            "metro": "679",
+            "region": "IA",
+            "zip": "50265"
+        },
+        "ip": "70.198.38.243",
+        "js": 1,
+        "make": "samsung",
+        "model": "SCH-I545",
+        "os": "Android",
+        "osv": "5.0.1",
+        "ua": "Mozilla/5.0 (Linux; Android 5.0.1; SCH-I545 Build/LRX22C; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/43.0.2357.121 Mobile Safari/537.36"
+    },
+    "id": "4e18ed9d-2dab-484e-a198-f0dcf83d1692",
+    "imp": [
+        {
+            "bidfloor": 5.54,
+            "displaymanager": "mopub",
+            "displaymanagerver": "3.3.0",
+            "id": "1",
+            "instl": 1,
+            "tagid": "8eb488b794f24cb3bf9533fcab9ca315",
+            "video": {
+                "battr": [
+                    1,
+                    7,
+                    8,
+                    9,
+                    10,
+                    13,
+                    14
+                ],
+                "h": 320,
+                "linearity": 1,
+                "maxduration": 120,
+                "mimes": [
+                    "video/mp4",
+                    "video/.3gp"
+                ],
+                "minduration": 16,
+                "protocol": 2,
+                "protocols": [
+                    2,
+                    5
+                ],
+                "w": 480
+            }
+        }
+    ],
+    "user": {
+        "keywords": "versionCode:2104410629,applicationId:com.withbuddies.dice.free,version:4.4.1,userId:34640647"
+    }
+}

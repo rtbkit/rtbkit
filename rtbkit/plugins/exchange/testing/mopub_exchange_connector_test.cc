@@ -17,6 +17,7 @@
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/mopub_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
@@ -28,9 +29,6 @@
 
 
 using namespace RTBKIT;
-
-
-const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/mopub_bid_request.json");
 
 
 std::string loadFile(const std::string & filename)
@@ -48,8 +46,8 @@ std::string loadFile(const std::string & filename)
     return result;
 }
 
-BOOST_AUTO_TEST_CASE( test_mopub )
-{
+void test_request(const std::string& bid_sample_filename, int num_bids){
+
     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     // The agent config service lets the router know how our agent is configured
@@ -118,6 +116,7 @@ BOOST_AUTO_TEST_CASE( test_mopub )
         c.providerConfig["mopub"]["cat"] = "IAB14";
         c.providerConfig["mopub"]["adomain"][0] = "rtbkit.org";
         c.providerConfig["mopub"]["crid"] = c.name;
+        c.providerConfig["mopub"]["crtype"] = "Image Ad";
         c.providerConfig["mopub"]["iurl"] = "http://www.gnu.org";
         c.providerConfig["mopub"]["nurl"]
             = "<img src=\"http://dsp.com/creative.png?width="
@@ -186,10 +185,38 @@ BOOST_AUTO_TEST_CASE( test_mopub )
     source.write(httpRequest);
     std::cerr << source.read() << std::endl;
 
-    BOOST_CHECK_EQUAL(agent.numBidRequests, 1);
+    BOOST_CHECK_EQUAL(agent.numBidRequests, num_bids);
 
     proxies->events->dump(std::cerr);
 
     router.shutdown();
     agentConfig.shutdown();
+}
+
+BOOST_AUTO_TEST_CASE( test_mopub )
+{
+    std::string bid_sample_filename(
+        "rtbkit/plugins/exchange/testing/mopub_bid_request.json");
+    test_request(bid_sample_filename, 1);
+}
+
+BOOST_AUTO_TEST_CASE( test_mopub_no_banner )
+{
+    std::string bid_sample_filename(
+        "rtbkit/plugins/exchange/testing/mopub_bid_request_no_banner.json");
+    test_request(bid_sample_filename, 0);
+}
+
+BOOST_AUTO_TEST_CASE( test_mopub_video_request )
+{
+    std::string bid_sample_filename(
+        "rtbkit/plugins/exchange/testing/mopub_bid_request_no_banner.json");
+    std::string strJson = loadFile(bid_sample_filename);
+    std::shared_ptr<BidRequest> res;
+    ML::Parse_Context context("Bid Request", strJson.c_str(), strJson.size());
+    res.reset(
+        OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->
+                    parseBidRequest(context, "mopub", "mopub"));
+    BOOST_CHECK_EQUAL(res->imp[0].video->h.value(), 320);
+    BOOST_CHECK_EQUAL(res->imp[0].video->w.value(), 480);
 }
