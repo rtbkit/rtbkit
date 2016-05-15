@@ -225,6 +225,11 @@ initBidderInterface(Json::Value const & json)
 }
 
 void
+Router::initAugmentorInterface(Json::Value const & json)
+{
+}
+
+void
 Router::
 initAnalytics(const string & baseUrl, const int numConnections)
 {
@@ -355,7 +360,7 @@ initFilters(const Json::Value & config) {
 
 void
 Router::
-init()
+init(const Json::Value& augmentorConfig)
 {
     ExcAssert(!initialized);
 
@@ -371,7 +376,7 @@ init()
         initBidderInterface(json);
     }
 
-    augmentationLoop.init();
+    augmentationLoop.init(augmentorConfig);
 
     logger.init(getServices()->config, serviceName() + "/logger");
 

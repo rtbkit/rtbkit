@@ -144,6 +144,9 @@ struct Router : public ServiceBase,
     /** Initialize the bidder interface. */
     void initBidderInterface(Json::Value const & json);
 
+    /** Initialize the augmentation loop interface. */
+    void initAugmentorInterface(Json::Value const & json);
+
     /** Initialize analytics if it is used. */
     void initAnalytics(const std::string & baseUrl, const int numConnections);
 
@@ -154,7 +157,7 @@ struct Router : public ServiceBase,
     void initFilters(const Json::Value & config = Json::Value::null);
 
     /** Initialize all of the internal data structures and configuration. */
-    void init();
+    void init(const Json::Value& augmentorConfig = Json::Value::null);
 
     /** Bind to TCP/IP ports and publish where to connect to. */
     void bindTcp();

@@ -42,6 +42,8 @@ struct RestParams
 
     static RestParams fromBinary(const std::string & binary);
     std::string toBinary() const;
+
+    static RestParams fromString(const std::string& headers);
 };
 
 
