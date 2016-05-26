@@ -14,19 +14,16 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
-#include <curlpp/Easy.hpp>
-#include <curlpp/Info.hpp>
-#include <curlpp/Infos.hpp>
-#include <curlpp/Options.hpp>
-
 #include "jml/arch/exception.h"
 #include "jml/arch/timers.h"
 #include "jml/utils/filter_streams.h"
+#include "soa/service/curl_wrapper.h"
+#include "soa/service/http_header.h"
 
 
 using namespace std;
 using namespace boost::program_options;
-using namespace curlpp;
+using namespace Datacratic;
 
 
 int deltaDelayMs(const struct timeval & oldTime,
@@ -62,7 +59,7 @@ struct JsonFeeder {
     {
         int sampleNum;
         struct timeval lastRequest;
-        Easy client;
+        CurlWrapper::Easy client;
 
         for (sampleNum = 0; jsonStream && sampleNum < nSamples;
              sampleNum++) {
@@ -92,21 +89,29 @@ struct JsonFeeder {
             }
 
             /* perform request */
-            client.setOpt(options::Url(serverUri));
+            client.add_option(CURLOPT_URL, serverUri);
         
-            client.setOpt(options::Post(true));
-            client.setOpt(options::PostFields(current));
+            client.add_option(CURLOPT_POST, true);
+            client.add_option(CURLOPT_POSTFIELDSIZE, current.size());
+            client.add_data_option(CURLOPT_POSTFIELDS, current.c_str());
 
-            list<string> headers;
-            headers.push_back("Content-Type: application/json");
-            headers.push_back("Expect:"); /* avoid dual-phase post */
-            client.setOpt(options::HttpHeader(headers));
+            RestParams headers;
+            headers.emplace_back(make_pair("Content-Type", "application/json"));
+            headers.emplace_back(make_pair("Expect", ""));
+            client.add_header_option(headers);
 
             /* separate response headers from body and store response body in "body" */
-            stringstream body;
-            client.setOpt(options::TcpNoDelay(true));
-            client.setOpt(options::Header(false));
-            client.setOpt(options::WriteStream(&body));
+            string response;
+            CurlWrapper::Easy::CurlCallback onWriteData
+                = [&] (char * data, size_t ofs1, size_t ofs2) {
+                size_t total(ofs1 * ofs2);
+                response.append(data, total);
+                return total;
+            };
+            client.add_callback_option(CURLOPT_WRITEFUNCTION, CURLOPT_WRITEDATA,
+                                       onWriteData);
+            client.add_option(CURLOPT_TCP_NODELAY, true);
+            client.add_option(CURLOPT_HEADER, false);
             client.perform();
 
             if (delayMs > 0) {
@@ -125,9 +130,10 @@ struct JsonFeeder {
             }
 
             if (printResponses) {
-                int code = infos::ResponseCode::get(client);
+                long int code;
+                client.get_info(CURLINFO_RESPONSE_CODE, code);
                 cerr << "resp. code: " << code << endl
-                     << "resp. body: " << body.str() << endl;
+                     << "resp. body: " << response << endl;
             }
         }
 

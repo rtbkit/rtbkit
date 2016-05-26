@@ -128,7 +128,11 @@ private:
             try {
                 if (string_int_equals(key, config.externalId)) {
                     const auto& crids = *it;
+                    const auto& id = std::to_string(creative.id);
                     return find_if(crids.begin(), crids.end(), [&](const Json::Value& value) {
+                        if(value.isString()) {
+                            return value.asString() == id;
+                        }
                         return value.isIntegral() && value.asInt() == creative.id;
                     }) != crids.end();
                 }

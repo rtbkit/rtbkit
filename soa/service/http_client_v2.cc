@@ -310,7 +310,9 @@ void
 HttpConnection::
 finalizeEndOfRq(TcpConnectionCode code)
 {
-    request_.callbacks_->onDone(request_, translateError(code));
+    if (request_.callbacks_) {
+        request_.callbacks_->onDone(request_, translateError(code));
+    }
     clear();
     onDone(code);
 }

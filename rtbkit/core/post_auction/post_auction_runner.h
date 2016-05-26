@@ -32,11 +32,12 @@ struct PostAuctionRunner {
     float auctionTimeout;
     float winTimeout;
     std::string bidderConfigurationFile;
+    std::string analyticsConfigurationFile;
 
     int winLossPipeTimeout;
     int campaignEventPipeTimeout;
-    bool analyticsOn;
-    int analyticsConnections;
+    bool analyticsPublisherOn;
+    int analyticsPublisherConnections;
 
     std::string forwardAuctionsUri;
     std::string localBankerUri;

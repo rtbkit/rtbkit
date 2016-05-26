@@ -5,16 +5,14 @@
 
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/common/currency.h"
-#include "rtbkit/common/json_holder.h"
+#include "rtbkit/common/analytics.h"
 
 #include "soa/service/logs.h"
+#include "soa/service/service_base.h"
+#include "soa/service/service_utils.h"
+#include "soa/types/date.h"
 
 #include "standard_adserver_connector.h"
-
-
-using namespace std;
-
-using namespace boost::program_options;
 
 using namespace RTBKIT;
 
@@ -22,18 +20,18 @@ Logging::Category adserverTrace("Standard Ad-Server connector");
 
 StandardAdServerConnector::
 StandardAdServerConnector(std::shared_ptr<ServiceProxies> & proxy,
-                           const string & serviceName)
-    : HttpAdServerConnector(serviceName, proxy),
-      publisher_(proxy->zmqContext)
+                          const std::string & serviceName)
+    : HttpAdServerConnector(serviceName, proxy)
 {
     initEventType(Json::Value());
 }
 
 StandardAdServerConnector::
-StandardAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
-                          Json::Value const & json) :
-    HttpAdServerConnector(serviceName, proxies),
-    publisher_(getServices()->zmqContext) {
+StandardAdServerConnector(std::string const & serviceName, 
+                          std::shared_ptr<ServiceProxies> const & proxies,
+                          Json::Value const & json)
+    : HttpAdServerConnector(serviceName, proxies)
+{
     int winPort = json.get("winPort", 18143).asInt();
     int eventsPort = json.get("eventsPort", 18144).asInt();
     verbose = json.get("verbose", false).asBool();
@@ -64,7 +62,8 @@ initEventType(const Json::Value &json) {
 
 void
 StandardAdServerConnector::
-init(int winsPort, int eventsPort, bool verbose, bool analyticsOn, int analyticsConnections)
+init(int winsPort, int eventsPort, bool verbose, 
+     bool analyticsPublisherOn, int analyticsPublisherConnections)
 {
     if(!verbose) {
         adserverTrace.deactivate();
@@ -79,13 +78,12 @@ init(int winsPort, int eventsPort, bool verbose, bool analyticsOn, int analytics
     registerEndpoint(eventsPort, bind(delivery, this, _1, _2, _3));
 
     HttpAdServerConnector::init(services->config);
-    publisher_.init(services->config, serviceName_ + "/logger");
 
-    if (analyticsOn) {
-        const auto & analyticsUri = services->params["analytics-uri"].asString();
-        if (!analyticsUri.empty()) {
-            cout << "analyticsURI: " << analyticsUri << endl;
-            analytics_.init(analyticsUri, analyticsConnections);
+    if (analyticsPublisherOn) {
+        const auto & analyticsPublisherUri = services->params["analytics-uri"].asString();
+        if (!analyticsPublisherUri.empty()) {
+            cout << "analyticsURI: " << analyticsPublisherUri << endl;
+            analyticsPublisher_.init(analyticsPublisherUri, analyticsPublisherConnections);
         }
         else cout << "analytics-uri is not in the config" << endl;
     }
@@ -105,9 +103,7 @@ start()
 {
     bindTcp();
 
-    publisher_.bindTcp(getServices()->ports->getRange("adServer.logger"));
-    publisher_.start();
-    analytics_.start();
+    analyticsPublisher_.start();
     HttpAdServerConnector::start();
 }
 
@@ -115,8 +111,7 @@ void
 StandardAdServerConnector::
 shutdown()
 {
-    publisher_.shutdown();
-    analytics_.shutdown();
+    analyticsPublisher_.shutdown();
     HttpAdServerConnector::shutdown();
 }
 
@@ -154,7 +149,12 @@ handleWinRq(const HttpHeader & header,
      *  If null, we return an error response.
      */
     if (json.isMember("timestamp")) {
-        timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        if(json["timestamp"].isString()) {
+           double tm = stod(json["timestamp"].asString());
+           timestamp = Date::fromSecondsSinceEpoch(tm);
+        } else {
+            timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        }
 
         // Check if timestamp is finite when treated as seconds
         if(!timestamp.isADate()) {
@@ -249,9 +249,11 @@ handleWinRq(const HttpHeader & header,
     if(response.valid) {
         publishWin(bidRequestId, impId, winPrice, timestamp, Json::Value(), userIds,
                    AccountKey(passback), Date());
-        publisher_.publish("WIN", timestamp.print(3), bidRequestIdStr,
-                           impIdStr, winPrice.toString());
-        analytics_.publish("WIN", timestamp.print(3), bidRequestIdStr,
+        if (analytics) analytics->logStandardWinMessage(timestamp.print(3),
+                                                        bidRequestIdStr,
+                                                        impIdStr,
+                                                        winPrice.toString());
+        analyticsPublisher_.publish("WIN", timestamp.print(3), bidRequestIdStr,
                            impIdStr, winPrice.toString());
     }
 
@@ -274,7 +276,12 @@ handleDeliveryRq(const HttpHeader & header,
      *  If null, we return an error response.
      */
     if (json.isMember("timestamp")) {
-        timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        if(json["timestamp"].isString()) {
+           double tm = stod(json["timestamp"].asString());
+           timestamp = Date::fromSecondsSinceEpoch(tm);
+        } else {
+            timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        }
         
         // Check if timestamp is finite when treated as seconds
         if(!timestamp.isADate()) {
@@ -373,9 +380,12 @@ handleDeliveryRq(const HttpHeader & header,
     if(response.valid) {
         publishCampaignEvent(eventType[event], bidRequestId, impId, timestamp,
                                  Json::Value(), userIds);
-        publisher_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
-                                impIdStr, userIds.toString());
-        analytics_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
+        if (analytics) analytics->logStandardEventMessage(eventType[event],
+                                                          timestamp.print(3),
+                                                          bidRequestIdStr,
+                                                          impIdStr,
+                                                          userIds.toString());
+        analyticsPublisher_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
                                 impIdStr, userIds.toString());
     }
     return response;
@@ -384,7 +394,7 @@ handleDeliveryRq(const HttpHeader & header,
 void
 StandardAdServerConnector::
 publishError(HttpAdServerResponse & resp) {
-    analytics_.publish("ADSERVER_ERROR", resp.error, resp.details);
+    analyticsPublisher_.publish("ADSERVER_ERROR", resp.error, resp.details);
 }
 
 namespace {

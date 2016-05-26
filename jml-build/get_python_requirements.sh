@@ -42,6 +42,9 @@ if [[ ! -f "$req_file" ]]; then
     exit 1
 fi
 
+# fail on first error
+set -e
+
 # Remove commented and empty lines & loop through the requirements
 grep -vE '^#|^$' $req_file | while read line
 do

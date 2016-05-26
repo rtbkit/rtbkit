@@ -445,16 +445,6 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
             BOOST_CHECK_EQUAL(errorCode, HttpClientError::None);
             BOOST_CHECK_EQUAL(status, 200);
 
-            int bodyNbr;
-            try {
-                bodyNbr = stoi(body);
-            }
-            catch (...) {
-                ::fprintf(stderr, "exception when parsing body: %s\n",
-                          body.c_str());
-                throw;
-            }
-
             if (numResponses == numReqs) {
                 ML::futex_wake(numResponses);
             }

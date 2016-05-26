@@ -30,6 +30,7 @@ AsyncWriterSource(const OnClosed & onClosed,
       closing_(false),
       readBufferSize_(readBufferSize),
       writeReady_(false),
+      writeReadyFlag_(false),
       queueEnabled_(false),
       queue_([&] { this->handleQueueNotification(); },
              maxMessages),
@@ -318,8 +319,9 @@ handleFdEvent(const ::epoll_event & event)
         handleClosing(true, true);
     }
 
-    if (fd_ != -1) {
+    if (fd_ != -1 && writeReady_ != writeReadyFlag_) {
         modifyFd(fd_, readBufferSize_ > 0, !writeReady_);
+        writeReadyFlag_ = writeReady_;
     }
 }
 

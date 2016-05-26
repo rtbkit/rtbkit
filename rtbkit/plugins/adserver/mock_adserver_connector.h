@@ -6,12 +6,11 @@
 
 */
 
-#include "soa/service/service_utils.h"
-#include "soa/service/service_base.h"
-#include "soa/service/json_endpoint.h"
-#include "soa/service/zmq_named_pub_sub.h"
 #include "rtbkit/plugins/adserver/http_adserver_connector.h"
 #include "rtbkit/common/auction_events.h"
+#include "soa/jsoncpp/value.h"
+
+namespace Datacratic { struct ServiceProxies; struct ServiceProxyArguments; }
 
 namespace RTBKIT {
 
@@ -27,29 +26,19 @@ namespace RTBKIT {
 
 struct MockAdServerConnector : public HttpAdServerConnector
 {
-    MockAdServerConnector(const std::string& serviceName,
-                          std::shared_ptr<Datacratic::ServiceProxies> proxies)
-        : HttpAdServerConnector(serviceName, proxies),
-          publisher(getServices()->zmqContext) {
-    }
+    MockAdServerConnector(const std::string & serviceName,
+                          const std::shared_ptr<Datacratic::ServiceProxies> & proxies,
+                          const Json::Value & json = Json::Value::null);
 
     MockAdServerConnector(Datacratic::ServiceProxyArguments & args,
-                          const std::string& serviceName)
-        : HttpAdServerConnector(serviceName, args.makeServiceProxies()),
-          publisher(getServices()->zmqContext) {
-    }
+                          const std::string & serviceName);
 
-    MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
-                          Json::Value const & json);
+    ~MockAdServerConnector();
 
     void init(int winPort, int eventPort);
     void start();
     void shutdown();
     HttpAdServerResponse handleEvent(PostAuctionEvent const & event);
-
-    /// Generic publishing endpoint to forward wins to anyone registered. Currently, there's only the
-    /// router that connects to this.
-    Datacratic::ZmqNamedPublisher publisher;
 };
 
 } // namepsace RTBKIT

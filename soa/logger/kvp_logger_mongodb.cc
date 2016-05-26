@@ -12,7 +12,8 @@ std::function<void()> KvpLoggerMongoDb
 {
     function<void()> init = [&] (){
         cerr << hostAndPort << endl;
-        conn.connect(hostAndPort);
+        mongo::HostAndPort mongoHostAndPort(hostAndPort);
+        conn.connect(mongoHostAndPort);
         string err;
         if(!conn.auth(db, user, pwd, err)){
             throw ML::Exception("MongoDB connection failed with msg [" 

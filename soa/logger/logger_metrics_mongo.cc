@@ -2,23 +2,14 @@
 #include "mongo/bson/bson.h"
 #include "mongo/util/net/hostandport.h"
 #include "jml/utils/string_functions.h"
-#include "soa/utils/mongo_init.h"
 
 namespace Datacratic{
 
 using namespace std;
 using namespace mongo;
-using namespace Datacratic;
 
-
-/****************************************************************************/
-/* LOGGER METRICS MONGO                                                     */
-/****************************************************************************/
-
-LoggerMetricsMongo::
-LoggerMetricsMongo(Json::Value config, const string & coll,
-                   const string & appName)
-    : ILoggerMetrics(coll)
+LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
+    const string& coll, const string& appName) : ILoggerMetrics(coll)
 {
     for(string s: {"hostAndPort", "database", "user", "pwd"}){
         if(config[s].isNull()){
@@ -42,30 +33,13 @@ LoggerMetricsMongo(Json::Value config, const string & coll,
         conn = tmpConn;
     }
     db = config["database"].asString();
-
-    auto impl = [&] (string mechanism) {
-        BSONObj b = BSON("user" << config["user"].asString()
-                  << "pwd" << config["pwd"].asString()
-                  << "mechanism" << mechanism
-                  << "db" << db);
-        try {
-            conn->auth(b);
-        }
-        catch (const UserException & _) {
-            return false;
-        }
-        return true;
-    };
-
-    if (!impl("SCRAM-SHA-1")) {
-        cerr << "Failed to authenticate with SCRAM-SHA-1, "
-                "trying with MONGODB-CR" << endl;
-        if (!impl("MONGODB-CR")) {
-            cerr << "Failed with MONGODB-CR as well" << endl;
-            throw ("Failed to auth");
-        }
+    string err;
+    if(!conn->auth(db, config["user"].asString(),
+                  config["pwd"].asString(), err))
+    {
+        throw ML::Exception(
+            "MongoDB connection failed with msg [%s]", err.c_str());
     }
-
     BSONObj obj = BSON(GENOID);
     conn->insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
@@ -195,12 +169,8 @@ void LoggerMetricsMongo
                 true);
 }
 
-std::string
-LoggerMetricsMongo::
-getProcessId()
-    const
-{
-    return objectId.toString();
+const std::string LoggerMetricsMongo::getProcessId() const{
+    return objectId.toString(); 
 }
 
 

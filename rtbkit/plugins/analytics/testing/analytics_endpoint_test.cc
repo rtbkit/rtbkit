@@ -1,4 +1,4 @@
-/* analytics_test.cc
+/* analytics_endpoint_test.cc
 
     Analytics plugin test
 */

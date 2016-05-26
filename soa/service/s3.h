@@ -18,8 +18,7 @@
 #include "jml/utils/filter_streams.h"
 #include "aws.h"
 #include "fs_utils.h"
-#include "http_endpoint.h"
-#include "http_rest_proxy.h"
+#include "http_header.h"
 
 #include "soa/types/basic_value_descriptions.h"
 #include "soa/types/value_description.h"
@@ -90,8 +89,6 @@ struct S3Api : public AwsApi {
     std::string defaultProtocol;
     std::string serviceUri;
     double bandwidthToServiceMbps;
-
-    typedef std::vector<std::pair<std::string, std::string> > StrPairVector;
 
     struct Content {
         Content()
@@ -171,8 +168,8 @@ struct S3Api : public AwsApi {
         Content content;
         Range downloadRange;
 
-        StrPairVector headers;
-        StrPairVector queryParams;
+        RestParams headers;
+        RestParams queryParams;
     };
 
     /** The response of a request.  Has a return code and a body. */
@@ -258,7 +255,7 @@ struct S3Api : public AwsApi {
         {
         }
 
-        std::vector<std::pair<std::string, std::string> >
+        RestParams
         getRequestHeaders() const;
 
         Redundancy redundancy;
@@ -296,8 +293,8 @@ struct S3Api : public AwsApi {
     Response head(const std::string & bucket,
                   const std::string & resource,
                   const std::string & subResource = "",
-                  const StrPairVector & headers = StrPairVector(),
-                  const StrPairVector & queryParams = StrPairVector())
+                  const RestParams & headers = RestParams(),
+                  const RestParams & queryParams = RestParams())
         const
     {
         return headEscaped(bucket, s3EscapeResource(resource), subResource,
@@ -309,8 +306,8 @@ struct S3Api : public AwsApi {
                  const std::string & resource,
                  const Range & downloadRange,
                  const std::string & subResource = "",
-                 const StrPairVector & headers = StrPairVector(),
-                 const StrPairVector & queryParams = StrPairVector())
+                 const RestParams & headers = RestParams(),
+                 const RestParams & queryParams = RestParams())
         const
     {
         return getEscaped(bucket, s3EscapeResource(resource), downloadRange,
@@ -322,8 +319,8 @@ struct S3Api : public AwsApi {
     Response post(const std::string & bucket,
                   const std::string & resource,
                   const std::string & subResource = "",
-                  const StrPairVector & headers = StrPairVector(),
-                  const StrPairVector & queryParams = StrPairVector(),
+                  const RestParams & headers = RestParams(),
+                  const RestParams & queryParams = RestParams(),
                   const Content & content = Content())
         const
     {
@@ -335,8 +332,8 @@ struct S3Api : public AwsApi {
     Response put(const std::string & bucket,
                  const std::string & resource,
                  const std::string & subResource = "",
-                 const StrPairVector & headers = StrPairVector(),
-                 const StrPairVector & queryParams = StrPairVector(),
+                 const RestParams & headers = RestParams(),
+                 const RestParams & queryParams = RestParams(),
                  const Content & content = Content())
         const
     {
@@ -348,8 +345,8 @@ struct S3Api : public AwsApi {
     Response erase(const std::string & bucket,
                    const std::string & resource,
                    const std::string & subResource = "",
-                   const StrPairVector & headers = StrPairVector(),
-                   const StrPairVector & queryParams = StrPairVector(),
+                   const RestParams & headers = RestParams(),
+                   const RestParams & queryParams = RestParams(),
                    const Content & content = Content())
         const
     {
@@ -577,39 +574,39 @@ struct S3Api : public AwsApi {
     Response headEscaped(const std::string & bucket,
                          const std::string & resource,
                          const std::string & subResource = "",
-                         const StrPairVector & headers = StrPairVector(),
-                         const StrPairVector & queryParams = StrPairVector()) const;
+                         const RestParams & headers = RestParams(),
+                         const RestParams & queryParams = RestParams()) const;
 
     /* get */
     Response getEscaped(const std::string & bucket,
                         const std::string & resource,
                         const Range & downloadRange,
                         const std::string & subResource = "",
-                        const StrPairVector & headers = StrPairVector(),
-                        const StrPairVector & queryParams = StrPairVector()) const;
+                        const RestParams & headers = RestParams(),
+                        const RestParams & queryParams = RestParams()) const;
 
     /* post */
     Response postEscaped(const std::string & bucket,
                          const std::string & resource,
                          const std::string & subResource = "",
-                         const StrPairVector & headers = StrPairVector(),
-                         const StrPairVector & queryParams = StrPairVector(),
+                         const RestParams & headers = RestParams(),
+                         const RestParams & queryParams = RestParams(),
                          const Content & content = Content()) const;
 
     /* put */
     Response putEscaped(const std::string & bucket,
                         const std::string & resource,
                         const std::string & subResource = "",
-                        const StrPairVector & headers = StrPairVector(),
-                        const StrPairVector & queryParams = StrPairVector(),
+                        const RestParams & headers = RestParams(),
+                        const RestParams & queryParams = RestParams(),
                         const Content & content = Content()) const;
 
     /* erase */
     Response eraseEscaped(const std::string & bucket,
                           const std::string & resource,
                           const std::string & subResource,
-                          const StrPairVector & headers = StrPairVector(),
-                          const StrPairVector & queryParams = StrPairVector(),
+                          const RestParams & headers = RestParams(),
+                          const RestParams & queryParams = RestParams(),
                           const Content & content = Content()) const;
 
     //easy handle for v8 wrapping

@@ -11,6 +11,7 @@
 #include "soa/types/date.h"
 #include "soa/types/url.h"
 #include "soa/utils/print_utils.h"
+#include "soa/service/curl_wrapper.h"
 #include "jml/arch/futex.h"
 #include "jml/arch/threads.h"
 #include "jml/arch/timers.h"
@@ -24,18 +25,6 @@
 #include "jml/utils/file_functions.h"
 #include "jml/utils/info.h"
 #include "xml_helpers.h"
-
-#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
-#include "crypto++/sha.h"
-#include "crypto++/md5.h"
-#include "crypto++/hmac.h"
-#include "crypto++/base64.h"
-
-#include <curlpp/cURLpp.hpp>
-#include <curlpp/Easy.hpp>
-#include <curlpp/Options.hpp>
-#include <curlpp/Info.hpp>
-#include <curlpp/Infos.hpp>
 
 #include <boost/iostreams/stream_buffer.hpp>
 #include <exception>
@@ -298,27 +287,19 @@ performSync() const
         size_t received(0);
 
         auto connection = owner->proxy.getConnection();
-        curlpp::Easy & myRequest = *connection;
+        CurlWrapper::Easy & myRequest = *connection;
         myRequest.reset();
 
-        using namespace curlpp;
-        using namespace curlpp::infos;
-
-        list<string> curlHeaders;
-        for (unsigned i = 0;  i < params.headers.size();  ++i) {
-            curlHeaders.emplace_back(params.headers[i].first + ": "
-                                     + params.headers[i].second);
-        }
-
-        curlHeaders.push_back("Date: " + params.date);
-        curlHeaders.push_back("Authorization: " + auth);
+        RestParams headers = params.headers;
+        headers.emplace_back(make_pair("Date", params.date));
+        headers.emplace_back(make_pair("Authorization", auth));
 
         if (useRange) {
             uint64_t end = currentRange.endPos();
-            string range = ML::format("range: bytes=%zd-%zd",
+            string range = ML::format("bytes=%zd-%zd",
                                       currentRange.offset, end);
             // ::fprintf(stderr, "%p: requesting %s\n", this, range.c_str());
-            curlHeaders.emplace_back(move(range));
+            headers.emplace_back(make_pair("range", range));
         }
 
         // cerr << "getting " << uri << " " << params.headers << endl;
@@ -333,42 +314,29 @@ performSync() const
 #endif
 
         //cerr << "!!!Setting params verb " << params.verb << endl;
-        myRequest.setOpt<options::CustomRequest>(params.verb);
+        myRequest.add_option(CURLOPT_CUSTOMREQUEST, params.verb);
 
-        myRequest.setOpt<options::Url>(uri);
-        //myRequest.setOpt<Verbose>(true);
-        myRequest.setOpt<options::ErrorBuffer>((char *)0);
-        myRequest.setOpt<options::Timeout>(timeout);
-        myRequest.setOpt<options::NoSignal>(1);
+        myRequest.add_option(CURLOPT_URL, uri);
+        myRequest.add_option(CURLOPT_TIMEOUT, timeout);
+        myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
 
         bool noBody = (params.verb == "HEAD");
         if (noBody) {
-            myRequest.setOpt<options::NoBody>(noBody);
+            myRequest.add_option(CURLOPT_NOBODY, noBody);
         }
 
-        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-        //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-        //     return 0;
-        // };
-
-        auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
+        CurlWrapper::Easy::CurlCallback onWriteData
+            = [&] (char * data, size_t ofs1, size_t ofs2) {
             size_t total = ofs1 * ofs2;
             received += total;
             responseBody.append(data, total);
             return total;
-            //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
         };
-
-        // auto onProgress = [&] (double p1, double p2,
-        //                        double p3, double p4) {
-        //     cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
-        //          << p4 << endl;
-        //     return 0;
-        // };
 
         bool afterContinue = false;
 
-        auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
+        CurlWrapper::Easy::CurlCallback onHeader
+            = [&] (char * data, size_t ofs1, size_t ofs2) {
             string headerLine(data, ofs1 * ofs2);
             if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
                 afterContinue = true;
@@ -384,31 +352,34 @@ performSync() const
             return ofs1 * ofs2;
         };
 
-        myRequest.setOpt<options::HeaderFunction>(onHeader);
-        myRequest.setOpt<options::WriteFunction>(onWriteData);
-        // myRequest.setOpt<BoostProgressFunction>(onProgress);
-        //myRequest.setOpt<Header>(true);
+        myRequest.add_callback_option(CURLOPT_HEADERFUNCTION, CURLOPT_HEADERDATA, onHeader);
+        myRequest.add_callback_option(CURLOPT_WRITEFUNCTION, CURLOPT_WRITEDATA, onWriteData);
+
         string s;
         if (params.content.data) {
             s.append(params.content.data, params.content.size);
         }
-        myRequest.setOpt<options::PostFields>(s);
-        myRequest.setOpt<options::PostFieldSize>(params.content.size);
-        curlHeaders.push_back(ML::format("Content-Length: %lld",
-                                         params.content.size));
-        curlHeaders.push_back("Transfer-Encoding:");
-        curlHeaders.push_back("Content-Type:");
-        myRequest.setOpt<options::HttpHeader>(curlHeaders);
 
-        try {
-            JML_TRACE_EXCEPTIONS(false);
-            myRequest.perform();
+        if (!noBody) {
+            myRequest.add_option(CURLOPT_POSTFIELDS, s);
+            myRequest.add_option(CURLOPT_POSTFIELDSIZE, params.content.size);
+            headers.emplace_back(make_pair("Content-Length", ML::format("%lld",
+                                                                        params.content.size)));
+
+            // This is needed for S3 to properly understand the request
+            headers.emplace_back(make_pair("Content-Type", ""));
         }
-        catch (const LibcurlRuntimeError & exc) {
+
+        myRequest.add_header_option(headers);
+
+        CURLcode res = myRequest.perform();
+
+        if (res != CURLE_OK) {
             string message("S3 operation failed with a libCurl error: "
-                           + string(curl_easy_strerror(exc.whatCode()))
-                           + " (" + to_string(exc.whatCode()) + ")\n"
+                           + string(curl_easy_strerror(res))
+                           + " (" + to_string(res) + ")\n"
                            + params.verb + " " + uri + "\n");
+
             if (responseHeaders.size() > 0) {
                 message += "headers:\n" + responseHeaders;
             }
@@ -421,8 +392,7 @@ performSync() const
             continue;
         }
 
-        curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
-                                responseCode);
+        myRequest.get_info(CURLINFO_RESPONSE_CODE, responseCode);
 
         if (responseCode >= 300 && responseCode != 404) {
             string message("S3 operation failed with HTTP code "
@@ -464,16 +434,12 @@ performSync() const
                 continue;
             }
             else {
-                throw ML::Exception("S3 error is unrecoverable");
+                string firstLine(responseHeaders, 0, responseHeaders.find('\n'));
+
+                throw ML::Exception("S3 error loading '%s': %s",
+                                    uri.c_str(), firstLine.c_str());
             }
         }
-
-        // double bytesUploaded;
-
-        // curlpp::InfoGetter::get(myRequest, CURLINFO_SIZE_UPLOAD,
-        //                         bytesUploaded);
-
-        //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
 
         Response response;
         response.code_ = responseCode;
@@ -556,8 +522,8 @@ S3Api::
 headEscaped(const std::string & bucket,
             const std::string & resource,
             const std::string & subResource,
-            const StrPairVector & headers,
-            const StrPairVector & queryParams) const
+            const RestParams & headers,
+            const RestParams & queryParams) const
 {
     RequestParams request;
     request.verb = "HEAD";
@@ -577,8 +543,8 @@ getEscaped(const std::string & bucket,
            const std::string & resource,
            const Range & downloadRange,
            const std::string & subResource,
-           const StrPairVector & headers,
-           const StrPairVector & queryParams) const
+           const RestParams & headers,
+           const RestParams & queryParams) const
 {
     RequestParams request;
     request.verb = "GET";
@@ -599,8 +565,8 @@ S3Api::
 postEscaped(const std::string & bucket,
             const std::string & resource,
             const std::string & subResource,
-            const StrPairVector & headers,
-            const StrPairVector & queryParams,
+            const RestParams & headers,
+            const RestParams & queryParams,
             const Content & content) const
 {
     RequestParams request;
@@ -621,8 +587,8 @@ S3Api::
 putEscaped(const std::string & bucket,
            const std::string & resource,
            const std::string & subResource,
-           const StrPairVector & headers,
-           const StrPairVector & queryParams,
+           const RestParams & headers,
+           const RestParams & queryParams,
            const Content & content) const
 {
     RequestParams request;
@@ -643,8 +609,8 @@ S3Api::
 eraseEscaped(const std::string & bucket,
              const std::string & resource,
              const std::string & subResource,
-             const StrPairVector & headers,
-             const StrPairVector & queryParams,
+             const RestParams & headers,
+             const RestParams & queryParams,
              const Content & content) const
 {
     RequestParams request;
@@ -660,11 +626,11 @@ eraseEscaped(const std::string & bucket,
     return prepare(request).performSync();
 }
 
-std::vector<std::pair<std::string, std::string> >
+RestParams
 S3Api::ObjectMetadata::
 getRequestHeaders() const
 {
-    std::vector<std::pair<std::string, std::string> > result;
+    RestParams result;
     Redundancy redundancy = this->redundancy;
 
     if (redundancy == REDUNDANCY_DEFAULT)
@@ -837,7 +803,7 @@ obtainMultiPartUpload(const std::string & bucket,
     if (uploadId.empty()) {
         //cerr << "getting new ID" << endl;
 
-        vector<pair<string, string> > headers = metadata.getRequestHeaders();
+        RestParams headers = metadata.getRequestHeaders();
         auto result = postEscaped(bucket, escapedResource,
                                   "uploads", headers).bodyXml();
         //result->Print();
@@ -1196,7 +1162,7 @@ forEachObject(const std::string & bucket,
     do {
         //cerr << "Starting at " << marker << endl;
         
-        StrPairVector queryParams;
+        RestParams queryParams;
         if (prefix != "")
             queryParams.push_back({"prefix", prefix});
         if (delimiter != "")
@@ -1320,7 +1286,7 @@ S3Api::
 getObjectInfoFull(const std::string & bucket, const std::string & object)
     const
 {
-    StrPairVector queryParams;
+    RestParams queryParams;
     queryParams.push_back({"prefix", object});
 
     auto listingResult = getEscaped(bucket, "/", Range::Full, "", {}, queryParams);
@@ -1384,7 +1350,7 @@ S3Api::
 tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
     const
 {
-    StrPairVector queryParams;
+    RestParams queryParams;
     queryParams.push_back({"prefix", object});
 
     auto listingResult = get(bucket, "/", Range::Full, "", {}, queryParams);

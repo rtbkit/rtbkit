@@ -59,7 +59,9 @@ LIBSERVICES_SOURCES := \
 	rest_request_router.cc \
 	rest_request_binding.cc \
 	runner.cc \
+	curl_wrapper.cc \
 	sink.cc \
+	openssl_threading.cc \
 	zookeeper.cc \
 	http_client.cc \
 	http_client_v1.cc \
@@ -70,11 +72,11 @@ LIBSERVICES_SOURCES := \
 	nprobe.cc \
 	logs.cc \
 	nsq_event_handler.cc \
-    event_publisher.cc \
+	event_publisher.cc \
 	event_subscriber.cc \
 	nsq_client.cc 
 
-LIBSERVICES_LINK := opstats curl curlpp boost_regex runner_common zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description
+LIBSERVICES_LINK := opstats curl boost_regex runner_common zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description crypto
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
@@ -98,10 +100,11 @@ LIBCLOUD_SOURCES := \
 	aws.cc \
 	sqs.cc
 
-LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2 boost_filesystem value_description
+LIBCLOUD_LINK := crypto++ utils arch types tinyxml2 services ssh2 boost_filesystem value_description
 
 
 $(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))
+$(eval $(call python_addon,py_cloud,cloud_py.cc,cloud))
 
 
 LIBREDIS_SOURCES := \

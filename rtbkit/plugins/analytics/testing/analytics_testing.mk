@@ -1,3 +1,3 @@
 # analytics_testing.mk
 
-$(eval $(call test,analytics_test,rtb analytics,boost manual))
+$(eval $(call test,analytics_endpoint_test,analytics_endpoint rtb,boost manual))

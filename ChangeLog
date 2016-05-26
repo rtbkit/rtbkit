@@ -71,3 +71,17 @@
 	* rtbkit/fees: creatives can now include some fees that are applied to the
 				   final bid price
 	* rtbkit/openrtb: improved OpenRTB parsing by reducing memory allocations
+
+2016-05-30 Michael Burkat <michael@datacratic.com>
+
+	* jml-buikd: Node, Docker, tcmalloc, python related changes.
+	* jml: fix in least squares function.
+	* rtbkit/common/analytics: new plugin to abstract use of zmq or http for logging.
+	* rtbkit/core/router: use new analytics plugin.
+	* rtbkti/core/post_auction: use new analytics plugin.
+	* rtbkit/plugins/adserver: use new analytics plugin.
+	* soa/service: replace rtbkit-deps libcurl by the system provided curl.
+	* soa/service: fix bugs preventing compiling with gcc 4.8.
+	* soa: fix NODEJS_ENABLED flag to do the right thing.
+	* rtbkit: support for ubuntu 14.04
+	* rtbkit: Should update rtbkit-deps to latest with this update.

@@ -44,10 +44,11 @@ PostAuctionRunner() :
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
+    analyticsConfigurationFile(""),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
-    analyticsOn(false),
-    analyticsConnections(1),
+    analyticsPublisherOn(false),
+    analyticsPublisherConnections(1),
     localBankerDebug(false)
 {
 }
@@ -63,6 +64,8 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
+        ("analytics", value<string>(&analyticsConfigurationFile),
+         "configuration file for analytics")
         ("shard,s", value<size_t>(&shard),
          "Shard index starting at 0 for this post auction loop")
         ("win-seconds", value<float>(&winTimeout),
@@ -73,9 +76,9 @@ doOptions(int argc, char ** argv,
          "Timeout before sending error on WinLoss pipe")
         ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
          "Timeout before sending error on CampaignEvent pipe")
-        ("analytics,a", bool_switch(&analyticsOn),
+        ("analyticsPublisher,a", bool_switch(&analyticsPublisherOn),
          "Send data to analytics logger.")
-        ("analytics-connections", value<int>(&analyticsConnections),
+        ("analyticsPublisher-connections", value<int>(&analyticsPublisherConnections),
          "Number of connections for the analytics publisher.")
         ("forward-auctions", value<std::string>(&forwardAuctionsUri),
          "When provided the PAL will forward all auctions to the given URI.")
@@ -115,10 +118,15 @@ init()
     auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
 
+    // Load configuration files
     auto bidderConfig = loadJsonFromFile(bidderConfigurationFile);
+    Json::Value analyticsConfig;
+    if (!analyticsConfigurationFile.empty())
+        analyticsConfig = loadJsonFromFile(analyticsConfigurationFile);
 
     postAuctionLoop = std::make_shared<PostAuctionService>(proxies, serviceName);
     postAuctionLoop->initBidderInterface(bidderConfig);
+    postAuctionLoop->initAnalytics(analyticsConfig);
     postAuctionLoop->init(shard);
 
     postAuctionLoop->setWinTimeout(winTimeout);
@@ -166,13 +174,13 @@ init()
     }
     postAuctionLoop->setBanker(banker);
 
-    if (analyticsOn) {
-        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
-        if (!analyticsUri.empty()) {
-            postAuctionLoop->initAnalytics(analyticsUri, analyticsConnections);
+    if (analyticsPublisherOn) {
+        const auto & analyticsPublisherUri = proxies->params["analytics-uri"].asString();
+        if (!analyticsPublisherUri.empty()) {
+            postAuctionLoop->initAnalyticsPublisher(analyticsPublisherUri, analyticsPublisherConnections);
         }
         else
-            LOG(print) << "analytics-uri is not in the config" << endl;
+            LOG(print) << "analyticsPublisher-uri is not in the config" << endl;
     }
 
     postAuctionLoop->bindTcp();

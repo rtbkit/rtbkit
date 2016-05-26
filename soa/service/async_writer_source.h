@@ -185,6 +185,7 @@ private:
     std::atomic<bool> closing_;
     size_t readBufferSize_;
     bool writeReady_;
+    bool writeReadyFlag_;
 
     bool queueEnabled_;
     TypedMessageQueue<AsyncWrite> queue_;

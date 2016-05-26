@@ -101,7 +101,8 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
                    << "\t}" << std::endl << "}";
     }
 
-    httpClientRouter.reset(new HttpClient(routerHost, routerHttpActiveConnections));
+    // Force http_client_v2 to avoid latency added by curl in v1
+    httpClientRouter.reset(new HttpClient(routerHost, routerHttpActiveConnections, 0, 2));
     /* We do not want curl to add an extra "Expect: 100-continue" HTTP header
      * and then pay the cost of an extra HTTP roundtrip. Thus we remove this
      * header
@@ -238,9 +239,17 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                  return;
                              }
 
-                             int crid = bid.crid.toInt();
+                             Id crid = bid.crid;
+                             int creativeId = 0;
+
+                             if (crid.type == Id::STR) {
+                                 creativeId = std::stoi(crid.toString());
+                             } else {
+                                 creativeId = crid.toInt();
+                             }
+
                              int creativeIndex = indexOf(config->creatives,
-                                 &Creative::id, crid);
+                                 &Creative::id, creativeId);
 
                              if (creativeIndex == -1) {
                                  LOG(error) << "Unknown creative id: " << crid << std::endl;
@@ -324,7 +333,7 @@ void HttpBidderInterface::routerFormat(OpenRTB::Bid const & bid, Bid & theBid,
         find_if(begin(bidders), end(bidders),
                 [&](const pair<string, BidInfo> &bidder)
         {
-            std::string agents = bidder.first;
+            std::string agent = bidder.first;
             /* Since it is possible to delete a configuration from the REST interface of
              * the agent configuration service, the user might delete the configuration
              * while some requests for this configuration are already in flight. When
@@ -340,13 +349,9 @@ void HttpBidderInterface::routerFormat(OpenRTB::Bid const & bid, Bid & theBid,
              * for a configuration that has been deleted will trigger a logging message.
              * We will return a 204 for these requests
              */
-            auto agentIt = router->agents.find(agents);
-            if (agentIt == std::end(router->agents)) {
-                return false;
-            }
-            const auto &info = agentIt->second;
-            ExcAssert(info.config);
-            return info.config->externalId == externalId;
+            auto entry = router->getAgentEntry(agent);
+            if (!entry.valid()) return false;
+            return entry.config->externalId == externalId;
         });
 
         if (it == end(bidders)) {
