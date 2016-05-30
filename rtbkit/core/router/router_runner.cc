@@ -49,6 +49,8 @@ RouterRunner::
 RouterRunner() :
     exchangeConfigurationFile("rtbkit/examples/router-config.json"),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
+    filterConfigurationFile(""),
+    analyticsConfigurationFile(""),
     lossSeconds(15.0),
     noPostAuctionLoop(false),
     noBidProb(false),
@@ -59,11 +61,10 @@ RouterRunner() :
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     slowModeTolerance(MonitorClient::DefaultTolerance),
     slowModeMoneyLimit(""),
-    analyticsOn(false),
-    analyticsConnections(1),
+    analyticsPublisherOn(false),
+    analyticsPublisherConnections(1),
     augmentationWindowms(5),
-    dableSlowMode(false),
-    enableJsonFiltersFile("")
+    dableSlowMode(false)
 {
 }
 
@@ -92,6 +93,10 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
+        ("filters-configuration", value<string>(&filterConfigurationFile),
+          "configuration file with enabled filters data")
+        ("analytics", value<string>(&analyticsConfigurationFile),
+          "configuration file for analytics")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -100,9 +105,9 @@ doOptions(int argc, char ** argv,
          "maximum bid price accepted by router")
         ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100000USD/1M"),
          "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).")
-        ("analytics,a", bool_switch(&analyticsOn),
-         "Send data to analytics logger.")
-        ("analytics-connections", value<int>(&analyticsConnections),
+        ("analyticsPublisher,a", bool_switch(&analyticsPublisherOn),
+         "Send data to analyticsPublisher logger.")
+        ("analyticsPublisher-connections", value<int>(&analyticsPublisherConnections),
          "Number of connections for the analytics publisher.")
         ("local-banker", value<string>(&localBankerUri),
          "address of where the local banker can be found.")
@@ -113,9 +118,7 @@ doOptions(int argc, char ** argv,
          ("augmenter-timeout",value<int>(&augmentationWindowms),
          "configure the augmenter  timeout (in milliseconds)")
         ("no slow mode", value<bool>(&dableSlowMode)->zero_tokens(),
-         "disable the slow mode.")
-        ("filters-configuration", value<string>(&enableJsonFiltersFile),
-          "configuration file with enabled filters data");
+         "disable the slow mode.");
 
     options_description all_opt = opts;
     all_opt
@@ -146,11 +149,16 @@ init()
     auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("router");
 
-    exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
-    bidderConfig = loadJsonFromFile(bidderConfigurationFile);
+    // Load configuration files
+    auto exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
+    auto bidderConfig = loadJsonFromFile(bidderConfigurationFile);
+    Json::Value filterConfig;
+    if (!filterConfigurationFile.empty())
+        filterConfig = loadJsonFromFile(filterConfigurationFile);
+    Json::Value analyticsConfig;
+    if (!analyticsConfigurationFile.empty())
+        analyticsConfig = loadJsonFromFile(analyticsConfigurationFile);
 
-    if (!enableJsonFiltersFile.empty())
-        filtersConfig = loadJsonFromFile(enableJsonFiltersFile);
 
     const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
     const auto maxBidPriceAmount = USD_CPM(maxBidPrice);
@@ -179,14 +187,16 @@ init()
     if (dableSlowMode) {
        router->unsafeDisableSlowMode();
     }
-    if (analyticsOn) {
-        const auto & analyticsUri = proxies->params["analytics-uri"].asString();
-        if (!analyticsUri.empty()) {
-            router->initAnalytics(analyticsUri, analyticsConnections);
+    if (analyticsPublisherOn) {
+        const auto & analyticsPublisherUri = proxies->params["analytics-uri"].asString();
+        if (!analyticsPublisherUri.empty()) {
+            router->initAnalyticsPublisher(analyticsPublisherUri, analyticsPublisherConnections);
         }
         else
-            LOG(print) << "analytics-uri is not in the config" << endl;
+            LOG(print) << "analyticsPublisher-uri is not in the config" << endl;
     }
+
+    router->initAnalytics(analyticsConfig);
     router->init();
 
     if (localBankerUri != "") {
@@ -218,7 +228,7 @@ init()
 
     router->setBanker(banker);
     router->initExchanges(exchangeConfig);
-    router->initFilters(filtersConfig);
+    router->initFilters(filterConfig);
     router->bindTcp();
 }
 

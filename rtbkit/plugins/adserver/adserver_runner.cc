@@ -38,12 +38,16 @@ int main(int argc, char** argv)
     using namespace boost::program_options;
 
     std::string configuration = "rtbkit/examples/adserver-config.json";
+    std::string analyticsConfigurationFile;
 
     ServiceProxyArguments args;
     options_description options = args.makeProgramOptions();
     options_description more("Ad Server");
     more.add_options()
-        ("adserver-configuration,f", value(&configuration), "configuration file");
+        ("adserver-configuration,f", value(&configuration),
+         "configuration file")
+        ("analytics", value<string>(&analyticsConfigurationFile),
+         "configuration file for analytics");
 
     options.add(more);
     options.add_options() ("help,h", "Print this message");
@@ -60,6 +64,12 @@ int main(int argc, char** argv)
     auto proxies = args.makeServiceProxies();
     auto serviceName = args.serviceName("");
     auto server = RTBKIT::AdServerConnector::create(serviceName, proxies, loadJsonFromFile(configuration));
+    
+    Json::Value analyticsConfig;
+    if (!analyticsConfigurationFile.empty())
+        analyticsConfig = loadJsonFromFile(analyticsConfigurationFile);
+    server->initAnalytics(analyticsConfig);
+
     server->start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));

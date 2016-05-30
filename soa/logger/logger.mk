@@ -21,7 +21,7 @@ LIBLOG_METRICS_SOURCES := \
     logger_metrics_term.cc
 
 LIBLOG_METRICS_LINK := \
-    mongoclient boost_filesystem boost_program_options types
+    boost_filesystem boost_program_options types
 
 $(eval $(call library,log_metrics,$(LIBLOG_METRICS_SOURCES),$(LIBLOG_METRICS_LINK)))
 

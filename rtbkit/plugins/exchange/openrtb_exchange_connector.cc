@@ -292,7 +292,7 @@ setSeatBid(Auction const & auction,
     // Put in the variable parts
     auto & b = seatBid.bid.back();
     b.cid = Id(resp.agentConfig->externalId);
-    b.crid = Id(resp.creativeId);
+    b.crid = Id(std::to_string(resp.creativeId));
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = getAmountIn<CPM>(resp.price.maxPrice);

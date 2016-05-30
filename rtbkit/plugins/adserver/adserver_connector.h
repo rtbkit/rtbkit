@@ -16,21 +16,26 @@
 #include "rtbkit/common/bid_request.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/common/post_auction_proxy.h"
+#include "soa/jsoncpp/value.h"
 
+namespace RTBKIT { struct Analytics; }
 
 namespace RTBKIT {
-
 
 /*****************************************************************************/
 /* ADSERVER CONNECTOR                                                        */
 /*****************************************************************************/
 
-struct AdServerConnector : public Datacratic::ServiceBase {
+struct AdServerConnector : public Datacratic::ServiceBase 
+{
     AdServerConnector(const std::string & serviceName,
                       const std::shared_ptr<Datacratic::ServiceProxies> & proxy);
     virtual ~AdServerConnector();
 
+    void initAnalytics(const Json::Value & config = Json::Value::null);
+    
     void init(std::shared_ptr<ConfigurationService> config);
+
     virtual void shutdown();
 
     virtual void start();
@@ -88,7 +93,8 @@ struct AdServerConnector : public Datacratic::ServiceBase {
 
     Date startTime_;
 
-    static std::unique_ptr<AdServerConnector> create(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
+    static std::unique_ptr<AdServerConnector> create(std::string const & serviceName,
+                                                     std::shared_ptr<ServiceProxies> const & proxies,
                                                      Json::Value const & json);
 
     typedef std::function<AdServerConnector * (std::string const & serviceName,
@@ -107,6 +113,10 @@ struct AdServerConnector : public Datacratic::ServiceBase {
       PluginInterface<AdServerConnector>::registerPlugin(name, callback);
     }
 
+protected:
+    /// Generic publishing endpoint to forward wins to anyone registered. Currently, there's only the
+    /// router that connects to this.
+    std::unique_ptr<Analytics> analytics;  
 
 private:
     // Connection to the post auction loops

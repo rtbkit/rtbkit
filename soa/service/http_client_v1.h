@@ -17,14 +17,11 @@
 #include <string>
 #include <vector>
 
-#include <curlpp/Easy.hpp>
-#include <curlpp/Multi.hpp>
-#include <curlpp/Types.hpp>
-
 #include "jml/arch/wakeup_fd.h"
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
 #include "soa/service/http_client.h"
+#include "soa/service/curl_wrapper.h"
 
 
 namespace Datacratic {
@@ -98,18 +95,18 @@ private:
         void perform(bool noSSLChecks, bool tcpNoDelay, bool debug);
 
         /* header and body write callbacks */
-        curlpp::types::WriteFunctionFunctor onHeader_;
-        curlpp::types::WriteFunctionFunctor onWrite_;
+        CurlWrapper::Easy::CurlCallback onHeader_;
+        CurlWrapper::Easy::CurlCallback onWrite_;
         size_t onCurlHeader(const char * data, size_t size) noexcept;
         size_t onCurlWrite(const char * data, size_t size) noexcept;
 
         /* body read callback */
-        curlpp::types::ReadFunctionFunctor onRead_;
+        CurlWrapper::Easy::CurlCallback onRead_;
         size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
 
         std::shared_ptr<HttpRequest> request_;
 
-        curlpp::Easy easy_;
+        CurlWrapper::Easy easy_;
         // HttpClientResponse response_;
         bool afterContinue_;
         size_t uploadOffset_;
@@ -129,8 +126,11 @@ private:
     ML::Wakeup_Fd wakeup_;
     int timerFd_;
 
-    curlpp::Multi multi_;
-    ::CURLM * handle_;
+    struct CurlMultiCleanup {
+        void operator () (CURLM *);
+    };
+
+    std::unique_ptr<CURLM, CurlMultiCleanup> multi_;
 
     std::vector<HttpConnection> connectionStash_;
     std::vector<HttpConnection *> avlConnections_;

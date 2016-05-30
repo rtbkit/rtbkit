@@ -7,15 +7,32 @@
 */
 
 #include "mock_adserver_connector.h"
-
+#include "soa/service/service_base.h"
+#include "soa/service/service_utils.h"
+#include "rtbkit/common/analytics.h"
 
 using namespace RTBKIT;
 
 MockAdServerConnector::
-MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) :
-    HttpAdServerConnector(serviceName, proxies),
-    publisher(getServices()->zmqContext) {
+MockAdServerConnector(std::string const & serviceName,
+                      std::shared_ptr<ServiceProxies> const & proxies,
+                      const Json::Value & json) :
+    HttpAdServerConnector(serviceName, proxies)
+{
+    if (json != Json::Value::null) {
+        int winPort = json.get("winPort", "12340").asInt();
+        int eventPort = json.get("eventPort", "12341").asInt();
+        init(winPort, eventPort);
+    }
 }
+
+MockAdServerConnector::
+MockAdServerConnector(Datacratic::ServiceProxyArguments & args,
+                      const std::string& serviceName) :
+    HttpAdServerConnector(serviceName, args.makeServiceProxies())
+{}
+
+MockAdServerConnector::~MockAdServerConnector(){}
 
 void MockAdServerConnector::init(int winPort, int eventPort) {
     auto services = getServices();
@@ -36,22 +53,16 @@ void MockAdServerConnector::init(int winPort, int eventPort) {
     // Publish the endpoint now that it exists.
     HttpAdServerConnector::bindTcp();
     
-    // And initialize the generic publisher on a predefined range of ports to try avoiding that
-    // collision between different kind of service occurs.
-    publisher.init(services->config, serviceName() + "/logger");
-    publisher.bindTcp(services->ports->getRange("adServer.logger"));
 }
 
 void MockAdServerConnector::start() {
     recordLevel(1.0, "up");
     HttpAdServerConnector::start();
-    publisher.start();
 }
 
 
 void MockAdServerConnector::shutdown() {
     HttpAdServerConnector::shutdown();
-    publisher.shutdown();
 }
 
 
@@ -68,8 +79,8 @@ HttpAdServerResponse MockAdServerConnector::handleEvent(PostAuctionEvent const &
                    event.account,
                    Date::now());
 
-        Date now = Date::now();
-        publisher.publish("WIN", now.print(3), event.auctionId.toString(), event.winPrice.toString(), "0");
+        if (analytics) analytics->logMockWinMessage(event.auctionId.toString(),
+                                                    event.winPrice.toString());
     }
 
     if (event.type == PAE_CAMPAIGN_EVENT) {
@@ -93,12 +104,7 @@ struct AtInit {
 					   [](std::string const & serviceName,
 					      std::shared_ptr<ServiceProxies> const & proxies,
 					      Json::Value const & json) {
-					     
-            auto server = new MockAdServerConnector(serviceName, proxies, json);
-            int winPort = json.get("winPort", "12340").asInt();
-            int eventPort = json.get("eventPort", "12341").asInt();
-            server->init(winPort, eventPort);
-            return server;
+            return new MockAdServerConnector(serviceName, proxies);
         });
     }
 } atInit;

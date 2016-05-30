@@ -9,3 +9,7 @@ $(eval $(call nodejs_test,rtb_new_format_test,bid_request sync_utils))
 $(eval $(call test,pending_list_test,types,boost))
 #$(eval $(call test,router_banker_test,rtb_router dataflow bidding_agent,boost))
 #$(eval $(call test,augmentation_test,rtb_router bid_request augmentor_base,boost))
+
+$(eval $(call test,router_analytics_test,boost_program_options rtb_router,boost))
+
+.PHONY: $(LIB)/libzmq_analytics.so

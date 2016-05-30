@@ -5,7 +5,6 @@
 */
 
 #include "string.h"
-#include "soa/js/js_value.h"
 #include "soa/jsoncpp/json.h"
 #include <iostream>
 #include "jml/arch/exception.h"

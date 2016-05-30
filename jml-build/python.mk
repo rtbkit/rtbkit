@@ -7,6 +7,8 @@ PYTHON_INCLUDE_PATH ?= $(VIRTUALENV)/include/python$(PYTHON_VERSION)
 PYTHON ?= python$(PYTHON_VERSION)
 PIP ?= pip
 PYFLAKES ?= true
+# Override this to run a cmd before installing python_requirements.txt
+PYTHON_DEPENDENCIES_PRE_CMD ?= true  
 
 PYTHON_PURE_LIB_PATH ?= $(BIN)
 PYTHON_PLAT_LIB_PATH ?= $(BIN)
@@ -23,12 +25,13 @@ $(VIRTUALENV)/bin/activate:
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 
-PYTHON_EXECUTABLE ?= $(VIRTUALENV)/bin/python
+PYTHON_EXECUTABLE ?= $(PYTHON) $(PYTHON_ARGS)
 
 endif
 
 python_dependencies:
-	@if [ -f python_requirements.txt ]; then \
+	if [ -f python_requirements.txt ]; then \
+		$(PYTHON_DEPENDENCIES_PRE_CMD); \
 		$(PIP) install -r python_requirements.txt; \
 	fi
 
@@ -83,7 +86,7 @@ define python_test
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
@@ -92,7 +95,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$
 
 $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	@$(PYFLAKES) $(CWD)/$(1).py
-	PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(CWD)/$(1).py $($(1)_ARGS)
+	PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py $($(1)_ARGS)
 
 .PHONY: $(1)
 
@@ -159,7 +162,7 @@ PYTHON_$(1)_DEPS := $(PYTHON_BIN_PATH)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(p
 .PHONY: run_$(1)
 
 run_$(1):	$(PYTHON_BIN_PATH)/$(1)
-	$(PYTHON) $(PYTHON_BIN_PATH)/$(1)  $($(1)_ARGS)
+	$(PYTHON) $(PYTHON_ARGS) $(PYTHON_BIN_PATH)/$(1)  $($(1)_ARGS)
 
 $(PYTHON_BIN_PATH)/$(1): $(CWD)/$(2) $(PYTHON_BIN_PATH)/.dir_exists $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"

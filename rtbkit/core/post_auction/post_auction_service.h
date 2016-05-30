@@ -26,6 +26,7 @@ namespace RTBKIT {
 
 struct BidderInterface;
 struct EventForwarder;
+struct Analytics;
 
 /******************************************************************************/
 /* POST AUCTION SERVICE                                                       */
@@ -45,12 +46,13 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
                     const std::string & serviceName);
 
 
-    ~PostAuctionService() { shutdown(); }
+    ~PostAuctionService();
 
 
     void initBidderInterface(Json::Value const & json);
     void init(size_t externalShard = 0, size_t internalShards = 1);
-    void initAnalytics(const std::string & baseUrl, const int numConnections);
+    void initAnalyticsPublisher(const std::string & baseUrl, const int numConnections);
+    void initAnalytics(const Json::Value & config = Json::Value::null);
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
 
@@ -116,28 +118,6 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
             throw ML::Exception("Invalid timeout for Campaign Event Pipe timeout");
 
         campaignEventPipeTimeout = timeout;
-    }
-
-    /************************************************************************/
-    /* LOGGING                                                              */
-    /************************************************************************/
-
-    /** Log a given message to the given channel. */
-    template<typename... Args>
-    void logMessage(const std::string & channel, Args... args)
-    {
-        logger.publish(channel, Date::now().print(5), args...);
-    }
-
-    /** Log a router error. */
-    template<typename... Args>
-    void logPAError(const std::string & function,
-                    const std::string & exception,
-                    Args... args)
-    {
-        logger.publish("PAERROR",
-                Date::now().print(5), function, exception, args...);
-        recordHit("error.%s", function);
     }
 
 
@@ -310,7 +290,7 @@ private:
     TypedMessageSink<std::shared_ptr<SubmittedAuctionEvent> > auctions;
     TypedMessageSink<std::shared_ptr<PostAuctionEvent> > events;
 
-    ZmqNamedPublisher logger;
+    std::unique_ptr<Analytics> analytics;
     ZmqNamedEndpoint endpoint;
 
     std::shared_ptr<BidderInterface> bidder;
@@ -318,7 +298,7 @@ private:
 
     ZmqMessageRouter router;
 
-    AnalyticsPublisher analytics;
+    AnalyticsPublisher analyticsPublisher;
 
     std::unique_ptr<RestServiceEndpoint> restEndpoint;
     std::unique_ptr<RestRequestRouter> restRouter;

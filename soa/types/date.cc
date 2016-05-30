@@ -8,13 +8,16 @@
 #include <cmath>
 #include <limits>
 #include "jml/arch/format.h"
-#include "soa/js/js_value.h"
 #include "soa/jsoncpp/json.h"
 #include <cmath>
 #include "ace/Time_Value.h"
 #include "jml/arch/exception.h"
 #include "jml/db/persistent.h"
 #include <boost/regex.hpp>
+
+#if NODEJS_ENABLED == 1
+#include "soa/js/js_value.h"
+#endif
 
 
 using namespace std;
@@ -107,11 +110,13 @@ Date(int year, int month, int day,
 {
 }
 
+#if NODEJS_ENABLED == 1
 Date::
 Date(JS::JSValue & value)
 {
     throw Exception("Date::Date(JSValue): not done");
 }
+#endif
 
 Date::
 Date(const Json::Value & value)

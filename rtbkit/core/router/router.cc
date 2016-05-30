@@ -33,6 +33,7 @@
 #include "rtbkit/common/messages.h"
 #include "rtbkit/common/win_cost_model.h"
 #include "rtbkit/common/bidder_interface.h"
+#include "rtbkit/common/analytics.h"
 
 using namespace std;
 using namespace ML;
@@ -142,7 +143,6 @@ Router(ServiceBase & parent,
       bridge(getZmqContext()),
       logAuctions(logAuctions),
       logBids(logBids),
-      logger(getZmqContext()),
       doDebug(false),
       disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
@@ -196,7 +196,6 @@ Router(std::shared_ptr<ServiceProxies> services,
       bridge(getZmqContext()),
       logAuctions(logAuctions),
       logBids(logBids),
-      logger(getZmqContext()),
       doDebug(false),
       disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
@@ -226,9 +225,9 @@ initBidderInterface(Json::Value const & json)
 
 void
 Router::
-initAnalytics(const string & baseUrl, const int numConnections)
+initAnalyticsPublisher(const string & baseUrl, const int numConnections)
 {
-    analytics.init(baseUrl, numConnections);
+    analyticsPublisher.init(baseUrl, numConnections);
 }
 
 void
@@ -355,6 +354,16 @@ initFilters(const Json::Value & config) {
 
 void
 Router::
+initAnalytics(const Json::Value & config)
+{
+    std::string pluginName = (config == Json::Value::null) ? "zmq" : config["pluginName"].asString();
+
+    Analytics::Factory factory = PluginInterface<Analytics>::getPlugin(pluginName);
+    analytics.reset(factory(serviceName(), getServices()));
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -373,7 +382,7 @@ init()
 
     augmentationLoop.init();
 
-    logger.init(getServices()->config, serviceName() + "/logger");
+    if (analytics) analytics->init();
 
     bridge.agents.init(getServices()->config, serviceName() + "/agents");
     bridge.agents.clientMessageHandler
@@ -406,11 +415,10 @@ init()
 
     loopMonitor.init();
     loopMonitor.addMessageLoop("augmentationLoop", &augmentationLoop);
-    loopMonitor.addMessageLoop("logger", &logger);
     loopMonitor.addMessageLoop("configListener", &configListener);
     loopMonitor.addMessageLoop("monitorClient", &monitorClient);
     loopMonitor.addMessageLoop("monitorProviderClient", &monitorProviderClient);
-    if (analytics.initialized) loopMonitor.addMessageLoop("analytics", &analytics);
+    if (analyticsPublisher.initialized) loopMonitor.addMessageLoop("analyticsPublisher", &analyticsPublisher);
 
     loopMonitor.onLoadChange = [=] (double)
         {
@@ -452,7 +460,7 @@ void
 Router::
 bindTcp()
 {
-    logger.bindTcp(getServices()->ports->getRange("logs"));
+    if (analytics) analytics->bindTcp();
     bridge.agents.bindTcp(getServices()->ports->getRange("router"));
 }
 
@@ -529,8 +537,8 @@ start(boost::function<void ()> onStop)
     }
 
     bidder->start();
-    logger.start();
-    analytics.start();
+    if (analytics) analytics->start();
+    analyticsPublisher.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
 
@@ -796,6 +804,8 @@ run()
                      << ": " << exc.what() << endl;
                 logRouterError("handleAgentMessage", exc.what(),
                                message);
+
+                if (analytics) analytics->logRouterErrorMessage("handleAgentMessage", exc.what(), message);
             }
 
             recordTime(message.at(1), atStart);
@@ -831,15 +841,8 @@ run()
 
         if (now - last_check > 10.0) {
             logUsageMetrics(10.0);
-
-            logMessage("MARK",
-                       Date::fromSecondsSinceEpoch(last_check).print(),
-                       format("active: %zd augmenting, %zd inFlight, "
-                              "%zd agents",
-                              augmentationLoop.numAugmenting(),
-                              inFlight.size(),
-                              agents.size()));
-
+            if (analytics) analytics->logUsageMessage(*this, 10.0);
+            if (analytics) analytics->logMarkMessage(*this,last_check);
             dutyCycleCurrent.ending = Date::now();
             dutyCycleHistory.push_back(dutyCycleCurrent);
             dutyCycleCurrent.clear();
@@ -917,7 +920,7 @@ shutdown()
         cleanupThread->join();
     cleanupThread.reset();
 
-    logger.shutdown();
+    if (analytics) analytics->shutdown();
     banker.reset();
 
     monitorClient.shutdown();
@@ -1085,14 +1088,6 @@ logUsageMetrics(double period)
                                      info.stats->bids);
         AgentUsageMetrics delta = newMetrics - last;
 
-        logMessage("USAGE", "AGENT", p, item.first,
-                   info.config->account.toString(),
-                   delta.intoFilters,
-                   delta.passedStaticFilters,
-                   delta.passedDynamicFilters,
-                   delta.auctions,
-                   delta.bids,
-                   info.config->bidProbability);
         logMessageToAnalytics("USAGE", "AGENT", p, item.first,
                    info.config->account.toString(),
                    delta.intoFilters,
@@ -1123,13 +1118,6 @@ logUsageMetrics(double period)
 
         RouterUsageMetrics delta = newMetrics - lastRouterUsageMetrics;
 
-        logMessage("USAGE", "ROUTER", p,
-                   delta.numRequests,
-                   delta.numAuctions,
-                   delta.numNoPotentialBidders,
-                   delta.numBids,
-                   delta.numAuctionsWithBid,
-                   acceptAuctionProbability / numExchanges);
         logMessageToAnalytics("USAGE", "ROUTER", p,
                    delta.numRequests,
                    delta.numAuctions,
@@ -1335,7 +1323,7 @@ returnErrorResponse(const std::vector<std::string> & message,
 {
     using namespace std;
     if (message.empty()) return;
-    logMessage("ERROR", error, message);
+    if (analytics) analytics->logErrorMessage(error,message);
     logMessageToAnalytics("ERROR", error, message);
     const auto& agent = message[0];
     AgentInfo & info = this->agents[agent];
@@ -2224,8 +2212,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
             bidder->sendNoBudgetMessage(agentConfig, agent, auctionInfo.auction);
 
-            this->logMessage("NOBUDGET", agent, auctionId,
-                    bidsString, message.meta);
+            if (analytics) analytics->logNoBudgetMessage(agent, auctionId, bidsString, message.meta);
             this->logMessageToAnalytics("NOBUDGET", agent, auctionId);
             recordHit("accounts.%s.NOBUDGET", config.account.toString('.'));
             continue;
@@ -2310,7 +2297,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 status = BS_TOOLATE;
                 bidder->sendTooLateMessage(agentConfig, agent, auctionInfo.auction);
                 recordHit("accounts.%s.TOOLATE", config.account.toString('.'));
-                break;
+                continue;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
                 bidder->sendBidInvalidMessage(agentConfig, agent, msg, auctionInfo.auction);
@@ -2320,7 +2307,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                 throw ML::Exception("logic error");
             }
 
-            this->logMessage(msg, agent, auctionId, bidsString, message.meta);
+            if (analytics) analytics->logMessage(msg, agent, auctionId, bidsString, message.meta);
             this->logMessageToAnalytics(msg, agent, auctionId, bidsString);
             continue;
         }
@@ -2336,9 +2323,9 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
     }
 
     if (numValidBids > 0) {
-        if (logBids)
-            // Send BID to logger
-            logMessage("BID", agent, auctionId, bidsString, message.meta);
+        if (logBids) {
+            if (analytics) analytics->logBidMessage(agent, auctionId, bidsString, message.meta);
+        }
         logMessageToAnalytics("BID", agent, auctionId, bidsString);
         ML::atomic_add(numNonEmptyBids, 1);
     }
@@ -2570,9 +2557,9 @@ onNewAuction(std::shared_ptr<Auction> auction)
 
     //cerr << "AUCTION GOT THROUGH" << endl;
 
-    if (logAuctions)
-        // Send AUCTION to logger
-        logMessage("AUCTION", auction->id, auction->requestStr);
+    if (logAuctions) {
+        if (analytics) analytics->logAuctionMessage(auction->id, auction->requestStr);
+    }
     logMessageToAnalytics("AUCTION", auction->id);
 
     const BidRequest & request = *auction->request;
@@ -2685,7 +2672,7 @@ doConfig(const std::string & agent,
         }
     } else {
         AgentInfo & info = agents[agent];
-        logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
+        if (analytics) analytics->logConfigMessage(agent, boost::trim_copy(config->toJson().toString()));
         logMessageToAnalytics("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
 
         // TODO: no need for this...
@@ -2992,6 +2979,7 @@ throwException(const std::string & key, const std::string & fmt, ...)
     }
 
     logRouterError("exception", key, message);
+    if (analytics) analytics->logRouterErrorMessage("exception", key, std::vector<std::string>{message});
     throw ML::Exception("Router Exception: " + key + ": " + message);
 }
 
