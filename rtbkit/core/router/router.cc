@@ -2131,8 +2131,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
         if (!getbid.isValidbid) {
             returnInvalidBid(agent, bidsString, auctionInfo.auction,
-                getbid.reason_,
-                "no bid");
+                "noBid",
+                getbid.reason_.c_str());
             continue;
         }
         const Creative & creative = config.creatives.at(bid.creativeIndex);
