@@ -16,10 +16,14 @@
 #include "jml/utils/string_functions.h"
 
 #include "soa/sigslot/slot.h"
+
+#if NODEJS_ENABLED
 #include "soa/sigslot/slot_impl_js.h"
 
 #include "soa/js/js_call.h"
 #include "soa/js/js_utils.h"
+#endif // NODEJS_ENABLED
+
 
 using namespace std;
 using namespace ML;
@@ -32,7 +36,9 @@ void printSize()
          << sizeof(T) << endl;
 }
 
+#if NODEJS_ENABLED
 RegisterJsOps<int (int)> reg4;
+#endif // NODEJS_ENABLED
 
 BOOST_AUTO_TEST_CASE( test_sizes )
 {
@@ -64,6 +70,7 @@ BOOST_AUTO_TEST_CASE( test_c_calling_c )
     BOOST_CHECK_EQUAL(n1.call<Fn1>(1), 2);
 }
 
+#if NODEJS_ENABLED
 BOOST_AUTO_TEST_CASE( test_js_calling_c )
 {
     typedef int (Fn1) (int);
@@ -153,8 +160,8 @@ BOOST_AUTO_TEST_CASE( test_js_calling_js )
   
     context.Dispose();
 }
-
 RegisterJsOps<void (void)> reg5;
+#endif // NODEJS_ENABLED
 
 BOOST_AUTO_TEST_CASE( test_conversion_to_function )
 {
@@ -183,8 +190,10 @@ BOOST_AUTO_TEST_CASE( test_conversion_to_function )
     BOOST_CHECK_EQUAL(i, 3);
 }
 
+#if NODEJS_ENABLED
 BOOST_AUTO_TEST_CASE( dispose )
 {
     v8::V8::Dispose();
 }
-
+#endif // NODEJS_ENABLED
+                                

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <limits>
 
 #include "value_description.h"
@@ -1096,7 +1097,7 @@ struct DefaultDescription<TaggedFloat>
 
     virtual bool isDefaultTyped(const TaggedFloat * val) const
     {
-        return isnan(val->val);
+        return std::isnan(val->val);
     }
 };
 

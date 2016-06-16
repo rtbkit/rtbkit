@@ -623,6 +623,8 @@ doBidResult(
 /******************************************************************************/
 // Needs to be properly tested before enabling.
 
+#if 0 // Persistence layer that needs to be reworked.
+
 namespace {
 
 std::pair<Id, Id>
@@ -651,8 +653,6 @@ std::string stringifyPair(const std::pair<Id, Id> & vals)
 
 } // file scope
 
-
-#if 0 // Persistence layer that needs to be reworked.
 
 void
 SimpleEventMatcher::

@@ -95,6 +95,12 @@ struct HttpRequest {
         timeout_ = -1;
     }
 
+    operator bool ()
+        const
+    {
+        return !verb_.empty();
+    }
+
     std::string verb_;
     std::string url_;
     std::shared_ptr<HttpClientCallbacks> callbacks_;

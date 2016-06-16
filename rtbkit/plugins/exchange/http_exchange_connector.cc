@@ -80,7 +80,7 @@ postConstructorInit()
 
     handlerFactory = [=] () { return new HttpAuctionHandler(); };
 
-    addPeriodic(1.0,
+    addPeriodic("periodicCallback", 1.0,
                 [=] (uint64_t numWakeUps)
                 { this->periodicCallback(numWakeUps); });
 }

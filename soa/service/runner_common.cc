@@ -31,7 +31,7 @@ strLaunchError(LaunchError error)
     case LaunchError::WRONG_CHILD: return "waitpid() returned the wrong child";
     }
     throw ML::Exception("unknown error launch error code %d",
-                        error);
+                        (int) error);
 }
 
 std::string
@@ -44,7 +44,7 @@ statusStateAsString(ProcessState statusState)
     case ProcessState::STOPPED: return "STOPPED";
     case ProcessState::DONE: return "DONE";
     }
-    throw ML::Exception("unknown status %d", statusState);
+    throw ML::Exception("unknown status %d", (int) statusState);
 }
 
 }

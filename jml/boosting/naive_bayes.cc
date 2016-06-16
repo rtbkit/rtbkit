@@ -6,6 +6,7 @@
    Implementation of the Naive Bayes classifier.
 */
 
+#include <cmath>
 #include "naive_bayes.h"
 #include "classifier_persist_impl.h"
 #include "jml/arch/simd_vector.h"

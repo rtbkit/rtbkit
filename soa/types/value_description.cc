@@ -108,4 +108,51 @@ convertAndCopy(const void * from,
     parseJson(to, context2);
 }
 
+
+/****************************************************************************/
+/* STRUCTURE DESCRIPTION BASE                                               */
+/****************************************************************************/
+
+StructureDescriptionBase &
+StructureDescriptionBase::
+operator = (const StructureDescriptionBase & other)
+{
+    type = other.type;
+    structName = other.structName;
+    nullAccepted = other.nullAccepted;
+
+    fieldNames.clear();
+    orderedFields.clear();
+    fields.clear();
+    fieldNames.reserve(other.fields.size());
+
+    // Don't set owner
+    for (auto & f: other.fieldNames) {
+        std::unique_ptr<char, FreeDeleter> newFieldName(::strdup(f.get()));
+        char * newFieldNamePtr = newFieldName.get();
+        fieldNames.emplace_back(std::move(newFieldNamePtr));
+        const auto & desc = other.fields.at(newFieldNamePtr);
+        auto it = fields.insert(make_pair(newFieldNamePtr, desc))
+            .first;
+        orderedFields.push_back(it);
+    }
+
+    return *this;
+}
+
+StructureDescriptionBase &
+StructureDescriptionBase::
+operator = (StructureDescriptionBase && other)
+{
+    type = std::move(other.type);
+    structName = std::move(other.structName);
+    nullAccepted = std::move(other.nullAccepted);
+    fields = std::move(other.fields);
+    fieldNames = std::move(other.fieldNames);
+    orderedFields = std::move(other.orderedFields);
+    // don't set owner
+
+    return *this;
+}
+
 } // namespace Datacratic

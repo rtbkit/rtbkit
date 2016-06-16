@@ -51,7 +51,7 @@ static const v4sf float_0p5           = vec_splat(0.5f);
 static const v4si int_0x7f            = vec_splat(0x7f);
 
 
-static const v4sf float_exp_hi        = vec_splat(88.3762626647949f);
+// static const v4sf float_exp_hi        = vec_splat(88.3762626647949f);
 static const v4sf float_exp_lo        = vec_splat(-88.3762626647949f);
 
 static const v4sf float_cephes_LOG2EF = vec_splat(1.44269504088896341f);
@@ -71,8 +71,8 @@ static const v4sf float_cephes_exp_p5 = vec_splat(5.0000001201E-1f);
 static const float MAXLOGF = 88.3762626647949f;
 static const float MINLOGF = -87.5;
 
-static const v4sf float_cephes_MAXLOGF = vec_splat(MAXLOGF);
-static const v4sf float_cephes_MINLOGF = vec_splat(MINLOGF);
+// static const v4sf float_cephes_MAXLOGF = vec_splat(MAXLOGF);
+// static const v4sf float_cephes_MINLOGF = vec_splat(MINLOGF);
 
 /* TODO: problems to fix up some day:
    1.  If we remove the clamping to float_exp_lo, then we get some crazy

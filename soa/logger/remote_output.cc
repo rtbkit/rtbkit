@@ -187,8 +187,8 @@ reconnect(boost::function<void ()> onFinished,
           boost::function<void (const std::string &)> onError,
           double timeout)
 {
-    newConnection(boost::bind<void>(&RemoteOutput::setupConnection,
-                                    this, _1, onFinished, onError),
+    newConnection(boost::bind(&RemoteOutput::setupConnection,
+                              this, _1, onFinished, onError),
                   onError, timeout);
 }
 

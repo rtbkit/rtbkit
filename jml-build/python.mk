@@ -20,13 +20,18 @@ PYTHONPATH ?= RUN_PYTHONPATH
 
 ifdef VIRTUALENV
 
+VIRTUALENV_SOURCE_CMD ?= . $(VIRTUALENV)/bin/activate
+
 $(VIRTUALENV)/bin/activate:
 	virtualenv $(VIRTUALENV)
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 
 PYTHON_EXECUTABLE ?= $(PYTHON) $(PYTHON_ARGS)
+PYTHON_SHEBANG ?= $(PYTHON_EXECUTABLE)
 
+else
+VIRTUALENV_SOURCE_CMD ?=  /bin/true
 endif
 
 python_dependencies:
@@ -86,7 +91,7 @@ define python_test
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && $(VIRTUALENV_SOURCE_CMD) && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
@@ -94,8 +99,8 @@ $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
-	@$(PYFLAKES) $(CWD)/$(1).py
-	PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py $($(1)_ARGS)
+	@$(VIRTUALENV_SOURCE_CMD) && $(PYFLAKES) $(CWD)/$(1).py
+	$(VIRTUALENV_SOURCE_CMD) && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(PYTHON_ARGS) $(CWD)/$(1).py $($(1)_ARGS)
 
 .PHONY: $(1)
 
@@ -113,7 +118,7 @@ $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
 $(PYTHON_PURE_LIB_PATH)/$(2)/$(1):	$(CWD)/$(1) $(PYTHON_PURE_LIB_PATH)/$(2)/.dir_exists
 	$$(if $(verbose_build),@echo "cp $$< $$@",@echo " $(COLOR_YELLOW)[PYTHON_MODULE]$(COLOR_RESET) $(2)/$(1)")
-	@$(PYFLAKES) $$<
+	@$(VIRTUALENV_SOURCE_CMD) && $(PYFLAKES) $$<
 	@cp $$< $$@~
 	@mv $$@~ $$@
 
@@ -161,13 +166,15 @@ PYTHON_$(1)_DEPS := $(PYTHON_BIN_PATH)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(p
 
 .PHONY: run_$(1)
 
+# Do not source the venv here. - JR
+# literate_doc calls this target and it will leak childs for not-yet-known reasons
 run_$(1):	$(PYTHON_BIN_PATH)/$(1)
 	$(PYTHON) $(PYTHON_ARGS) $(PYTHON_BIN_PATH)/$(1)  $($(1)_ARGS)
 
 $(PYTHON_BIN_PATH)/$(1): $(CWD)/$(2) $(PYTHON_BIN_PATH)/.dir_exists $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
-	@$(PYFLAKES) $$<
-	@(echo "#!$(PYTHON_EXECUTABLE)"; cat $$<) > $$@~
+	@$(VIRTUALENV_SOURCE_CMD) && $(PYFLAKES) $$<
+	@(echo "#!$(PYTHON_SHEBANG)"; cat $$<) > $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
 

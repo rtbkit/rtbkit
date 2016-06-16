@@ -175,23 +175,6 @@ BidSwitchExchangeConnector::init() {
     #undef GENERATE_MACRO_FOR
 }
 
-namespace {
-std::vector<int> stringsToInts(const Json::Value& value) {
-    const std::string & data = value.asString();
-    std::vector<std::string> strings;
-    std::vector<int> ints;
-    boost::split(strings, data, boost::is_space(), boost::token_compress_on);
-    for (const std::string& e : strings) {
-        if (e.empty()) {
-            continue;
-        }
-        ints.push_back(std::stoi(e));
-    }
-
-    return ints;
-}
-}
-
 ExchangeConnector::ExchangeCompatibility
 BidSwitchExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,
@@ -328,20 +311,6 @@ struct AdtruthObject {
         LOG(bidswitchExchangeConnectorTrace) << " }\n";
     }
 };
-
-AdtruthObject
-parseAdtruthObject(const Json::Value& adt) {
-    AdtruthObject rc;
-    for (const auto name: adt.getMemberNames()) {
-        if (name == "tdl_millis")
-            rc.tdl_millis = adt[name].asInt();
-        else
-            rc.dev_insight_map[name] = adt[name].asString();
-    }
-    return rc;
-
-
-}
 
 }// anonymous
 

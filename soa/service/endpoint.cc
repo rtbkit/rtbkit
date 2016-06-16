@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <sys/epoll.h>
 #include <poll.h>
+#include <algorithm>
 
 
 using namespace std;
@@ -74,7 +75,9 @@ setPollingMode(enum PollingMode mode)
 
 void
 EndpointBase::
-addPeriodic(double timePeriodSeconds, OnTimer toRun)
+addPeriodic(const string& name,
+            double timePeriodSeconds,
+            OnTimer toRun)
 {
     if (!toRun)
         throw ML::Exception("'toRun' cannot be nil");
@@ -102,7 +105,21 @@ addPeriodic(double timePeriodSeconds, OnTimer toRun)
     auto timerData = make_shared<EpollData>(EpollData::EpollDataType::TIMER,
                                             timerFd);
     timerData->onTimer = toRun;
+    timerData->name = name;
     startPolling(timerData);
+}
+
+void
+EndpointBase::
+removePeriodic(const string& name)
+{
+    MutexGuard guard(dataSetLock);
+    auto it = std::find_if(epollDataSet.begin(), epollDataSet.end(),
+            [&name] (const std::shared_ptr<EpollData>& epollData) {
+                return epollData->name == name;
+            });
+    if (it == epollDataSet.end()) return;
+    stopPolling(*it);
 }
 
 void

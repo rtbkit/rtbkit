@@ -138,9 +138,6 @@ struct HttpClientV2 : public HttpClientImpl {
 private:
     void handleQueueEvent();
 
-    void handleHttpConnectionDone(HttpConnection * connection,
-                                  TcpConnectionCode result);
-
     HttpConnection * getConnection();
     void releaseConnection(HttpConnection * connection);
 

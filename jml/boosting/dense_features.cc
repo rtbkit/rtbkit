@@ -806,15 +806,6 @@ get_sizes(Parse_Context & context,
     return boost::make_tuple(row_count, var_count, header);
 }
 
-boost::tuple<size_t, size_t, string>
-get_sizes(const std::string & filename,
-          vector<unsigned> & row_start_ofs)
-{
-    Parse_Context context(filename);
-
-    return get_sizes(context, row_start_ofs);
-}
-
 } // file scope
 
 void Dense_Training_Data::

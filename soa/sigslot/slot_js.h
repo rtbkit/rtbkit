@@ -8,6 +8,8 @@
 #pragma once
 
 #include "soa/sigslot/slot.h"
+
+#if NODEJS_ENABLED
 #include "soa/js/js_value.h"
 
 namespace Datacratic {
@@ -25,3 +27,4 @@ void to_js(JS::JSValue & value, const Slot &);
 
 } // namespace JS
 } // namespace Datacratic
+#endif // NODEJS_ENABLED

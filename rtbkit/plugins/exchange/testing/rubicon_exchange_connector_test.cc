@@ -22,10 +22,13 @@
 
 #include "jml/arch/info.h"
 
+#if CAIRO_ENABLED
 // for generation of dynamic creative
 #include "cairomm/surface.h"
 #include "cairomm/context.h"
+#endif /* CAIRO_ENABLED */
 
+#if 0
 #include <type_traits>
 
 // This is needed to allow a std::function to bind into the sigc library
@@ -42,6 +45,7 @@ namespace sigc
         typedef Functor functor_type;
     };
 }
+#endif
 
 using namespace std;
 using namespace RTBKIT;
@@ -75,6 +79,7 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
         string imageData;
         string contentType;
 
+#if CAIRO_ENABLED
         {
             auto writeData = [&] (const unsigned char * data,
                                   unsigned length) -> Cairo::ErrorStatus
@@ -143,6 +148,16 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
             if (format == "png")
                 surface->write_to_png_stream(writeData);
         }
+#else /* CAIRO_ENABLED */
+        if (format == "svg") {
+            contentType = "image/svg+xml";
+        }
+        else if (format == "png") {
+            contentType = "image/png";
+        }
+        else throw ML::Exception("unknown creative format");
+        imageData = "<some image data>";
+#endif /* CAIRO_ENABLED */
         
         return HttpResponse(200, contentType, imageData);
     }

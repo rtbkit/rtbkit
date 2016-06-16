@@ -6,6 +6,7 @@
 */
 
 #include "slot_js.h"
+#if NODEJS_ENABLED
 #include "soa/sigslot/slot.h"
 
 #include "node.h"
@@ -130,3 +131,4 @@ toJsFunction() const
 }
 
 } // namespace Datacratic
+#endif // NODEJS_ENABLED

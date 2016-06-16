@@ -8,6 +8,8 @@ VOWS ?= /usr/local/bin/vows
 NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 NODE_TEST_DEPS ?= $(LIB)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
+CXXFLAGS += -DNODEJS_ENABLED=1
+CFLAGS += -DNODEJS_ENABLED=1
 
 all compile:	nodejs_programs nodejs_addons nodejs_libraries
 

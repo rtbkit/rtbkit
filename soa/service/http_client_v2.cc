@@ -133,7 +133,6 @@ HttpConnection::
         ::fprintf(stderr,
                   "destroying non-idle connection: %d",
                   responseState_);
-        abort();
     }
 }
 
@@ -142,7 +141,6 @@ HttpConnection::
 clear()
 {
     responseState_ = IDLE;
-    requestEnded_ = false;
     request_.clear();
     lastCode_ = Success;
 }
@@ -294,6 +292,9 @@ handleEndOfRq(TcpConnectionCode code, bool requireClose)
         ;
     }
     else {
+        /* "requestEnded_" is meant to ignore this part of the code, since
+           "handleEndOfRq" is called again from "onClosed", in the callback chain started in
+           "requestClose". */
         requestEnded_ = true;
         cancelRequestTimer();
         if (requireClose) {
@@ -310,11 +311,12 @@ void
 HttpConnection::
 finalizeEndOfRq(TcpConnectionCode code)
 {
-    if (request_.callbacks_) {
+    if (request_) {
         request_.callbacks_->onDone(request_, translateError(code));
+        clear();
+        onDone(code);
     }
-    clear();
-    onDone(code);
+    requestEnded_ = false;
 }
 
 void
@@ -418,7 +420,7 @@ HttpClientV2(const string & baseUrl, int numParallel, size_t queueSize)
       baseUrl_(baseUrl),
       avlConnections_(numParallel),
       nextAvail_(0),
-      queue_([&]() { this->handleQueueEvent(); return false; }, queueSize)
+      queue_([&]() { this->handleQueueEvent(); }, queueSize)
 {
     ExcAssert(baseUrl.compare(0, 8, "https://") != 0);
 
@@ -428,7 +430,7 @@ HttpClientV2(const string & baseUrl, int numParallel, size_t queueSize)
         shared_ptr<HttpConnection> connection(connPtr);
         connection->init(baseUrl);
         connection->onDone = [&, connPtr] (TcpConnectionCode result) {
-            handleHttpConnectionDone(connPtr, result);
+            releaseConnection(connPtr);
         };
         loop_.addSource("connection" + to_string(i), connection);
         avlConnections_[i] = connPtr;
@@ -507,7 +509,7 @@ handleQueueEvent()
     if (numConnections > 0) {
         /* "0" has a special meaning for pop_front and must be avoided here */
         auto requests = queue_.pop_front(numConnections);
-        for (auto request: requests) {
+        for (auto & request: requests) {
             HttpConnection * conn = getConnection();
             if (!conn) {
                 cerr << ("nextAvail_: "  + to_string(nextAvail_)
@@ -519,21 +521,6 @@ handleQueueEvent()
             }
             conn->perform(move(request));
         }
-    }
-}
-
-void
-HttpClientV2::
-handleHttpConnectionDone(HttpConnection * connection,
-                         TcpConnectionCode result)
-{
-    auto requests = queue_.pop_front(1);
-    if (requests.size() > 0) {
-        // cerr << "emptying queue...\n";
-        connection->perform(move(requests[0]));
-    }
-    else {
-        releaseConnection(connection);
     }
 }
 

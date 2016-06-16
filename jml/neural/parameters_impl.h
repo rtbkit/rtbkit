@@ -8,6 +8,7 @@
 #ifndef __jml__neural__parameters_impl_h__
 #define __jml__neural__parameters_impl_h__
 
+#include <cmath>
 #include "parameters.h"
 #include "layer.h"
 
@@ -22,7 +23,7 @@ bool need_update(const F * vals, size_t size)
 #if 0 // check the whole range for NaN
     bool result = false;
     for (unsigned i = 0;  i < size;  ++i) {
-        if (isnan(vals[i]))
+        if (std::isnan(vals[i]))
             throw Exception("updating with range containing NaN");
         if (vals[i] != 0.0)
             result = true;
@@ -30,7 +31,7 @@ bool need_update(const F * vals, size_t size)
     return result;
 #else // check for NaN until we find a single non-zero value
     for (unsigned i = 0;  i < size;  ++i) {
-        if (isnan(vals[i]))
+        if (std::isnan(vals[i]))
             throw Exception("updating with range containing NaN");
         if (vals[i] != 0.0) return true;
     }
