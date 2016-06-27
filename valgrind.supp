@@ -69,7 +69,7 @@
    Memcheck:Param
    msync(start)
    fun:__msync_nocancel
-   obj:/usr/lib/libunwind.so.7.0.0
+   obj:/usr/lib/libunwind.so*
    fun:_ULx86_64_step
    ...
 }
