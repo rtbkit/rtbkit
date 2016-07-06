@@ -19,9 +19,11 @@ MockAdServerConnector(std::string const & serviceName,
                       const Json::Value & json) :
     HttpAdServerConnector(serviceName, proxies)
 {
-    int winPort = json.get("winPort", "12340").asInt();
-    int eventPort = json.get("eventPort", "12341").asInt();
-    init(winPort, eventPort);
+    if (json != Json::Value::null) {
+        int winPort = json.get("winPort", "12340").asInt();
+        int eventPort = json.get("eventPort", "12341").asInt();
+        init(winPort, eventPort);
+    }
 }
 
 MockAdServerConnector::
