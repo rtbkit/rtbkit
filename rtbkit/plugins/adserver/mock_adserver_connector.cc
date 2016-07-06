@@ -104,7 +104,7 @@ struct AtInit {
 					   [](std::string const & serviceName,
 					      std::shared_ptr<ServiceProxies> const & proxies,
 					      Json::Value const & json) {
-            return new MockAdServerConnector(serviceName, proxies);
+            return new MockAdServerConnector(serviceName, proxies, json);
         });
     }
 } atInit;
