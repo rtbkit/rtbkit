@@ -406,7 +406,7 @@ struct Router : public ServiceBase,
      */
     virtual void submitToPostAuctionService(std::shared_ptr<Auction> auction,
                                             Id auctionId,
-                                            const Auction::Response & bid);
+                                            Auction::Response & bid);
 
 protected:
     // This thread contains the main router loop

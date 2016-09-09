@@ -2270,12 +2270,12 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         switch (localResult.val) {
         case Auction::WinLoss::PENDING: {
             ++info.stats->bids;
-            info.stats->totalBid += bid.price;
+            info.stats->totalBid += price;
             break; // response will be sent later once local winning bid known
         }
         case Auction::WinLoss::LOSS:
             ++info.stats->bids;
-            info.stats->totalBid += bid.price;
+            info.stats->totalBid += price;
             // fall through
         case Auction::WinLoss::TOOLATE:
         case Auction::WinLoss::INVALID: {
@@ -2920,7 +2920,7 @@ void
 Router::
 submitToPostAuctionService(std::shared_ptr<Auction> auction,
                            Id adSpotId,
-                           const Auction::Response & bid)
+                           Auction::Response & bid)
 {
 #if 0
     static std::mutex lock;
@@ -2949,6 +2949,8 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
         event->bidRequest(auction->request);
         event->bidRequestStr = auction->requestStr;
         event->bidRequestStrFormat = auction->requestStrFormat ;
+        // apply wcm for PAL.
+        bid.price.maxPrice = bid.wcm.evaluate(bid.bidData[0], bid.price.maxPrice);
         event->bidResponse = bid;
 
         postAuctionEndpoint.sendAuction(event);
