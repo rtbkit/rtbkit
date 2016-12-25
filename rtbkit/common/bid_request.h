@@ -234,7 +234,7 @@ struct Location {
     }
 
     std::string countryCode;
-    std::string regionCode;
+    Datacratic::UnicodeString regionCode;
     Datacratic::UnicodeString cityName;
     Datacratic::UnicodeString postalCode;
 
