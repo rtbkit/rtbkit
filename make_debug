@@ -1,0 +1,4 @@
+#!/bin/bash
+
+make compile -j 4 NODEJS_ENABLED=0 CXXNODEBUGFLAGS="-O1 -g"
+make test NODEJS_ENABLED=0

@@ -32,6 +32,12 @@ openRTBBidRequestParserFactory(const std::string & version)
         return std::unique_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
     } else if(version == "2.2") {
         return std::unique_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
+    } else if(version == "2.3") {
+        return std::unique_ptr<OpenRTBBidRequestParser2point3>(new OpenRTBBidRequestParser2point3());
+    } else if(version == "2.4") {
+        return std::unique_ptr<OpenRTBBidRequestParser2point4>(new OpenRTBBidRequestParser2point4());
+    } else if(version == "2.5") {
+        return std::unique_ptr<OpenRTBBidRequestParser2point5>(new OpenRTBBidRequestParser2point5());
     }
 
     THROW(OpenRTBBidRequestLogs::error) << "Version : " << version << " not supported in RTBkit." << endl;
@@ -47,6 +53,7 @@ toBidRequest(const RTBKIT::BidRequest & br) {
     result.at = br.auctionType;
     result.tmax = br.timeAvailableMs;
     result.unparseable = br.unparseable;
+    result.test = br.isTest;
 
     result.imp.reserve(br.imp.size());
 
@@ -195,6 +202,8 @@ onBidRequest(OpenRTB::BidRequest & br) {
 
     ctx.br->auctionId = br.id;
 
+    ctx.br->isTest = br.test.value() == 1;
+
     // Check for at to be 1 or 2
     if(br.at.val == 1 || br.at.val == 2)
         ctx.br->auctionType = AuctionType(br.at);
@@ -295,9 +304,19 @@ onImpression(OpenRTB::Impression & impression) {
         this->onVideo(*ctx.spot.video);
     }
 
+    if(ctx.spot.audio) {
+        this->onAudio(*ctx.spot.audio);
+    }
+
     // TODO Support tagFilters / mime filers
 
     ctx.br->imp.emplace_back(std::move(ctx.spot));
+}
+
+void
+OpenRTBBidRequestParser::
+onAudio(OpenRTB::Audio & audio) {
+    // todo implement checks for audio
 }
 
 void

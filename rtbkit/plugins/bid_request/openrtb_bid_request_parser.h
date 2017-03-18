@@ -60,6 +60,7 @@ struct OpenRTBBidRequestParser
         virtual void onBidRequest(OpenRTB::BidRequest & br);
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
+        virtual void onAudio(OpenRTB::Audio & audio);
         virtual void onVideo(OpenRTB::Video & video);
         virtual void onSite(OpenRTB::Site & site);
         virtual void onApp(OpenRTB::App & app);
@@ -106,7 +107,7 @@ struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {
         };
     };
 
-    private :
+    private:
         virtual void onBidRequest(OpenRTB::BidRequest & br);
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
@@ -115,6 +116,48 @@ struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {
         virtual void onRegulations(OpenRTB::Regulations & regs);
         virtual void onPMP(OpenRTB::PMP & pmp);
         virtual void onDeal(OpenRTB::Deal & deal);
+};
+
+struct OpenRTBBidRequestParser2point3 : OpenRTBBidRequestParser {
+
+    OpenRTBBidRequestParser2point3() {
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID-1"},
+                          {4, "ORMMA"},
+                          {5, "MRAID-2"}
+        };
+    };
+
+    //Todo implement any checks needed for 2.3
+};
+
+struct OpenRTBBidRequestParser2point4 : OpenRTBBidRequestParser {
+
+    OpenRTBBidRequestParser2point4() {
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID-1"},
+                          {4, "ORMMA"},
+                          {5, "MRAID-2"}
+        };
+    };
+
+    //Todo implement any checks needed for 2.4
+};
+
+struct OpenRTBBidRequestParser2point5 : OpenRTBBidRequestParser {
+
+    OpenRTBBidRequestParser2point5() {
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID-1"},
+                          {4, "ORMMA"},
+                          {5, "MRAID-2"}
+        };
+    };
+
+    //Todo implement any checks needed for 2.5
 };
 
 } // namespace RTBKIT
