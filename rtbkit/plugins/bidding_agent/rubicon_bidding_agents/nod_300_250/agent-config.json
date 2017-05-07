@@ -1,0 +1,83 @@
+{
+  "account": ["hello","world"],
+  "bidProbability": 1.0,
+  "providerConfig": {
+                "rubicon": {
+                    "seat": "123",
+                    "adm": "<img src=\"images/nod_300_250_1.jpg?width=300&height=250&price=${AUCTION_PRICE:BF}\"/>",
+                    "crid": "Medium Rectangle",
+                    "attr":[0],
+                    "adomain":["rtbkit.org"]
+                }
+            },
+  "creatives": [
+   {
+      "format":{"width":300, "height":250},
+      "id":0,
+      "name":"Medium Rectangle",
+      "tagId":0,
+   "providerConfig": {
+                "rubicon": {
+                    "seat": "123",
+                    "adm": "<img src=\"images/nod_300_250_1.jpg?width=300&height=250&price=${AUCTION_PRICE:BF}\"/>",
+                    "crid": "Medium Rectangle",
+                    "attr":[0],
+                    "adomain":["rtbkit.org"]
+                }
+            }
+    },
+    {
+      "format":{"width":300, "height":250},
+      "id":1,
+      "name":"Medium Rectangle",
+      "tagId":1,
+   "providerConfig": {
+                "rubicon": {
+                    "seat": "123",
+                    "adm": "<img src=\"images/nod_300_250_1.jpg?width=300&height=250&price=${AUCTION_PRICE:BF}\"/>",
+                    "crid": "Medium Rectangle",
+                    "attr":[0],
+                    "adomain":["rtbkit.org"]
+                }
+            }
+    },
+    {
+      "format":{"width":300, "height":250},
+      "id":2,
+      "name":"Medium Rectangle",
+      "tagId":2,
+   "providerConfig": {
+                "rubicon": {
+                    "seat": "123",
+                    "adm": "<img src=\"images/nod_300_250_1.jpg?width=300&height=250&price=${AUCTION_PRICE:BF}\"/>",
+                    "crid": "Medium Rectangle",
+                    "attr":[0],
+                    "adomain":["rtbkit.org"]
+                }
+            }
+    },
+    {
+      "format":{"width":300, "height":250},
+      "id":3,
+      "name":"Medium Rectangle",
+      "tagId":3,
+   "providerConfig": {
+                "rubicon": {
+                    "seat": "123",
+                    "adm": "<img src=\"images/nod_300_250_1.jpg?width=300&height=250&price=${AUCTION_PRICE:BF}\"/>",
+                    "crid": "Medium Rectangle",
+                    "attr":[0],
+                    "adomain":["rtbkit.org"]
+                }
+            }
+    }
+  ],
+  "augmentations":{
+    "frequency-cap-ex":{
+      "required":true,
+      "config":42,
+      "filters":{"include":["pass-frequency-cap-ex"]}
+    }
+  },
+  "maxInFlight": 50
+}
