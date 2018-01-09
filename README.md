@@ -5,7 +5,7 @@ RTBkit is an open-source software package that allows you to create and deploy a
 
 http://rtbkit.org/
 
-[Getting Started](https://github.com/rtbkit/rtbkit/wiki/Getting Started) (Installation and build instructions)
+[Getting Started](https://github.com/rtbkit/rtbkit/wiki/Getting%20Started) (Installation and build instructions)
 
 
 Beeswax
