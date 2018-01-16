@@ -21,28 +21,32 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 vector<string> samples = {
-    "rtbkit/plugins/bid_request/testing/openrtb1_req.json",
-    "rtbkit/plugins/bid_request/testing/openrtb2_req.json",
-    "rtbkit/plugins/bid_request/testing/openrtb3_req.json",
-    "rtbkit/plugins/bid_request/testing/openrtb4_req.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_wseat_req.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_banner.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_mobile.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_video.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_banner1.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_banner2.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_banner3.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_banner4.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_desktop.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_mobile_app.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_mobile_web.json",
-    "rtbkit/plugins/bid_request/testing/rubicon_test1.json"
+    "../../../rtbkit/plugins/bid_request/testing/openrtb1_req.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb2_req.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb3_req.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb4_req.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_wseat_req.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_banner.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_mobile.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_video.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_banner1.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_banner2.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_banner3.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_banner4.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_desktop.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_mobile_app.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_mobile_web.json",
+    "../../../rtbkit/plugins/bid_request/testing/rubicon_test1.json"
 };
 
 vector<string> samples2_2 = {
-    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_imp.json",
-    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_video.json"
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_2_2_req_imp.json",
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_2_2_req_video.json"
+};
+
+vector<string> samples2_3 = {
+    "../../../rtbkit/plugins/bid_request/testing/openrtb_2_3_req_native.json"
 };
 
 
@@ -101,6 +105,9 @@ BOOST_AUTO_TEST_CASE( test_openrtb_sample_requests )
     // Use 2.2 parsing
     for (auto s: samples2_2)
         testBidRequest(s, "2.2");
+
+    for (auto s: samples2_3)
+        testBidRequest(s, "2.3");
 }
 
 bool jsonDiff(const Json::Value & v1, const Json::Value & v2,

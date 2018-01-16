@@ -61,6 +61,7 @@ struct OpenRTBBidRequestParser
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
         virtual void onVideo(OpenRTB::Video & video);
+        virtual void onNative(OpenRTB::Native & native);
         virtual void onSite(OpenRTB::Site & site);
         virtual void onApp(OpenRTB::App & app);
         virtual void onContext(OpenRTB::Context & context);
@@ -111,6 +112,30 @@ struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
         virtual void onVideo(OpenRTB::Video & video);
+        virtual void onDevice(OpenRTB::Device & device);
+        virtual void onRegulations(OpenRTB::Regulations & regs);
+        virtual void onPMP(OpenRTB::PMP & pmp);
+        virtual void onDeal(OpenRTB::Deal & deal);
+};
+
+struct OpenRTBBidRequestParser2point3 : OpenRTBBidRequestParser {
+
+    OpenRTBBidRequestParser2point3() {
+        // The same as in 2.2
+        apiFrameworks = { {1, "VPAID 1.0"},
+                          {2, "VPAID 2.0"},
+                          {3, "MRAID-1"},
+                          {4, "ORMMA"},
+                          {5, "MRAID-2"}
+        };
+    };
+
+    private :
+        virtual void onBidRequest(OpenRTB::BidRequest & br);
+        virtual void onImpression(OpenRTB::Impression & imp);
+        virtual void onBanner(OpenRTB::Banner & banner);
+        virtual void onVideo(OpenRTB::Video & video);
+        virtual void onNative(OpenRTB::Native & native);
         virtual void onDevice(OpenRTB::Device & device);
         virtual void onRegulations(OpenRTB::Regulations & regs);
         virtual void onPMP(OpenRTB::PMP & pmp);

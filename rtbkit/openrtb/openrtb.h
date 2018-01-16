@@ -293,7 +293,8 @@ struct VideoStartDelay: public Datacratic::TaggedEnum<VideoStartDelay> {
 
         PRE_ROLL = 0,
         GENERIC_MID_ROLL = -1,
-        GENERIC_POST_ROLL = -2
+        GENERIC_POST_ROLL = -2,
+        MID_ROLL = 1
     };
 };
 
@@ -673,6 +674,20 @@ struct Video {
 
 
 /*****************************************************************************/
+/* NATIVE                                                                    */
+/*****************************************************************************/
+
+struct Native {
+	~Native();
+    Datacratic::UnicodeString request; ///< Request payload complying with the Native Ad Specification
+    Datacratic::UnicodeString ver; ///< Version of the Native Ad Specification
+    Datacratic::List<ApiFramework> api; ///< List of supported API frameworks (table 5.6)
+    Datacratic::List<CreativeAttribute> battr; ///< Blocked creative attributes (table 5.3)
+    Json::Value ext; ///< Placeholders for exchange-specific extansions to OpenRTB
+};
+
+
+/*****************************************************************************/
 /* PRODUCER / PUBLISHER                                                      */
 /*****************************************************************************/
 
@@ -761,6 +776,7 @@ struct Impression {
     Datacratic::Id id;                             ///< Impression ID within BR
     Datacratic::Optional<Banner> banner;           ///< If it's a banner ad
     Datacratic::Optional<Video> video;             ///< If it's a video ad
+    Datacratic::Optional<Native> native;             ///< If it's a native ad
     Datacratic::UnicodeString displaymanager;          ///< What renders the ad
     Datacratic::UnicodeString displaymanagerver;        ///< What version of that thing
     Datacratic::TaggedBoolDef<0> instl;            ///< Is it interstitial
@@ -861,6 +877,7 @@ struct SiteInfo {
     Datacratic::Url page;          ///< URL of the page to be shown
     Datacratic::Url ref;           ///< Referrer URL that got user to page
     Datacratic::UnicodeString search; ///< Search string that got user to page
+    Datacratic::TaggedBool mobile; ///< Mobile-optimized signal, where 0 = no, 1 = yes
 };
 
 struct Site: public Context, public SiteInfo {
@@ -923,6 +940,7 @@ struct Geo {
     Datacratic::UnicodeString zip;             ///< Zip or postal code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
+    Datacratic::TaggedInt utcoffset; ///< Local time as the number +/- of minutes from UTC
 
     /// Datacratic extensions
     std::string dma;             ///< Direct Marketing Association code
@@ -957,6 +975,7 @@ struct Geo {
 struct Device {
     ~Device();
     Datacratic::TaggedBool dnt;        ///< If 1 then do not track is on
+    Datacratic::TaggedBool lmt;        ///< If 1 then limit ad tracking is on
     Datacratic::UnicodeString ua;         ///< User agent of device
     std::string ip;             ///< IP address of device
     Datacratic::Optional<Geo> geo;     ///< Geolocation of device
@@ -973,6 +992,11 @@ struct Device {
     Datacratic::UnicodeString model;      ///< Device model
     Datacratic::UnicodeString os;         ///< Device OS
     Datacratic::UnicodeString osv;         ///< Device OS version
+    Datacratic::UnicodeString hwv; ///< Hardware version of the device
+    Datacratic::TaggedInt h; ///< Physical height of the screen in pixels
+    Datacratic::TaggedInt w; ///< Physical width of the screen in pixels
+    Datacratic::TaggedInt ppi; ///< Screen size as pixels per linear inch
+    Datacratic::TaggedDouble pxratio; ///< The ratio of physical pixels to device independent pixels
     Datacratic::TaggedBool js;         ///< Javascript is supported? 1 or 0
     ConnectionType connectiontype;    ///< Connection type (table 6.10)
     DeviceType devicetype; ///< Device type (table 6.16)
@@ -1169,9 +1193,11 @@ struct Bid {
     Datacratic::UnicodeString nurl;                  ///< Win notice/ad markup URL
     Datacratic::UnicodeString adm;                   ///< Ad markup
     std::vector<std::string> adomain;       ///< Advertiser domains
+    Datacratic::UnicodeString bundle; ///< Bundle or package name of the app being advertised
     Datacratic::UnicodeString iurl;                  ///< Image URL for content checking
     Datacratic::Id cid;                       ///< Campaign ID
     Datacratic::Id crid;                      ///< Creative ID
+    Datacratic::List<ContentCategory> cat; ///< IAB content categories
     Datacratic::List<CreativeAttribute> attr; ///< Creative attributes
     std::string dealid;                     ///< unique id for the deal associated with bid
                                             ///< if its in bid request, required in bid response

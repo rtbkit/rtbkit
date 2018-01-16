@@ -55,13 +55,14 @@ DefaultDescription()
     addField("unparseable", &BidRequest::unparseable, "Unparseable fields are collected here");
 }
 
-DefaultDescription<Impression>::
+DefaultDescription<OpenRTB::Impression>::
 DefaultDescription()
 {
     addField("id", &Impression::id, "Impression ID within bid request",
              new StringIdDescription());
     addField("banner", &Impression::banner, "Banner information if a banner ad");
     addField("video", &Impression::video, "Video information if a video ad");
+    addField("native", &Impression::native, "Native information if a native ad");
     addField("displaymanager", &Impression::displaymanager, "Display manager that renders the ad");
     addField("displaymanagerver", &Impression::displaymanagerver, "Version of the display manager");
     addField("instl", &Impression::instl, "Is the ad interstitial");
@@ -188,6 +189,7 @@ DefaultDescription()
     addField("page",   &SiteInfo::page,   "URL of the page");
     addField("ref",    &SiteInfo::ref,    "Referrer URL to the page");
     addField("search", &SiteInfo::search, "Search string to page");
+    addField("mobile", &SiteInfo::mobile, "Mobile-optimized signal");
 }
 
 DefaultDescription<OpenRTB::App>::
@@ -214,6 +216,7 @@ DefaultDescription()
     addField("zip", &Geo::zip, "Zip or postal code");
     addField("type", &Geo::type, "Source of location data");
     addField("ext", &Geo::ext, "Extensions to the protocol go here");
+    addField("utcoffset", &Geo::utcoffset, "Local time as the number +/- of minutes from UTC");
     /// Datacratic extension
     addField("dma", &Geo::dma, "DMA code");
     /// Rubicon extension
@@ -224,6 +227,7 @@ DefaultDescription<OpenRTB::Device>::
 DefaultDescription()
 {
     addField("dnt", &Device::dnt, "Is do not track set");
+    addField("lmt", &Device::lmt, "Is do limit ad tracking");
     addField("ua", &Device::ua, "User agent of device");
     addField("ip", &Device::ip, "IP address of device");
     addField("geo", &Device::geo, "Geographic location of device");
@@ -240,6 +244,11 @@ DefaultDescription()
     addField("model", &Device::model, "Device model");
     addField("os", &Device::os, "Device OS");
     addField("osv", &Device::osv, "Device OS version");
+    addField("hwv", &Device::hwv, "Hardware version of the device");
+    addField("h", &Device::h, "Physical height of the screen in pixels");
+    addField("w", &Device::w, "Physical width of the screen in pixels");
+    addField("ppi", &Device::ppi, "Screen size as pixels per linear inch");
+    addField("pxratio", &Device::pxratio, "The ratio of physical pixels to device independent pixels");
     addField("js", &Device::js, "Javascript is supported");
     addField("connectiontype", &Device::connectiontype, "Device connection type");
     addField("devicetype", &Device::devicetype, "Device type");
@@ -303,9 +312,11 @@ DefaultDescription()
     addField("nurl", &Bid::nurl, "Win notice/ad markup URL");
     addField("adm", &Bid::adm, "Ad markup");
     addField("adomain", &Bid::adomain, "Advertiser domain(s)");
+    addField("bundle", &Bid::bundle, "Bundle or package name of the app being advertised");
     addField("iurl", &Bid::iurl, "Image URL for content checking");
     addField("cid", &Bid::cid, "Campaign ID",
              new StringIdDescription());
+    addField("cat", &Bid::cat, "IAB content categories");
     addField("crid", &Bid::crid, "Creative ID",
              new StringIdDescription());
     addField("attr", &Bid::attr, "Creative attributes");
@@ -363,6 +374,16 @@ DefaultDescription()
 {
     addField("coppa", &Regulations::coppa, "is coppa regulated traffic");
     addField("ext", &Regulations::ext, "Extensions");
+}
+
+DefaultDescription<OpenRTB::Native>::
+DefaultDescription()
+{
+    addField("request", &Native::request, "Request payload");
+    addField("ver", &Native::ver, "Version of the Native Ad Specification");
+    addField("api", &Native::api, "List of supported API frameworks for this impression");
+    addField("battr", &Native::battr, "Blocked creative attributes");
+    addField("ext", &Native::ext, "Extensions");
 }
 
 

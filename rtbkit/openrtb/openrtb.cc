@@ -48,6 +48,11 @@ Video::
 {
 }
 
+Native::
+~Native()
+{
+}
+
 Content::
 ~Content()
 {

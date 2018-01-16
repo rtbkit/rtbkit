@@ -373,4 +373,10 @@ struct DefaultDescription<OpenRTB::Regulations>
     DefaultDescription();
 };
 
+template<>
+struct DefaultDescription<OpenRTB::Native>
+        : public StructureDescription<OpenRTB::Native> {
+    DefaultDescription();
+};
+
 } // namespace Datacratic

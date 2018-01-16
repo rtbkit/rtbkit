@@ -21,7 +21,7 @@ namespace RTBKIT {
 
     static DefaultDescription<OpenRTB::BidRequest> desc;
 
-namespace { const char* DefaultVersion = "2.2"; }
+namespace { const char* DefaultVersion = "2.3"; }
 
 std::unique_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
@@ -32,6 +32,8 @@ openRTBBidRequestParserFactory(const std::string & version)
         return std::unique_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
     } else if(version == "2.2") {
         return std::unique_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
+    } else if(version == "2.3") {
+        return std::unique_ptr<OpenRTBBidRequestParser2point3>(new OpenRTBBidRequestParser2point3());
     }
 
     THROW(OpenRTBBidRequestLogs::error) << "Version : " << version << " not supported in RTBkit." << endl;
@@ -295,6 +297,10 @@ onImpression(OpenRTB::Impression & impression) {
         this->onVideo(*ctx.spot.video);
     }
 
+    if(ctx.spot.native) {
+        this->onNative(*ctx.spot.native);
+    }
+
     // TODO Support tagFilters / mime filers
 
     ctx.br->imp.emplace_back(std::move(ctx.spot));
@@ -369,6 +375,11 @@ onVideo(OpenRTB::Video & video) {
             ctx.br->segments.add("api-video", framework->second, 1.0);
     }
     ctx.spot.formats.push_back(Format(video.w.value(), video.h.value()));
+}
+
+void
+OpenRTBBidRequestParser::
+onNative(OpenRTB::Native & native) {
 }
 
 void
@@ -741,6 +752,115 @@ onDeal(OpenRTB::Deal & deal) {
 void
 OpenRTBBidRequestParser2point2::
 onPMP(OpenRTB::PMP & pmp) {
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onBidRequest(OpenRTB::BidRequest & br) {
+
+    // Call V1
+    OpenRTBBidRequestParser::onBidRequest(br);
+
+    if(ctx.br->regs)
+        this->onRegulations(*br.regs);
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onImpression(OpenRTB::Impression & imp) {
+
+    // Deal with secure, business logic
+    
+    // Deal with PMP
+    if(imp.pmp) {
+        this->onPMP(*imp.pmp);
+    }
+
+    // Call V1
+    OpenRTBBidRequestParser::onImpression(imp);
+    
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onBanner(OpenRTB::Banner & banner) {
+
+    // Business logic around w/h min/max
+    
+    // Call V1
+    OpenRTBBidRequestParser::onBanner(banner);
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onVideo(OpenRTB::Video & video) {
+
+    if(video.mimes.empty()) {
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.mimes needs to be populated." << endl;
+    }
+
+    // -1 being the default value
+    if(video.protocol.value() != -1 && (video.protocol.value() < 0 || video.protocol.value() > 6)) {
+        LOG(OpenRTBBidRequestLogs::error22) << video.protocol.value() << endl;
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.protocol if specified must match a value in OpenRTB 2.2 Table 6.7." << endl;
+    }
+
+    if(video.minduration.val < 0 ) {
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.minduration must be specified and positive." << endl;
+    }
+
+    if(video.maxduration.val < 0 ) {
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration must be specified and positive." << endl;
+    } else if (video.maxduration.val < video.minduration.val) {
+        // Illogical
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
+    } 
+
+    ctx.spot.position = video.pos;
+
+    // Add api to the segments in order to filter on it
+    for(auto & api : video.api) {
+        auto framework = apiFrameworks.find(api.val);
+        if (framework != apiFrameworks.end())
+            ctx.br->segments.add("api-video", framework->second, 1.0);
+    }
+    ctx.spot.formats.push_back(Format(video.w.value(), video.h.value()));
+
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onNative(OpenRTB::Native & native) {
+
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onDevice(OpenRTB::Device & device) {
+
+    if(device.devicetype.val > 7)
+        LOG(OpenRTBBidRequestLogs::error22) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
+
+    // Call base version
+    OpenRTBBidRequestParser::onDevice(device);
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onRegulations(OpenRTB::Regulations & regs) {
+
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onDeal(OpenRTB::Deal & deal) {
+
+}
+
+void
+OpenRTBBidRequestParser2point3::
+onPMP(OpenRTB::PMP & pmp) {
+
 }
 
 namespace {
