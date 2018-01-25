@@ -246,13 +246,13 @@ ExchangeConnector::ExchangeCompatibility
 	for (const auto& mimeType : spot.banner->mimes) { 
               if (std::find(crinfo->mimeTypes.begin(), crinfo->mimeTypes.end(), mimeType.type)
                       != crinfo->mimeTypes.end()) {
-                  this->recordHit ("blockedMime");
                   return true;
               }
 	}
       }
-
-       return false;
+       
+      this->recordHit ("blockedMime");
+      return false;
   }
 
 void
