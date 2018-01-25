@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->device->make, Datacratic::UnicodeString("1001"));
     BOOST_CHECK_EQUAL(ortbReq->device->model, Datacratic::UnicodeString("10001"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->country, "US");
-    BOOST_CHECK_EQUAL(ortbReq->device->geo->region, "NY");
+    BOOST_CHECK_EQUAL(ortbReq->device->geo->region, Datacratic::UnicodeString("NY"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->city, Datacratic::UnicodeString("New York"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->zip, Datacratic::UnicodeString("10014"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->dma, "501");
