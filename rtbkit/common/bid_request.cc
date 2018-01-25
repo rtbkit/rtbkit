@@ -163,6 +163,8 @@ DefaultDescription()
     addField("unparseable", &BidRequest::unparseable, "Unparseable fields are stored here");
     addField("bidCurrency", &BidRequest::bidCurrency, "Currency we're bidding in");
     addField("ext", &BidRequest::ext, "OpenRTB ext object");
+    addField("blockedCategories", &BidRequest::blockedCategories, "OpenRTB bcat object");
+    addField("regs", &BidRequest::regs, "OpenRTB regs object");
 }
 
 } // namespace Datacratic
@@ -965,6 +967,9 @@ toJson() const
     if (!userIds.empty())
         result["userIds"] = userIds.toJson();
 
+    if (regs)
+        toJsonValue(result["regs"], *regs);
+
     return result;
 }
 
@@ -1092,6 +1097,9 @@ createFromJson(const Json::Value & json)
         }
         else if (it.memberName() == "user") {
             fromJsonOptional(*it, result.user, result.unparseable, "user");
+        }
+        else if (it.memberName() == "regs") {
+            fromJsonOptional(*it, result.regs, result.unparseable, "regs");
         }
         else if (it.memberName() == "unparseable")
             result.unparseable = *it;

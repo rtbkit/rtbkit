@@ -647,7 +647,8 @@ onBidRequest(OpenRTB::BidRequest & br) {
 
     // Call V1
     OpenRTBBidRequestParser::onBidRequest(br);
-
+    
+    ctx.br->regs.reset(br.regs.release());
     if(ctx.br->regs)
         this->onRegulations(*br.regs);
 }
