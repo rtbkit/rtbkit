@@ -6,9 +6,11 @@
 */
 
 #include "slot.h"
+#if NODEJS_ENABLED
 #include "v8.h"
 #include "soa/js/js_utils.h"
 #include "soa/js/js_call.h"
+#endif // NODEJS_ENABLED
 #include <boost/signals2.hpp>
 #include <boost/bind.hpp>
 #include "jml/arch/format.h"
@@ -20,6 +22,7 @@ using namespace ML;
 
 namespace Datacratic {
 
+#if NODEJS_ENABLED
 bool inJsContext()
 {
     return true;
@@ -41,6 +44,8 @@ void exitJs(void * & locker_)
     delete locker;
     locker_ = 0;
 }
+#endif // NODEJS_ENABLED
+
 
 /*****************************************************************************/
 /* SLOT DISCONNECTOR                                                         */
@@ -59,6 +64,7 @@ SlotDisconnector(const boost::signals2::connection & connection)
 /* SLOT                                                                      */
 /*****************************************************************************/
 
+#if NODEJS_ENABLED
 Slot::
 Slot(const Slot & other)
     : fn(other.fn), ops(other.ops), jsops(other.jsops), fntype(other.fntype)
@@ -77,14 +83,40 @@ Slot(const Slot & other)
         throw Exception("wrong fntype");
     }
 }
+#else // NODEJS_ENABLED
+Slot::
+Slot(const Slot & other)
+    : fn(other.fn), ops(other.ops), fntype(other.fntype)
+{
+    switch (fntype) {
+    case EMPTY: break;
+    case BOOST:
+        if (ops && fn)
+            fn = (boost::function_base *)(ops(3, fn));
+        break;
+    default:
+        throw Exception("wrong fntype");
+    }
+}
+#endif // NODEJS_ENABLED
 
+#if NODEJS_ENABLED
 Slot::
 Slot(Slot && other)
     : fn(other.fn), ops(other.ops), jsops(other.jsops), fntype(other.fntype)
 {
     other.fntype = EMPTY;
 }
+#else // NODEJS_ENABLED
+Slot::
+Slot(Slot && other)
+    : fn(other.fn), ops(other.ops), fntype(other.fntype)
+{
+    other.fntype = EMPTY;
+}
+#endif // NODEJS_ENABLED
 
+#if NODEJS_ENABLED
 Slot::
 Slot(const v8::Handle<v8::Function> & fn)
     : jsfn(new v8::Persistent<v8::Function>
@@ -108,6 +140,7 @@ Slot(const v8::Handle<v8::Value> & fn)
     if (jsfn->IsEmpty())
         throw Exception("Non-function JS value " + JS::cstr(fn) + " passed to slot");
 }
+#endif // NODEJS_ENABLED
 
 Slot::
 ~Slot()
@@ -124,6 +157,7 @@ free()
     case BOOST:
         if (ops) ops(1, fn);
         break;
+#if NODEJS_ENABLED
     case JS:
         if (jsfn) {
             jsfn->Dispose();
@@ -131,6 +165,7 @@ free()
             delete jsfn;
         }
         break;
+#endif // NODEJS_ENABLED
     default:
         throw Exception("Slot::free(): wrong type");
     }
@@ -163,7 +198,9 @@ swap(Slot & other)
     std::swap(fntype, other.fntype);
     std::swap(fn, other.fn);
     std::swap(ops, other.ops);
+#if NODEJS_ENABLED
     std::swap(jsops, other.jsops);
+#endif // NODEJS_ENABLED
 }
 
 std::string
@@ -176,13 +213,16 @@ print() const
     case BOOST:
         return "(c++) " + ML::demangle(type()) + "  as "
             + ML::demangle(fn->target_type());
+#if NODEJS_ENABLED
     case JS:
         return "(js) " + JS::cstr(*jsfn);
+#endif // NODEJS_ENABLED
     default:
         return "(invalid type) " + ML::format("%d", fntype);
     }
 }
         
+#if NODEJS_ENABLED
 v8::Handle<v8::Value>
 Slot::
 call(const v8::Arguments & args) const
@@ -242,6 +282,7 @@ call(const v8::Handle<v8::Object> & This,
         throw Exception("invalid fn type");
     }
 }
+#endif // NODEJS_ENABLED
 
 const std::type_info &
 Slot::
@@ -255,13 +296,16 @@ type() const
         ops(0, &p);
         return *p;
     }
+#if NODEJS_ENABLED
     case JS:
         return typeid(v8::Function);
+#endif // NODEJS_ENABLED
     default:
         throw Exception("Slot::type(): invalid type");
     }
 }
 
+#if NODEJS_ENABLED
 namespace JS {
 
 Slot from_js(const JSValue & val, Slot *)
@@ -270,5 +314,6 @@ Slot from_js(const JSValue & val, Slot *)
 }
 
 } // namespace JS
+#endif // NODEJS_ENABLED
 
 } // namespace Datacratic

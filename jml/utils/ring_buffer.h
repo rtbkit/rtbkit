@@ -80,23 +80,8 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
     mutable Mutex readMutex;  // todo: we don't need this... get rid of it
     typedef std::unique_lock<Mutex> Guard;
 
-    void push(const Request & request)
-    {
-        for (;;) {
-            // What position would the read position be in if the buffer was
-            // full?  
-            unsigned fullReadPosition = (writePosition + 1) % bufferSize;
-            if (readPosition == fullReadPosition)
-                ML::futex_wait(readPosition, fullReadPosition);
-            else break;
-        }
-
-        ring[writePosition] = request;
-        writePosition = (writePosition + 1) % bufferSize;
-        ML::futex_wake(writePosition);
-    }
-
-    void push(Request && request)
+    template<typename R>
+    void push(R && request)
     {
         for (;;) {
             // What position would the read position be in if the buffer was
@@ -107,7 +92,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             else break;
         }
         
-        std::swap(ring[writePosition], request);
+        ring[writePosition] = std::forward<R>(request);
         writePosition = (writePosition + 1) % bufferSize;
         ML::futex_wake(writePosition);
     }
@@ -122,7 +107,8 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
         }
     }
 
-    bool tryPush(const Request & request)
+    template<typename R>
+    bool tryPush(R && request)
     {
         // What position would the read position be in if the buffer was
         // full?  
@@ -130,21 +116,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
         if (readPosition == fullReadPosition)
             return false;
                        
-        ring[writePosition] = request;
-        writePosition = (writePosition + 1) % bufferSize;
-        ML::futex_wake(writePosition);
-        return true;
-    }
-
-    bool tryPush(Request && request)
-    {
-        // What position would the read position be in if the buffer was
-        // full?  
-        unsigned fullReadPosition = (writePosition + 1) % bufferSize;
-        if (readPosition == fullReadPosition)
-            return false;
-                       
-        std::swap(ring[writePosition], request);
+        ring[writePosition] = std::forward<R>(request);
         writePosition = (writePosition + 1) % bufferSize;
         ML::futex_wake(writePosition);
         return true;
@@ -164,7 +136,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
                 else break;
             }
 
-            result = ring[readPosition];
+            result = std::move(ring[readPosition]);
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
@@ -263,7 +235,8 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
     mutable Mutex mutex; // todo: get rid of...
     typedef std::unique_lock<Mutex> Guard;
     
-    void push(const Request & request)
+    template<typename R>
+    void push(R && request)
     {
         Guard guard(mutex);
 
@@ -276,31 +249,13 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             else break;
         }
                        
-        //ring[writePosition] = request;
-        ring[writePosition] = request;
+        ring[writePosition] = std::forward<R>(request);
         writePosition = (writePosition + 1) % bufferSize;
         ML::futex_wake(writePosition);
     }
 
-    bool tryPush(const Request & request)
-    {
-        Guard guard(mutex);
-
-        // What position would the read position be in if the buffer was
-        // full?  
-        unsigned fullReadPosition = (writePosition + 1) % bufferSize;
-        if (readPosition == fullReadPosition)
-            return false;
-
-        //ring[writePosition] = request;
-        ring[writePosition] = request;
-        writePosition = (writePosition + 1) % bufferSize;
-        ML::futex_wake(writePosition);
-
-        return true;
-    }
-
-    bool tryPush(Request && request)
+    template<typename R>
+    bool tryPush(R && request)
     {
         Guard guard(mutex);
 
@@ -310,8 +265,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         if (readPosition == fullReadPosition)
             return false;
 
-        //ring[writePosition] = request;
-        ring[writePosition] = std::move(request);
+        ring[writePosition] = std::forward<R>(request);
         writePosition = (writePosition + 1) % bufferSize;
         ML::futex_wake(writePosition);
 
@@ -344,7 +298,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         if (writePosition == readPosition)
             return false;
 
-        result = ring[readPosition];
+        result = std::move(ring[readPosition]);
         ring[readPosition] = Request();
         readPosition = (readPosition + 1) % bufferSize;
         ML::futex_wake(readPosition);
@@ -365,7 +319,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
                 else break;
             }
             
-            result = ring[readPosition];
+            result = std::move(ring[readPosition]);
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }

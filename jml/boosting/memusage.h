@@ -15,7 +15,6 @@ namespace std {
 template<class Key, class Data, class Compare, class Alloc> class map;
 template<class First, class Second> class pair;
 template<class T, class Alloc> class vector;
-template<class Char, class Traits, class Alloc> class basic_string;
 
 };
 
@@ -122,10 +121,9 @@ size_t memusage(const std::vector<T, Alloc> & vec)
         + (vec.capacity() - vec.size()) * sizeof(T);
 }
 
-template<class Char, class Traits, class Alloc>
-size_t memusage(const std::basic_string<Char, Traits, Alloc> & str)
+inline size_t memusage(const std::string & str)
 {
-    return str.capacity() * sizeof(Char) + sizeof(str);
+    return str.capacity() + sizeof(str);
 }
 
 } // namespace ML

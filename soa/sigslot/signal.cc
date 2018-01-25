@@ -7,8 +7,6 @@
 
 #include "signal.h"
 #include "jml/utils/pair_utils.h"
-#include "v8.h"
-#include "soa/js/js_utils.h"
 #include "soa/jsoncpp/json.h"
 
 using namespace std;

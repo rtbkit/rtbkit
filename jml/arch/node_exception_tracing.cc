@@ -15,12 +15,14 @@ __thread BacktraceInfo * current_backtrace = nullptr;
 
 namespace {
 
+#if 0
 void cleanup_current_backtrace(void * arg)
 {
     BacktraceInfo * p = (BacktraceInfo *)arg;
     delete p;
     p = nullptr;
 }
+#endif
 
 void ensure_current_backtrace()
 {

@@ -9,7 +9,6 @@
 #define __js__js_call_h__
 
 #include "js_call_fwd.h"
-#include "v8.h"
 #include "soa/js/js_utils.h"
 #include "soa/js/js_value.h"
 #include "jml/arch/exception.h"

@@ -79,7 +79,8 @@ struct EndpointBase : public Epoller {
         the last call; this is useful to know if something has got behind. It
         will normally be 1. */
     typedef std::function<void (uint64_t)> OnTimer;
-    void addPeriodic(double timePeriodSeconds, OnTimer toRun);
+    void addPeriodic(const std::string& name, double timePeriodSeconds, OnTimer toRun);
+    void removePeriodic(const std::string& name);
 
     /** What host are we connected to? */
     virtual std::string hostname() const = 0;
@@ -165,6 +166,7 @@ struct EndpointBase : public Epoller {
 
         std::shared_ptr<TransportBase> transport; /* TRANSPORT */
         OnTimer onTimer;                          /* TIMER */
+        std::string name;
     };
 
     // Get the polling start time for auction handler
@@ -250,8 +252,8 @@ protected:
     typedef ACE_Guard<Lock> Guard;
     mutable Lock lock; /* transportMapping */
 
-    typedef std::unique_lock<std::mutex> MutexGuard;
-    mutable std::mutex dataSetLock; /* epollDataSet */
+    typedef std::unique_lock<std::recursive_mutex> MutexGuard;
+    mutable std::recursive_mutex dataSetLock; /* epollDataSet */
 
     /** released when there are no active connections */
     mutable ACE_Semaphore idle;

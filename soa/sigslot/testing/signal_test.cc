@@ -16,9 +16,12 @@
 #include "jml/utils/string_functions.h"
 
 #include "soa/sigslot/signal.h"
+
+#if NODEJS_ENABLED
 #include "soa/sigslot/slot_impl_js.h"
 
 #include "soa/js/js_call.h"
+#endif // NODEJS_ENABLED
 
 using namespace std;
 using namespace ML;
@@ -81,17 +84,18 @@ struct ThingWithSignals {
     static DoRegisterSignals reg;
 };
 
+#if NODEJS_ENABLED
 RegisterJsOps<ThingWithSignals::Event1> reg1;
 RegisterJsOps<ThingWithSignals::Event2> reg2;
+#endif // NODEJS_ENABLED
 
 SignalRegistry<ThingWithSignals> ThingWithSignals::signals;
 DoRegisterSignals ThingWithSignals::reg(addSignals);
 
-
 BOOST_AUTO_TEST_CASE( test_signal_object )
 {
 
-    using namespace v8;
+    // using namespace v8;
 
     ThingWithSignals thing;
 
@@ -174,13 +178,12 @@ struct DerivedThingWithSignals : public ThingWithSignals {
 SignalRegistry<DerivedThingWithSignals> DerivedThingWithSignals::signals;
 DoRegisterSignals DerivedThingWithSignals::reg(addSignals);
 
+#if NODEJS_ENABLED
 RegisterJsOps<DerivedThingWithSignals::Event3> reg3;
+#endif // NODEJS_ENABLED
 
 BOOST_AUTO_TEST_CASE( test_signal_derived_object )
 {
-
-    using namespace v8;
-
     DerivedThingWithSignals thing;
 
     BOOST_CHECK_EQUAL(thing.signals.size(), 3);

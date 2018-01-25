@@ -556,13 +556,13 @@ struct TestBase {
         boost::thread_group tg;
 
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(boost::bind<void>(&TestBase::doReadThread, this, i));
+            tg.create_thread(boost::bind(&TestBase::doReadThread, this, i));
 
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(boost::bind<void>(allocFn, i));
+            tg.create_thread(boost::bind(allocFn, i));
 
         for (unsigned i = 0;  i < nSpinThreads;  ++i)
-            tg.create_thread(boost::bind<void>(&TestBase::doSpinThread, this));
+            tg.create_thread(boost::bind(&TestBase::doSpinThread, this));
 
         sleep(runTime);
 

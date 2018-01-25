@@ -42,12 +42,13 @@ endif
 # Command to hash the name of a command.
 NOTHING :=
 SPACE := $(NOTHING) $(NOTHING)
+DOLLAR := $$
 
 hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
 hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
-command_key = $(subst =,_,$(subst $(SPACE),_,$(strip $(1))))
+command_key = $(subst =,_,$(subst $(SPACE),_,$(subst $(DOLLAR),_,$(subst \,,$(strip $(1))))))
 
 hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
 
@@ -281,6 +282,7 @@ LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RE
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $(LIB)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
+$(if $(trace),$$(warning LINK_$(1)_COMMAND := "$$(LINK_$(1)_COMMAND)"))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)

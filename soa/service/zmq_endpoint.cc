@@ -158,164 +158,6 @@ handleSyncMessage(const std::vector<std::string> & message)
     
 
 /*****************************************************************************/
-/* ZMQ SOCKET MONITOR                                                        */
-/*****************************************************************************/
-
-//static int numMonitors = 0;
-
-ZmqSocketMonitor::
-ZmqSocketMonitor(zmq::context_t & context)
-    : monitorEndpoint(new zmq::socket_t(context, ZMQ_PAIR)),
-      monitoredSocket(0)
-{
-    //cerr << "creating socket monitor at " << this << endl;
-    //__sync_fetch_and_add(&numMonitors, 1);
-}
-
-void
-ZmqSocketMonitor::
-shutdown()
-{
-    if (!monitorEndpoint)
-        return;
-
-    //cerr << "shutting down socket monitor at " << this << endl;
-    
-    connectedUri.clear();
-    std::unique_lock<Lock> guard(lock);
-    monitorEndpoint.reset();
-
-    //cerr << __sync_add_and_fetch(&numMonitors, -1) << " monitors still active"
-    //     << endl;
-}
-
-void
-ZmqSocketMonitor::
-disconnect()
-{
-    std::unique_lock<Lock> guard(lock);
-    if (monitorEndpoint)
-        monitorEndpoint->tryDisconnect(connectedUri.c_str());
-}
-
-void
-ZmqSocketMonitor::
-init(zmq::socket_t & socketToMonitor, int events)
-{
-    static int serial = 0;
-
-    // Initialize the monitor connection
-    connectedUri
-        = ML::format("inproc://monitor-%p-%d",
-                     this, __sync_fetch_and_add(&serial, 1));
-    monitoredSocket = &socketToMonitor;
-        
-    //using namespace std;
-    //cerr << "connecting monitor to " << connectedUri << endl;
-
-    int res = zmq_socket_monitor(socketToMonitor, connectedUri.c_str(), events);
-    if (res == -1)
-        throw zmq::error_t();
-
-    // Connect it in
-    monitorEndpoint->connect(connectedUri.c_str());
-
-    // Make sure we receive events from it
-    ZmqBinaryTypedEventSource<zmq_event_t>::init(*monitorEndpoint);
-
-    messageHandler = [=] (const zmq_event_t & event)
-        {
-            this->handleEvent(event);
-        };
-}
-
-bool debugZmqMonitorEvents = false;
-
-int
-ZmqSocketMonitor::
-handleEvent(const zmq_event_t & event)
-{
-    if (debugZmqMonitorEvents) {
-        cerr << "got socket event " << printZmqEvent(event.event)
-             << " at " << this
-             << " " << connectedUri
-             << " for socket " << monitoredSocket << endl;
-    }
-
-    auto doEvent = [&] (const EventHandler & handler,
-                        const char * addr,
-                        int param)
-        {
-            if (handler)
-                handler(addr, param, event);
-            else if (defaultHandler)
-                defaultHandler(addr, param, event);
-            else return 0;
-            return 1;
-        };
-
-    switch (event.event) {
-
-        // Bind
-    case ZMQ_EVENT_LISTENING:
-        return doEvent(bindHandler,
-                       event.data.listening.addr,
-                       event.data.listening.fd);
-
-    case ZMQ_EVENT_BIND_FAILED:
-        return doEvent(bindFailureHandler,
-                       event.data.bind_failed.addr,
-                       event.data.bind_failed.err);
-
-        // Accept
-    case ZMQ_EVENT_ACCEPTED:
-        return doEvent(acceptHandler,
-                       event.data.accepted.addr,
-                       event.data.accepted.fd);
-    case ZMQ_EVENT_ACCEPT_FAILED:
-        return doEvent(acceptFailureHandler,
-                       event.data.accept_failed.addr,
-                       event.data.accept_failed.err);
-        break;
-
-        // Connect
-    case ZMQ_EVENT_CONNECTED:
-        return doEvent(connectHandler,
-                       event.data.connected.addr,
-                       event.data.connected.fd);
-    case ZMQ_EVENT_CONNECT_DELAYED:
-        return doEvent(connectFailureHandler,
-                       event.data.connect_delayed.addr,
-                       event.data.connect_delayed.err);
-    case ZMQ_EVENT_CONNECT_RETRIED:
-        return doEvent(connectRetryHandler,
-                       event.data.connect_retried.addr,
-                       event.data.connect_retried.interval);
-            
-        // Close and disconnection
-    case ZMQ_EVENT_CLOSE_FAILED:
-        return doEvent(closeFailureHandler,
-                       event.data.close_failed.addr,
-                       event.data.close_failed.err);
-    case ZMQ_EVENT_CLOSED:
-        return doEvent(closeHandler,
-                       event.data.closed.addr,
-                       event.data.closed.fd);
-
-    case ZMQ_EVENT_DISCONNECTED:
-        return doEvent(disconnectHandler,
-                       event.data.disconnected.addr,
-                       event.data.disconnected.fd);
-            
-    default:
-        LOG(ZmqLogs::print)
-            << "got unknown event type " << event.event << endl;
-        return doEvent(defaultHandler, "", -1);
-    }
-}
-
-
-/*****************************************************************************/
 /* NAMED ZEROMQ ENDPOINT                                                     */
 /*****************************************************************************/
 
@@ -373,10 +215,10 @@ bindTcp(PortRange const & portRange, std::string host)
             std::string uri;
 
             if(hostScope != "*") {
-               uri = "tcp://" + addr + ":" + to_string(port);
+                uri = "tcp://" + addr + ":" + to_string(port);
             }
             else {
-               uri = "tcp://" + ML::fqdn_hostname(to_string(port)) + ":" + to_string(port);
+                uri = "tcp://" + ML::fqdn_hostname(to_string(port)) + ":" + to_string(port);
             }
 
             Json::Value & entry = config[config.size()];

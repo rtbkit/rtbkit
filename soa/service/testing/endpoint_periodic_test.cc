@@ -14,6 +14,8 @@
 #include "jml/utils/testing/watchdog.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/futex.h"
+#include <mutex>
+#include <condition_variable>
 
 
 using namespace std;
@@ -76,7 +78,7 @@ BOOST_AUTO_TEST_CASE( test_periodic )
     anEndpoint.init(10);
     anEndpoint.spinup(10, true);
 
-    anEndpoint.addPeriodic(1.0, timerCallback);
+    anEndpoint.addPeriodic("test", 1.0, timerCallback);
 
     ML::sleep(2);
 
@@ -94,4 +96,36 @@ BOOST_AUTO_TEST_CASE( test_periodic )
         futex_wait(processing, oldValue);
     }
     anEndpoint.shutdown();
+}
+
+BOOST_AUTO_TEST_CASE( test_add_remove_periodic )
+{
+    MockEndpoint anEndpoint("myEndpoint");
+
+    std::mutex m;
+    std::condition_variable cv;
+    int invocations(0);
+    auto timerCallback = [&] (uint64_t numWakeUps) {
+        invocations++;
+        cv.notify_one();
+    };
+
+    anEndpoint.init(10);
+    anEndpoint.spinup(10, true);
+
+    anEndpoint.addPeriodic("test", 1.0, timerCallback);
+    {
+        std::unique_lock<std::mutex> lock(m);
+        auto status = cv.wait_for(lock, std::chrono::seconds(2));
+        if (status == cv_status::timeout) BOOST_FAIL("should not timeout");
+    }
+    BOOST_CHECK_EQUAL(invocations, 1);
+
+    anEndpoint.removePeriodic("test");
+    {
+        std::unique_lock<std::mutex> lock(m);
+        auto status = cv.wait_for(lock, std::chrono::seconds(2));
+        if (status != cv_status::timeout) BOOST_FAIL("should timeout");
+    }
+    BOOST_CHECK_EQUAL(invocations, 1);
 }

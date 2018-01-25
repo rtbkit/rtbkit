@@ -2059,7 +2059,7 @@ struct StreamingUploadSource {
 
             startDate = Date::now();
             for (unsigned i = 0;  i < metadata.numThreads;  ++i)
-                tg.create_thread(boost::bind<void>(&Impl::runThread, this));
+                tg.create_thread(boost::bind(&Impl::runThread, this));
             current.init(0, chunkSize, 0);
         }
 

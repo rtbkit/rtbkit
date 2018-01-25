@@ -11,13 +11,22 @@
 #include <vector>
 #include <v8/v8.h>
 #include <boost/function.hpp>
-#include "jml/utils/exc_assert.h"
 #include "jml/arch/demangle.h"
+#include "jml/arch/exception.h"
+#include "jml/arch/format.h"
 #include "jml/arch/rtti_utils.h"
 #include "jml/arch/backtrace.h"
+#include "jml/utils/exc_assert.h"
 #include "js_value.h"
 #include <boost/shared_ptr.hpp>
 #include <iostream>
+
+
+namespace v8 {
+
+struct Arguments;
+
+}
 
 
 namespace Datacratic {

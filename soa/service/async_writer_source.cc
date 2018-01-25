@@ -143,6 +143,9 @@ handleReadReady()
                    condition). */
                 break;
             }
+            else if (errno == ECONNRESET) {
+                handleClosing(true, true);
+            }
             if (s == -1) {
                 throw ML::Exception(errno, "read");
             }

@@ -29,12 +29,11 @@ typedef std::chrono::duration<double, std::ratio<1>> Seconds;
 using boost::posix_time::ptime;
 struct Opaque;
 
-
-#if NODEJS_ENABLED == 1
+#if NODEJS_ENABLED
 namespace JS {
 struct JSValue;
 } // namespace JS
-#endif
+#endif // NODEJS_ENABLED
 
 
 /*****************************************************************************/
@@ -53,10 +52,9 @@ struct Date {
     Date(int year, int month, int day,
          int hour = 0, int minute = 0, int second = 0,
          double fraction = 0.0);
-
-#if NODEJS_ENABLED == 1
+#if NODEJS_ENABLED
     explicit Date(JS::JSValue & value);
-#endif
+#endif // NODEJS_ENABLED
     explicit Date(const Json::Value & value);
     explicit Date(const ACE_Time_Value & time);
 
@@ -420,7 +418,7 @@ std::istream & operator >> (std::istream & stream, Date & date);
 ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, Date date);
 ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Date & date);
 
-#if NODEJS_ENABLED == 1
+#if NODEJS_ENABLED
 namespace JS {
 
 void to_js(JSValue & jsval, Date value);
@@ -432,9 +430,8 @@ from_js_ref(const JSValue & val, Date *)
     return from_js(val, (Date *)0);
 }
 
-
 } // namespace JS
-#endif
+#endif // NODEJS_ENABLED
 
 
 /*****************************************************************************/

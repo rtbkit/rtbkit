@@ -1,6 +1,6 @@
 # Make rules to build the leveldb files
 
-INCLUDE_LEVELDB := $(INCLUDE)/leveldb
+INCLUDE_LEVELDB := $(INCLUDE) -Ileveldb
 
 LIBRECOSET_LEVELDB_SOURCES := \
 	./db/builder.cc \

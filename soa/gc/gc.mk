@@ -10,6 +10,6 @@
 LIBGC_SOURCES := \
 	gc_lock.cc 
 
-$(eval $(call library,gc,$(LIBGC_SOURCES),arch utils urcu))
+$(eval $(call library,gc,$(LIBGC_SOURCES),arch utils))
 
 $(eval $(call include_sub_make,gc_testing,testing,gc_testing.mk))

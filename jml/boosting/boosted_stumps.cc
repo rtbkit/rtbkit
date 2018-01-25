@@ -515,49 +515,6 @@ namespace {
 static const std::string BOOSTED_STUMPS_MAGIC = "BOOSTED_STUMPS";
 static const compact_size_t BOOSTED_STUMPS_VERSION = 4;
 
-void serialize_dist(const distribution<float> & dist,
-                    DB::Store_Writer & store)
-{
-    bool non_zero = false;
-    for (unsigned i = 0;  i < dist.size();  ++i) {
-        //if (dist[i] != 0.0) { non_zero = true;  break; }
-        if (abs(dist[i]) > 1e-10) { non_zero = true;  break; }
-    }
-
-    if (non_zero) {
-        bool pos_neg = (dist.size() == 2 && (abs(dist[0] + dist[1]) < 1e-10));
-        if (pos_neg)
-            store << compact_const(1) << dist[0];
-        else store << dist;
-    }
-    else store << compact_const(0);
-}
-
-void reconstitute_dist(distribution<float> & dist,
-                       DB::Store_Reader & store,
-                       size_t nl)
-{
-    dist.clear();
-    compact_size_t size(store);
-
-    if (size == 0) dist.resize(nl);
-    else if (size == 1) {
-        dist.resize(2);
-        store >> dist[0];
-        dist[1] = -dist[0];
-    }
-    else {
-        if (size != nl)
-            throw Exception
-                (format("reconstituting Boosted_Stumps dist of wrong size: "
-                        "is %zd, should be %zd", size.size_, nl));
-
-        dist.resize(size);
-        for (unsigned i = 0;  i < nl;  ++i)
-            store >> dist[i];
-    }
-}
-
 } // file scope
 
 COMPACT_PERSISTENT_ENUM_DECL(Boosted_Stumps::Output);

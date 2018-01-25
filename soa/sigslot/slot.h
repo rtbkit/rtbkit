@@ -10,7 +10,10 @@
 #include <boost/function.hpp>
 #include "jml/arch/demangle.h"
 #include "jml/arch/exception.h"
+
+#if NODEJS_ENABLED
 #include "soa/js/js_call_fwd.h"
+#endif // NODEJS_ENABLED
 
 namespace boost {
 namespace signals2 {
@@ -24,6 +27,7 @@ struct Value;
 
 namespace Datacratic {
 
+#if NODEJS_ENABLED
 bool inJsContext();
 
 void enterJs(void * & locker);
@@ -42,6 +46,7 @@ struct JSLocker {
     
     void * locker;
 };
+#endif // NODEJS_ENABLED
 
 /** Type of a function used to disconnect a slot from a signal. */
 struct SlotDisconnector
@@ -141,6 +146,7 @@ struct Slot {
 
     // Initialize from a boost::function where the function type and the
     // called type are identical
+#if NODEJS_ENABLED
     template<typename Fn, typename F>
     static Slot fromF(const boost::function<F> & fn,
                       Operations ops = FunctionOps<Fn>::ops,
@@ -155,9 +161,24 @@ struct Slot {
         result.fn = new boost::function<Fn>(fn);
         return result;
     }
+#else // NODEJS_ENABLED
+    template<typename Fn, typename F>
+    static Slot fromF(const boost::function<F> & fn,
+                      Operations ops = FunctionOps<Fn>::ops)
+    {
+
+        Slot result;
+        if (fn.empty()) return result;
+        result.fntype = BOOST;
+        result.ops = ops;
+        result.fn = new boost::function<Fn>(fn);
+        return result;
+    }
+#endif // NODEJS_ENABLED
 
     // Initialize from a boost::function where the function type and the
     // called type are identical
+#if NODEJS_ENABLED
     template<typename Fn, typename F>
     static Slot fromF(F fn,
                       Operations ops = FunctionOps<Fn>::ops,
@@ -171,7 +192,21 @@ struct Slot {
         result.fn = new boost::function<Fn>(fn);
         return result;
     }
+#else // NODEJS_ENABLED
+    template<typename Fn, typename F>
+    static Slot fromF(F fn,
+                      Operations ops = FunctionOps<Fn>::ops)
+    {
+        Slot result;
+        //if (fn.empty()) return result;
+        result.fntype = BOOST;
+        result.ops = ops;
+        result.fn = new boost::function<Fn>(fn);
+        return result;
+    }
+#endif // NODEJS_ENABLED
                  
+#if NODEJS_ENABLED
     template<typename Fn>
     Slot(const boost::function<Fn> & fn,
          Operations ops = FunctionOps<Fn>::ops,
@@ -183,12 +218,26 @@ struct Slot {
             swap(new_me);
         }
     }
+#else // NODEJS_ENABLED
+    template<typename Fn>
+    Slot(const boost::function<Fn> & fn,
+         Operations ops = FunctionOps<Fn>::ops)
+        : fn(new boost::function<Fn>(fn)), ops(ops), fntype(BOOST)
+    {
+        if (!fn) {
+            Slot new_me;
+            swap(new_me);
+        }
+    }
+#endif // NODEJS_ENABLED
     
+#if NODEJS_ENABLED
     /** Initialize from a Javascript function. */
     Slot(const v8::Handle<v8::Function> & fn);
 
     /** Initialize from a Javascript value that must be convertible to a function. */
     Slot(const v8::Handle<v8::Value> & fn);
+#endif // NODEJS_ENABLED
 
     ~Slot();
 
@@ -203,11 +252,14 @@ struct Slot {
     typename boost::function<CallAs>::result_type
     call(Args... args) const
     {
+#if NODEJS_ENABLED
         if (!inJsContext())
             throw ML::Exception("callback outside JS context");
+#endif // NODEJS_ENABLED
         return as<CallAs>()(args...);
     }
 
+#if NODEJS_ENABLED
     /** Call from Javascript, unpacking the parameters as we go and wrapping
         up the return value.
     */
@@ -222,6 +274,7 @@ struct Slot {
         returned.
     */
     v8::Local<v8::Function> toJsFunction() const;
+#endif // NODEJS_ENABLED
 
     /** Return the type info node of the function type.  Will return the
         typeinfo node of the v8 function if it's a JS value.
@@ -231,6 +284,7 @@ struct Slot {
     /** Return a boost function object that will synchronously call the
         given callback.
     */
+#if NODEJS_ENABLED
     template<typename Fn>
     boost::function<Fn>
     as(JS::JSOperations jsops = 0) const
@@ -267,6 +321,27 @@ struct Slot {
             throw ML::Exception("unknown operation type");
         }
     }
+#else // NODEJS_ENABLED
+    template<typename Fn>
+    boost::function<Fn> as() const
+    {
+        switch (fntype) {
+        case EMPTY:
+            return boost::function<Fn>();
+            //throw ML::Exception("can't convert empty notification");
+        case BOOST:
+            if (typeid(Fn) != type())
+                throw ML::Exception("couldn't convert function of type "
+                                    + ML::demangle(type()) + " to type "
+                                    + ML::type_name<Fn>());
+        
+            return static_cast<const boost::function<Fn> & >(*fn);
+
+        default:
+            throw ML::Exception("unknown operation type");
+        }
+    }
+#endif // NODEJS_ENABLED
 
     /** Implicit conversion to boost::function<x> */
     template<typename Fn>
@@ -287,12 +362,17 @@ private:
         struct {
             boost::function_base * fn;
             Operations ops;
+#if NODEJS_ENABLED
             JS::JSOperations jsops;
+#endif // NODEJS_ENABLED
         };
+
+#if NODEJS_ENABLED
         // JS function contents
         struct {
             v8::Persistent<v8::Function> * jsfn;
         };
+#endif // NODEJS_ENABLED
     };
 
     /// The kind of object that this slot refers to
@@ -308,6 +388,7 @@ private:
     void free();
 };
 
+#if NODEJS_ENABLED
 template<typename Fn, typename F>
 Slot slot(const F & fn,
           Operations ops = FunctionOps<Fn>::ops,
@@ -315,6 +396,14 @@ Slot slot(const F & fn,
 {
     return Slot::fromF<Fn>(boost::function<Fn>(fn), ops, jsops);
 }
+#else // NODEJS_ENABLED
+template<typename Fn, typename F>
+Slot slot(const F & fn,
+          Operations ops = FunctionOps<Fn>::ops)
+{
+    return Slot::fromF<Fn>(boost::function<Fn>(fn), ops);
+}
+#endif // NODEJS_ENABLED
 
 template<typename Fn>
 struct SlotT : public Slot {
@@ -328,6 +417,7 @@ struct SlotT : public Slot {
     {
     }
 
+#if NODEJS_ENABLED
     SlotT(const boost::function<Fn> & fn,
          Operations ops = FunctionOps<Fn>::ops,
          JS::JSOperations jsops = JS::getOps(typeid(Fn)))
@@ -347,6 +437,13 @@ struct SlotT : public Slot {
         : Slot(fn)
     {
     }
+#else // NODEJS_ENABLED
+    SlotT(const boost::function<Fn> & fn,
+         Operations ops = FunctionOps<Fn>::ops)
+        : Slot(fn, ops)
+    {
+    }
+#endif // NODEJS_ENABLED
 
     /** Print a string representation giving information about the slot. */
     std::string print() const;
@@ -371,11 +468,19 @@ struct SlotT : public Slot {
     /** Return a boost function object that will synchronously call the
         given callback.
     */
+#if NODEJS_ENABLED
     boost::function<Fn>
     toBoost(JS::JSOperations jsops = 0) const
     {
         return Slot::as<Fn>(jsops);
     }
+#else // NODEJS_ENABLED
+    boost::function<Fn>
+    toBoost() const
+    {
+        return Slot::as<Fn>();
+    }
+#endif // NODEJS_ENABLED
 
     /** Implicit conversion to boost::function<x> */
     operator boost::function<Fn> () const
@@ -386,11 +491,18 @@ struct SlotT : public Slot {
     /** Return a boost function object that will synchronously call the
         given callback.
     */
+#if NODEJS_ENABLED
     std::function<Fn>
     toStd(JS::JSOperations jsops = 0) const
     {
         return Slot::as<Fn>(jsops);
     }
+#else // NODEJS_ENABLED
+    std::function<Fn> toStd() const
+    {
+        return Slot::as<Fn>();
+    }
+#endif // NODEJS_ENABLED
 
     /** Implicit conversion to std::function<x> */
     operator std::function<Fn> () const
@@ -399,6 +511,7 @@ struct SlotT : public Slot {
     }
 };
 
+#if NODEJS_ENABLED
 namespace JS {
 
 struct JSValue;
@@ -444,4 +557,6 @@ void to_js(JSValue & val, const SlotT<Fn> & slot)
 }
 
 } // namespace JS
+#endif // NODEJS_ENABLED
+
 } // namespace Datacratic
